@@ -47,9 +47,6 @@ if !exists('do_once')
 		exe 'cd '.g:MAIN_DIRECTORY
 		so abbrev | silent e main.txt | en
 	au VimEnter * se viminfo=!,'20,<1000,s10,/50,:50 | call InitHist()
-	au BufRead *.txt call InitTextFile()
-	au BufNewFile *.txt call InitTextFile() | exe "norm! i".localtime()." "
-	\.strftime('%y%m%d')." vim: set nowrap ts=4 tw=62 fo=aw:"
 	au BufWinEnter * let ix=match(g:histL,'\V'.expand('%').'$')
 	\|call cursor((ix>=0? g:histL[ix][match(g:histL[ix],'\$')+1:] : 1),1)
 	au BufWinLeave * call InsHist(expand('%'),line('.'))
@@ -61,7 +58,6 @@ fun! PrintTime(s,...)
 	return strftime('%b %d %I:%M [',a:0>0? (a:1) : localtime())
 	\.(a:s>3600? (a:s/3600.(a:s%3600<600? ':0' : ':')) : '').(a:s%3600/60).'] '
 endfun
-
 let g:logD={108:"\<C-R>=input(g:logmsg)\<CR>\<CR>",
 \114:"\<C-R>='R:'.((inputsave()? '':'').input(g:logmsg.'RENAME:')
 \.(inputrestore()? '':''))\<CR>\<CR>",120:"\<C-U>X\<CR>",
@@ -89,9 +85,10 @@ endfun
 
 let normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',119:":wa\<CR>",
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
-\112:":call Paint()\<CR>",108:":call Log()\<CR>",101:":e <cWORD>\<CR>",
+\112:":call Paint()\<CR>",108:":call Log()\<CR>",
+\101:":call EditTextFile(expand('<cWORD>'))\<CR>",
 \104:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"^y$:\<C-R>\"\<CR>",
-\98:":let qcx=HistMenu()|exe (qcx==-1 ? '' : 'e '.escape(g:histL[qcx]
+\98:":let qcx=HistMenu()|exe (qcx==-1 ? '' : 'Ed '.escape(g:histL[qcx]
 \[:match(g:histL[qcx],'\\\$')-1],' '))\<CR>",
 \42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
@@ -99,7 +96,7 @@ let normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',119:":wa\<CR>",
 \'msg':"line('.').'.'.col('.').'/'.line('$').' '
 \.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
 	let insD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):"\<Esc>a",96:'`',
-\98:"\<Esc>:let qcx=HistMenu()|exe (qcx==-1 ? '' : 'e '.escape(g:histL[qcx]
+\98:"\<Esc>:let qcx=HistMenu()|exe (qcx==-1 ? '' : 'Ed '.escape(g:histL[qcx]
 \[:match(g:histL[qcx],'\\\$')-1],' '))\<CR>",
 \102:"\<C-R>=escape(expand('%'),' ')\<CR>",
 \'help':'[b]uffer [f]ilename [g]etchar:',
@@ -291,36 +288,47 @@ fun! CapHere()
 	return col(".")==1 ? CapWait("\r")
 	\ : trunc=~'[?!.]\s*$\|^\s*$' ? CapWait(trunc[-1:-1]) : "\<del>"
 endfun
-fun! InitTextFile()
-	iab <buffer> i I
-	iab <buffer> Id I'd
-	iab <buffer> id I'd
-	iab <buffer> im I'm
-	iab <buffer> Im I'm
-	ino <buffer> <silent> <F6> _<ESC>mt:call search("'",'b')<CR>x`ts
-	im <buffer> <silent> . ._<Left><C-R>=CapWait('.')<CR>
-	im <buffer> <silent> ? ?_<Left><C-R>=CapWait('?')<CR>
-	im <buffer> <silent> ! !_<Left><C-R>=CapWait('!')<CR>
-	im <buffer> <silent> <CR> <CR>_<Left><C-R>=CapWait("\r")<CR>
-	im <buffer> <silent> <NL> <NL>_<Left><C-R>=CapWait("\n")<CR>
-	nm <buffer> <silent> O O_<Left><C-R>=CapWait("\r")<CR>
-	nm <buffer> <silent> o o_<Left><C-R>=CapWait("\r")<CR>
-	nm <buffer> <silent> a a_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> A $a_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> i i_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> I I_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> s s_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> cc cc_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> cw cw_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> R R_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> C C_<Left><C-R>=CapHere()<CR>
-	if getline(1)=~'tw='	
-		nmap <buffer> A }b$a
-		nmap <buffer> I {w0i
-		nno <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
-		nno <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
-	endif
+fun! EditTextFile(file)
+	if a:file=='' | retu|en
+	if !bufloaded(a:file)
+		if !filereadable(a:file)
+			exe 'e '.escape(a:file,' ')
+			exe "norm! i".localtime()." vim: set nowrap ts=4 tw=62 fo=aw: "
+			\.strftime('%H:%M %m/%d/%y')
+			setlocal nowrap ts=4 tw=62 fo=aw
+		el | exe 'e '.escape(a:file,' ') | en
+		if getline('1')=~'tw='
+			iab <buffer> i I
+			iab <buffer> Id I'd
+			iab <buffer> id I'd
+			iab <buffer> im I'm
+			iab <buffer> Im I'm
+			ino <buffer> <silent> <F6> _<ESC>mt:call search("'",'b')<CR>x`ts
+			im <buffer> <silent> . ._<Left><C-R>=CapWait('.')<CR>
+			im <buffer> <silent> ? ?_<Left><C-R>=CapWait('?')<CR>
+			im <buffer> <silent> ! !_<Left><C-R>=CapWait('!')<CR>
+			im <buffer> <silent> <CR> <CR>_<Left><C-R>=CapWait("\r")<CR>
+			im <buffer> <silent> <NL> <NL>_<Left><C-R>=CapWait("\n")<CR>
+			nm <buffer> <silent> O O_<Left><C-R>=CapWait("\r")<CR>
+			nm <buffer> <silent> o o_<Left><C-R>=CapWait("\r")<CR>
+			nm <buffer> <silent> a a_<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> A $a_<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> i i_<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> I I_<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> s s_<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> cc cc_<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> cw cw_<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> R R_<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> C C_<Left><C-R>=CapHere()<CR>
+			nmap <buffer> A }b$a
+			nmap <buffer> I {w0i
+			nno <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
+			nno <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
+			redr | ec 'Editing as text: '.a:file
+		en
+	el | exe 'e '.escape(a:file,' ') | en
 endfun
+command! -nargs=1 -complete=file Ed call EditTextFile('<args>')
 
 let s:Dashes=repeat('-',200)|let s:Pad=repeat(' ',200)
 let s:Speed = range(1,25)
@@ -452,6 +460,15 @@ fun! WinPushL(winnr,L)
 		winc l
 	endwhile
 	exe a:winnr.'winc w|vert res +'.min([a:L,moved])
+endfun
+fun! WinPullL(winnr,L)
+	exe a:winnr.'winc w|winc l'
+   	if winnr()!=a:winnr
+		exe a:winnr.'winc w|vert res -'.min([winwidth(a:winnr)-1,a:L])
+   	endif
+endfun
+fun! OnResize()
+	let s:cP=[winnr(),winline(),wincol()]
 	if s:pP[0]!=s:cP[0]
 		let s:dir=GetResDir()
 		if s:dir=='k'
