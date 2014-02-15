@@ -166,35 +166,37 @@ fun! HistMenu()
 	redr|retu g:HLb2fIx[g:Asc2HLb[sel]]
 endfun
 fun! Edit(file)
-	let file=split(a:file,'\$')
-	if file[0]=='' | retu|en
-	if !bufloaded(file[0])
-		exe 'e '.escape(file[0],' ')
-		if !filereadable(glob(file[0]))
-			call setline(1,localtime()." vim: set nowrap ts=4 tw=62 fo=aw: "
-			\.strftime('%H:%M %m/%d/%y'))
-			setlocal nowrap ts=4 tw=62 fo=aw |en
-		if getline(1)=~'fo=aw'
-			call InitCap()
-			iab <buffer> i I
-			iab <buffer> Id I'd
-			iab <buffer> id I'd
-			iab <buffer> im I'm
-			iab <buffer> Im I'm
-			nn <buffer> <silent> { :call search('[^ ]\n\s*.\\|\n\n\s*.','Wbe')<CR>
-			nn <buffer> <silent> } :call search('[^ ]$','W')<CR>
-			nm <buffer> A }a
-			nm <buffer> I {i
-			nn <buffer> > :se ai<CR>mt>apgqap't:se noai<CR>
-			nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
-			redr|ec 'Editing as text: '.file[0] |en
-	el| exe 'e '.escape(file[0],' ') | en
-	if len(file)>1 | call cursor(split(file[1],'|'))
-	el| let ix=match(g:histL,'\V'.file[0].'$')
-		call cursor(ix>=0? split(split(g:histL[ix],'\$')[1],'|') : [1,1]) |en
+	exe 'e '.split(a:file,'\$')[0]
 endfun
-command! -nargs=1 -complete=file Edit call Edit('<args>')
-nno gf :call Edit(expand('<cword>'))<CR>
+fun! OnBufRead()
+	let ix=match(g:histL,'\V'.expand('%').'$')
+	call cursor(ix>=0? split(split(g:histL[ix],'\$')[1],'|') : [1,1])
+	call CheckFormatted()
+endfun
+fun! OnNewBuf()
+  	call setline(1,localtime()." vim: set nowrap ts=4 tw=62 fo=aw: "
+   	\.strftime('%H:%M %m/%d/%y'))
+   	setlocal nowrap ts=4 tw=62 fo=aw
+  	call CheckFormatted()
+endfun
+
+fun! CheckFormatted()
+	if getline(1)=~'fo=aw'
+		call InitCap()
+		iab <buffer> i I
+		iab <buffer> Id I'd
+		iab <buffer> id I'd
+		iab <buffer> im I'm
+		iab <buffer> Im I'm
+		nn <buffer> <silent> { :call search('[^ ]\n\s*.\\|\n\n\s*.','Wbe')<CR>
+		nn <buffer> <silent> } :call search('[^ ]$','W')<CR>
+		nm <buffer> A }a
+		nm <buffer> I {i
+		nn <buffer> > :se ai<CR>mt>apgqap't:se noai<CR>
+		nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
+	redr|ec 'Formatting Options Loaded: '.expand('%') |en
+endfun
+nn gf :e <cword><CR>
 
 fun! PrintTime(s,...)
 	retu strftime('%b%e %I:%M ',a:0>0? (a:1) : localtime())
@@ -634,7 +636,8 @@ fun! OnVimEnter()
 		call WelcomeMsg() | en
 	call SetOpt(g:INPUT_METH) |  exe 'so '.g:WORKING_DIR.'/abbrev'
 	if !argc() | exe 'cd '.g:WORKING_DIR
-		if len(g:histL)>0 | call Edit(g:histL[0]) | call RmHist(0)
+		if len(g:histL)>0
+			call Edit(g:histL[0]) | call OnBufRead() | call RmHist(0)
 	en | en
 	if glob(g:WORKING_DIR)=='/home/q335/Desktop/Dropbox/q335writings'
 	\ && !has("gui_running")
@@ -655,6 +658,8 @@ if !exists('do_once') | let do_once=1
 	se viminfo=
 	au VimEnter * call OnVimEnter()
 	au BufWinEnter * call RmHist(match(g:histL,'\V\^'.escape(expand('%'),'\').'$'))
+	au BufRead * call OnBufRead()
+	au BufNewFile * call OnNewBuf()
 	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
 	au VimLeavePre * call Write_Viminfo()
 	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
@@ -683,3 +688,4 @@ if !exists('do_once') | let do_once=1
 en
 "Nextheading for formatted paragraphs
 "Handle entering files with bookmarks? Check autoformat on bufenter
+"Multi-dimensional array to avoid splits
