@@ -62,7 +62,20 @@ if has("gui_running")
 	se guioptions-=T
 en
 
-omap a/ :<c-u>norm F/vt/<cr>
+let [pvft,pvftc]=[1,32]
+fun! MLFT(x,c,i)
+	let [g:pvftc,g:pvft]=[a:c,a:i]
+    let pos=searchpos((a:x==2? mode(1)=='no'? '\C\V\_.\zs' : '\C\V\_.' : '\C\V').(a:x==1 && mode(1)=='no' || a:x==-2? nr2char(g:pvftc).'\zs' : nr2char(g:pvftc)),a:x<0? 'bW':'W')
+	call setpos("'x", pos[0]? [0,pos[0],pos[1],0] : [0,line('.'),col('.'),0]) 
+	return "`x"
+endfun
+no <expr> F MLFT(-1,getchar(),-1)
+no <expr> f MLFT(1,getchar(),1)
+no <expr> T MLFT(-2,getchar(),-2)
+no <expr> t MLFT(2,getchar(),2)
+no <expr> ; MLFT(pvft,pvftc,pvft)
+no <expr> , MLFT(-pvft,pvftc,pvft)
+om a/ :<c-u>norm F/vt/<cr>
 
 ino <f1> <c-o>zh
 
@@ -366,20 +379,6 @@ cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 cnorea <expr> qnv ((getcmdtype()==':' && getcmdpos()<5)? "let &viminfo=''\|exe 'autocmd! WriteViminfo' \|qa!":"qnv")
 
-let [pvft,pvftc]=[1,32]
-fun! MLFT(x,c,i)
-	let [g:pvftc,g:pvft]=[a:c,a:i]
-    let pos=searchpos((a:x==2? mode(1)=='no'? '\C\V\_.\zs' : '\C\V\_.' : '\C\V').nr2char(g:pvftc).(a:x==1 && mode(1)=='no' || a:x==-2? '\zs' : ''),a:x<0? 'bW' : 'W')
-	call setpos("'x", pos==[0,0]? [0,line('.'),col('.'),0] : [0,pos[0],pos[1],0])
-	return "`x"
-endfun
-no <buffer> <silent> <expr> F MLFT(-1,getchar(),-1)
-no <buffer> <silent> <expr> f MLFT(1,getchar(),1)
-no <buffer> <silent> <expr> T MLFT(-2,getchar(),-2)
-no <buffer> <silent> <expr> t MLFT(2,getchar(),2)
-no <buffer> <silent> <expr> ; MLFT(pvft,pvftc,pvft)
-no <buffer> <silent> <expr> , MLFT(-pvft,pvftc,pvft)
-
 let g:charL=[]
 let g:opt_disable_syntax_while_panning=1
 fun! CapWait(prev)
@@ -403,8 +402,7 @@ fun! CapWait(prev)
 endfun
 fun! CapHere()
 	let trunc = getline(".")[:col(".")-2] 
-	return col(".")==1 ? (b:CapSeparators!=' '? CapWait("\r") : "\<del>")
-	\ : (trunc=~'[?!.]\s*$\|^\s*$' && trunc!~'\.\.\s*$') ? (CapWait(trunc[-1:-1])) : "\<del>"
+	return col(".")==1 ? (b:CapSeparators!=' '? CapWait("\r") : "\<del>") : (trunc=~'[?!.]\s*$\|^\s*$' && trunc!~'\.\.\s*$') ? (CapWait(trunc[-1:-1])) : "\<del>"
 endfun
 fun! LoadFormatting()
 	let options=getline(1)
@@ -484,41 +482,39 @@ fun! LoadViminfoData()
 		for var in split(v)
 			unlet! {'g:'.var[8:]}
 			let {'g:'.var[8:]}=eval({var})	
-		endfor | en
-	if !exists('g:LOGDIC') | let g:logdic=New('Log') | let g:LOGDIC=g:logdic.L
-	el| let g:logdic=New('Log',g:LOGDIC) | en
-	call g:logdic.setcursor(len(g:LOGDIC)-1)
-	if !exists('g:MRUF') | let g:MRUF={} | en
+		endfor
+	en
+	let g:logdic=exists('g:LOGDIC')? New('Log',g:LOGDIC) : New('Log')
+	let g:LOGDIC=g:logdic.L
+	cal g:logdic.setcursor(len(g:LOGDIC)-1)
+	let g:MRUF=exists('g:MRUF')? g:MRUF : {}
 	let g:mruf=New('FileList',g:MRUF)	
-	call g:mruf.prune(60)
-	if !exists('g:SCHEMES')
-		let g:SCHEMES={'swatches':{},'default':{}}
-	elseif !has_key(g:SCHEMES,'swatches')
-		let g:SCHEMES.swatches={} |en
+	cal g:mruf.prune(60)
+	let g:SCHEMES=exists('g:SCHEMES')? g:SCHEMES : {'swatches':{},'default':{}}
+	let g:SCHEMES.swatches=has_key(g:SCHEMES,'swatches')? g:SCHEMES.swatches : {}
 	let g:CS_NAME=exists('g:opt_colorscheme')? g:opt_colorscheme : exists('g:CS_NAME')? g:CS_NAME : 'default'
-	call CSLoad(g:CS_NAME)
-	"windows doesn't support %s
-	let g:Qnrm.msg="ec printf('%-17.17s %'.(&columns-19).'s',eval(strftime('%m.\"smtwrfa\"[%w].%d.\" \".%I.\":%M \".g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60')),(expand('% ').' '.line('.').':'.col('.').'/'.line('$'))[-&columns+19:])"
-	try | silent exe g:Qnrm.msg
+	cal CSLoad(g:CS_NAME)
+	let g:Qnrm.msg="ec printf('%-17.17s %s',eval(strftime('%m.\"smtwrfa\"[%w].%d.\" \".%I.\":%M \".g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60')),expand('%:t').' '.line('.').':'.col('.').'/'.line('$'))"
+	try | silent exe g:Qnrm.msg  "eg, windows doesn't support %s in strftime
 	catch | let g:Qnrm.msg="ec line('.').','.col('.').'/'.line('$')" | endtry
 	let g:Qvis.msg=g:Qnrm.msg
 endfun
 fun! WriteViminfo(file)
-	sil exe "norm! :unlet! g:SAVED_\<c-a>\<cr>"
-	sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
-	let removeOriginal=(a:file==#'exit') && (v:version>703 || (v:version==703 && has("patch30")))
-	for name in split(v)  
-		if name[2:]==#toupper(name[2:])	
-			if "000110"[type({name})]
-				let {"g:SAVED_".name[2:]}=substitute(string({name}),"\n",'''."\\n".''',"g")
-				if removeOriginal "eliminates duplicates when vim already writes lists / dics
-					exe "unlet!" name
-				en
-		en | en
-	endfor
+	if v:version<703 || v:version==703 && !has("patch30")
+		sil exe "norm! :unlet! g:SAVED_\<c-a>\<cr>"
+		sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
+		for name in split(v)  
+			if name[2:]==#toupper(name[2:])	
+				if "000110"[type({name})]
+					let {"g:SAVED_".name[2:]}=substitute(string({name}),"\n",'''."\\n".''',"g")
+					if a:file==#'exit'
+						exe "unlet!" name
+					en
+			en | en
+		endfor
+	en
 	if has("gui_running") | let g:S_GUIFONT=&guifont |en
-	if a:file==#'exit'
-		"curdir is necessary to retain relative path
+	if a:file==#'exit'  "curdir is necessary to retain relative path
 		exe 'cd '.g:Working_Dir
 		se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
 		if argc() | argd *
