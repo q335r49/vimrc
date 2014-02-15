@@ -52,7 +52,7 @@ fun! RmHist(ix)
 endfun
 fun! InsHist(name,lnum,cnum)
 	if a:name==''|retu|en
-	call RmHist(match(g:histL,'\V'.a:name.'$'))
+	call RmHist(match(g:histL,'\V'.escape(a:name,'\').'$'))
 	call insert(g:histL,a:name.'$'.a:lnum.'|'.a:cnum)
 	if len(g:histL)>=len(g:HLb)-8
 		let g:histL=g:histL[:len(g:HLb)-16] | call InitHist()
@@ -133,7 +133,7 @@ nno gf :call Edit(expand('<cWORD>'))<CR>
 
 fun! PrintTime(s,...)
 	return strftime('%b %d %I:%M [',a:0>0? (a:1) : localtime())
-	\.(a:s>3600? (a:s/3600.(a:s%3600<600? ':0' : ':')) : '').(a:s%3600/60).'] '
+	\.(a:s>3599? (a:s/3600.(a:s%3600<600? ':0' : ':')) : '').(a:s%3600/60).'] '
 endfun
 fun! PrintLogMsg()
 	let tspan=localtime()-g:tlog[0][0]
@@ -168,7 +168,6 @@ ino <expr> ` TMenu(g:insD)
 cno <expr> ` eval('TMenu('.g:cmdMode.')')
 
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
-cnorea <expr> waq ((getcmdtype()==':' && getcmdpos()<5)? 'wa\|q':'waq')
 cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
@@ -467,38 +466,101 @@ fun! Write_Viminfo()
 	let g:LAST_FILE=expand('%')
 	let g:HISTL=join(g:histL,"\n")
 	se viminfo=!,'20,<1000,s10,/50,:50
-	if exists('g:viminfo_file_invalid')
-		wv
-	elseif !exists('g:USE_WV_WORKAROUND')
+	if !filereadable($VIMINFO_FILE) | wv
+	elseif !exists('g:USE_WV_WORKAROUND') || g:USE_WV_WORKAROUND!=$VIMINFO
 		try
 			wv $VIMINFO_FILE
 		catch
-			let g:USE_WV_WORKAROUND=1
+			let g:USE_WV_WORKAROUND=$VIMINFO_FILE
 			wv ~/.viminfo
 			!cp ~/.viminfo $VIMINFO_FILE
 		endtry
-	el| let g:USE_WV_WORKAROUND=1
+	el| let g:USE_WV_WORKAROUND=$VIMINFO_FILE
 		wv ~/.viminfo
 		!cp ~/.viminfo $VIMINFO_FILE
 	en | se viminfo=
 endfun
 
+fun! SetInput(options)
+	let g:MYOPTIONS=a:options
+	if g:MYOPTIONS==?"THUMB"
+		let op=["@",64,1]
+	el| let op=["\<Esc>",27,0] | en
+	let g:K_ESC=op[0]
+	let g:N_ESC=op[1]
+	try | exe (op[2]? ('no '.g:K_ESC.' <Esc>') : ('unm '.g:K_ESC))
+		exe (op[2]? ('no! '.g:K_ESC.' <Esc>') : ('unm! '.g:K_ESC))
+		exe (op[2]? ('cno '.g:K_ESC.' <C-C>') : ('cu '.g:K_ESC))
+		exe (op[2]? 'nn <silent> <leftmouse> <leftmouse>:call {OnTouch}()<CR>'
+			\:'nun <leftmouse>')
+		exe (op[2]? 'nn <silent> <leftrelease> <leftmouse>:call OnRelease()<CR>'
+			\:'nun <leftrelease>')
+		exe (op[2]? "vn <silent> <leftmouse> <Esc>mv<leftmouse>
+			\:let OnTouch='OnVisual'<CR>'":'vu <leftmouse>')
+		exe (op[2]? 'map <C-J> <C-M>' : 'unm <C-J>')
+		exe (op[2]? 'map! <C-J> <C-M>' : 'unm! <C-J>')
+		exe (op[2]? 'no OQ @' :'unm OQ')
+		exe (op[2]? 'no! OQ @' :'unm! OQ')
+		exe (op[2]? 'no <F7> <PageDown>' : 'unm <F7>')
+		exe (op[2]? 'no! <F7> <PageDown>' : 'unm! <F7>')
+		exe (op[2]? 'no <F8> <PageUp>' : 'unm <F8>')
+		exe (op[2]? 'no! <F8> <PageUp>' : 'unm! <F8>')
+		exe (op[2]? 'ino <F9> <Home>' : 'iu <F9>')
+		exe (op[2]? 'ino <F10> <End>' : 'iu <F10>')
+		exe (op[2]? 'nn <F9> <C-O>' : 'nun <F9>')
+		exe (op[2]? 'nn <F10> <C-I>' : 'nun <F10>')
+	catch | endtry
+	let g:tlogD={108:"\<C-R>=input(g:logmsg)\<CR>\<CR>",
+\114:"\<C-R>='R:'.((inputsave()? '':'').input(g:logmsg.'RENAME:')
+\.(inputrestore()? '':''))\<CR>\<CR>",120:"\<C-U>X\<CR>",
+\115:"\<C-R>='S:'.((inputsave()? '':'').input(g:logmsg.'STILL:')
+\.(inputrestore()? '':''))\<CR>\<CR>",'help':'[L]og [R]ename [S]till [X]Del:',
+\(g:N_ESC):"\<C-R>=input(g:logmsg)\<CR>\<CR>",'msg':'PrintLogMsg()'}
+	let g:normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',119:":wa\<CR>",
+\114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
+\112:":call IniPaint()\<CR>",108:":call Log()\<CR>",
+\101:":call Edit(expand('<cWORD>'))\<CR>",
+\103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"^y$:\<C-R>\"\<CR>",
+\115:":let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
+\49:":call Edit(g:histL[0])\<CR>",
+\50:":call Edit(g:histL[2])\<CR>",51:":call Edit(g:histL[3])\<CR>",
+\42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
+\35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
+\111:":call SetInput(\<C-R>=(g:MYOPTIONS==?'thumb'? 'key':'thumb')\<CR>)\<CR>",
+\'help':'b[12] [e]d [g]:h [l]og [n]ohl t[o]gglekbd [p]nt l[s] [r]mswp [w]a e[X]e s/[*#]',
+\'msg':"line('.').'.'.col('.').'/'.line('$').' '
+\.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
+	let g:insD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):"\<Esc>a",96:'`',
+\115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
+\49:"\<Esc>:call Edit(g:histL[0])\<CR>",
+\50:"\<Esc>:call Edit(g:histL[2])\<CR>",51:"\<Esc>:call Edit(g:histL[3])\<CR>",
+\102:"\<C-R>=escape(expand('%'),' ')\<CR>",'help':'[f]ilename [g]etchar l[s]:',
+\'msg':"line('.').'.'.col('.').'/'.line('$').' '
+\.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
+	let g:cmdD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):" \<BS>",96:" \<BS>`",
+\115:"\<C-R>=eval(join(repeat([HistMenu()],2),'==-1 ? \"\" : 
+\escape(split(histL[').'],\"\\\\\\$\")[0],\" \")')\<CR>",
+\102:"\<C-R>=escape(expand('%'),' ')\<CR>",
+\108:"\<C-R>=matchstr(getline('.'),'[[:graph:]].*[[:graph:]]')\<CR>",
+\119:"\<C-R>=expand('<cword>')\<CR>",87:"\<C-R>=expand('<cWORD>')\<CR>",
+\'help':'[12]bn [f]ilename [g]etchar [l]ine l[s] [wW]ord:',
+\'msg':"line('.').'.'.col('.').'/'.line('$').' '
+\.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
+endfun
+
 if !exists('do_once') | let do_once=1
 se viminfo=!,'20,<1000,s10,/50,:50
-	if filereadable($VIMINFO_FILE)
-		rv $VIMINFO_FILE
-	el| let g:viminfo_file_invalid=1
-		rv
-	en
+	if filereadable($VIMINFO_FILE) | rv $VIMINFO_FILE
+	el| let g:viminfo_file_invalid=1 | rv | en
 se viminfo=
 au VimLeavePre * call Write_Viminfo()
-
+au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
 se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
 se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256
 se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-tlog[-1][0])}
-se guifont=Envy\ Code\ R:h12:cANSI guioptions-=T
+se guifont=Envy\ Code\ R:h10:cANSI guioptions-=T
 if has("gui_running") | colorscheme slate | el | syntax off | en
 hi ColorColumn guibg=#222222 ctermbg=237
 hi ErrorMsg ctermbg=9 ctermfg=15
@@ -510,70 +572,14 @@ hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
 if !exists('MAIN_DIRECTORY') || !isdirectory(MAIN_DIRECTORY)
 	echoerr 'Set MAIN_DIRECTORY!'
 el| exe 'so '.MAIN_DIRECTORY.'/abbrev'
-	if !argc() | exe 'cd '.MAIN_DIRECTORY
-		au VimEnter * call Edit(LAST_FILE)
-en|en
-if exists('OPT_THUMBOARD')
-	let K_ESC='@'|let N_ESC=64
-	exe 'no '.K_ESC.' <Esc>'
-	exe 'no! '.K_ESC.' <Esc>'
-	exe 'cno '.K_ESC.' <C-C>'
-	nn <silent> <leftmouse> <leftmouse>:call {OnTouch}()<CR>
-	nn <silent> <leftrelease> <leftmouse>:call OnRelease()<CR>
-	vn <silent> <leftmouse> <Esc>mv<leftmouse>:let OnTouch='OnVisual'<CR>
-	map <C-J> <C-M>
-	map! <C-J> <C-M>
-	no   OQ @
-	no!  OQ @
-	no   <F7> <PageDown>
-	no!  <F7> <PageDown>
-	no   <F8> <PageUp>
-	no!  <F8> <PageUp>
-	ino  <F9> <Home>
-	ino  <F10> <End>
-	nn   <F9> <C-O>
-	nn   <F10> <C-I>
-el | let K_ESC="\<Esc>" | let N_ESC=27 | en
+	if !argc()
+		exe 'cd '.MAIN_DIRECTORY
+ 		if exists("LAST_FILE")
+			au VimEnter * call Edit(LAST_FILE)
+en|en|en
+call SetInput(exists("MYOPTIONS")? MYOPTIONS : "THUMB")
 let cmdMode='cmdD'
 if !exists('TLOG') | let tlog=[[localtime(),'0000']]
 el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
 let histL=exists('HISTL') ? split(HISTL,"\n") : [] | call InitHist()
-au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
-
-	let g:tlogD={108:"\<C-R>=input(g:logmsg)\<CR>\<CR>",
-\114:"\<C-R>='R:'.((inputsave()? '':'').input(g:logmsg.'RENAME:')
-\.(inputrestore()? '':''))\<CR>\<CR>",120:"\<C-U>X\<CR>",
-\115:"\<C-R>='S:'.((inputsave()? '':'').input(g:logmsg.'STILL:')
-\.(inputrestore()? '':''))\<CR>\<CR>",'help':'[L]og [R]ename [S]till [X]Del:',
-\(g:N_ESC):"\<C-R>=input(g:logmsg)\<CR>\<CR>",'msg':'PrintLogMsg()'}
-	let normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',119:":wa\<CR>",
-\114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
-\112:":call IniPaint()\<CR>",108:":call Log()\<CR>",
-\101:":call Edit(expand('<cWORD>'))\<CR>",
-\103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"^y$:\<C-R>\"\<CR>",
-\115:":let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
-\49:":call Edit(g:histL[0])\<CR>",
-\50:":call Edit(g:histL[2])\<CR>",51:":call Edit(g:histL[3])\<CR>",
-\42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
-\35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
-\'help':'b[12] [e]d [g]:h [l]og [n]ohl [p]nt l[s] [r]mswp [w]a e[X]e s/[*#]',
-\'msg':"line('.').'.'.col('.').'/'.line('$').' '
-\.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
-	let insD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):"\<Esc>a",96:'`',
-\115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
-\49:"\<Esc>:call Edit(g:histL[0])\<CR>",
-\50:"\<Esc>:call Edit(g:histL[2])\<CR>",51:"\<Esc>:call Edit(g:histL[3])\<CR>",
-\102:"\<C-R>=escape(expand('%'),' ')\<CR>",'help':'[f]ilename [g]etchar l[s]:',
-\'msg':"line('.').'.'.col('.').'/'.line('$').' '
-\.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
-	let cmdD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):" \<BS>",96:" \<BS>`",
-\115:"\<C-R>=eval(join(repeat([HistMenu()],2),'==-1 ? \"\" : 
-\escape(split(histL[').'],\"\\\\\\$\")[0],\" \")')\<CR>",
-\102:"\<C-R>=escape(expand('%'),' ')\<CR>",
-\108:"\<C-R>=matchstr(getline('.'),'[[:graph:]].*[[:graph:]]')\<CR>",
-\119:"\<C-R>=expand('<cword>')\<CR>",87:"\<C-R>=expand('<cWORD>')\<CR>",
-\'help':'[12]bn [f]ilename [g]etchar [l]ine l[s] [wW]ord:',
-\'msg':"line('.').'.'.col('.').'/'.line('$').' '
-\.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
-
 endif
