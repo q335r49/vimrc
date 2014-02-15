@@ -315,73 +315,25 @@ fun! Mscroll()
 	en
 	let ves=&ve | se ve=all
 	exe "norm! \<leftmouse>"
-	let [timeL,diffL,diffLz]=[[],[],[]]
-	let lasttime=reltime()
+	let [g:tL,g:dVL,g:dHL]=[[],[],[]]
+	let pt=reltime()
 	while getchar()=="\<leftdrag>"
-		let [dV,dH]=[v:mouse_lnum-line('.'),v:mouse_col-virtcol('.')]
+		let [ar,ac,br,bc]=[line('.'),virtcol('.'),v:mouse_lnum,v:mouse_col]
 		exe "norm! \<leftmouse>"
-   		let [timeL,diffL,diffLz]+=[[reltime(lasttime)],[dV],[dH]]
-   		let lasttime=reltime()
-		if dV || (hzscr && dH)
-	   	    exe 'keepj norm! '.(dV>0? dV."\<c-y>".dV.'gk' : dV<0? -dV."\<c-e>".-dV.'gj' : '').(!hzscr? '' : dH>0? dH.'zh'.dH.'h' : dH<0? -dH.'zl'.-dH.'l' : '')
-	   	   	redr|en 
+		let v=winsaveview()
+		let [dV,dH]=[br-ar>v.topline-1? v.topline-1 : br-ar, bc-ac>v.leftcol? v.leftcol : bc-ac]
+		let [v.topline,v.leftcol,v.lnum,v.col,v.coladd]-=[dV,dH,dV,v.col,v.coladd-v.curswant+dH]
+   		let [g:tL,g:dVL,g:dHL]+=[[reltime(pt)],[dV],[dH]]
+   		let pt=reltime()
+		call winrestview(v)
+	   	redr!
 	endwhile
-	return
-	let g:Smp=timeL
-	let g:dh=diffLz
-	if len(timeL)>1 && ReltimeLT(timeL[-1],[0,100000])
-		let s=len(diffL)>4? -4 : 0
-		let [max,min,elaps]=[max(diffL[s :]),min(diffL[s :]),eval(join(map(timeL[s :],'v:val[0].("00000".v:val[1])[-6:]'),'+').'+0')]
-		let [maxh,minh]=[max(diffLz[s :]),min(diffLz[s :])]
-		let g:el=elaps
-		if elaps<160000
-			let [cmd,cmdh]=['','']
-			let [delay,delayh]=[9999999,9999999]
-			let [glide,glideh]=[0,0]
-		   	if max*min>=0 && (max || min)
-				if abs(max)>abs(min)
-					let glide=abs(max)+(g:prevglide>0)*g:prevglide
-					let cmd="keepj norm! \<C-Y>"
-				el| let glide=abs(min)+(g:prevglide<0)*g:prevglide
-					let cmd="keepj norm! \<C-E>" |en
-				let delay=600/glide
-			en
-		   	if maxh*minh>=0 && (maxh || minh)
-				if abs(maxh)>abs(minh)
-					let glideh=abs(maxh)+(g:prevglideh>0)*g:prevglideh
-					let cmdh="keepj norm! zh"
-				el| let glideh=abs(minh)+(g:prevglideh<0)*g:prevglideh
-					let cmdh="keepj norm! zl" |en
-				let delayh=600/glideh
-			en
-			let delayh=hzscr? delayh : 99999999
-			let g:delay=[delay,delayh,glideh]
-			if !empty(cmd) || !empty(cmdh)
-				let counter=1
-				while !getchar(1) && counter<80000
-					let counter+=1
-					if !(counter%delayh)
-						exe cmdh
-						redr|ec line('.') '/' line('$')
-					endif
-					if !(counter%delay)
-						exe cmd
-						redr|ec line('.') '/' line('$')
-					endif
-				endwhile
-				let g:prevglide=0
-				let g:prevglideh=0
-			else
-				let g:prevglide=0
-				let g:prevglideh=0
-			en
-		el
-			let g:prevglide=0
-			let g:prevglideh=0
-		en
+	if len(g:tL)>4
+	
+    	                    "Todo
+
 	en
 	let &ve=ves
-	redr | echo 'fin'
 endfun
 
 let CShst=[[0,7]]
