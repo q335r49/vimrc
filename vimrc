@@ -14,6 +14,7 @@ else
 	hi clear MatchParen   | hi link MatchParen Search
 	hi clear StatusLine   | hi StatusLine cterm=underline
 	hi clear StatusLineNC | hi StatusLineNC cterm=underline ctermfg=240
+	hi clear Vertsplit    | hi Vertsplit ctermfg=236
 en
 se stl=\ %l.%02c/%L\ %<%f%=\ 
 se stl+=%{(localtime()-g:TLOG[0:9])/60.strftime('\ %H:%M\ %d')}\ 
@@ -51,7 +52,7 @@ if !exists('au_processed')
 en
 fun! AfterViminfo()
 	if !exists('g:TLOG') | let g:TLOG=localtime().'[0] ---' | en
-	let g:histL=exists('g:FHIST') ? split(g:FHIST) : [] |cal InitHist()
+	let g:histL=exists('g:FHIST') ? split(g:FHIST,"\n") : [] |cal InitHist()
 	if !exists('g:MAIN_DIRECTORY') || !isdirectory(g:MAIN_DIRECTORY)
 		echoerr 'Set MAIN_DIRECTORY!'
 	elseif !argc()
@@ -77,8 +78,8 @@ fun! Quote(mark)
  	elseif l[c-1]=~'[[:blank:]]' | exe 'norm! BEa'.a:mark
 	el | exe 'norm! bea'.a:mark | en
 endfun
-let QuoteCodes={97:"'",113:'"',115:'*',105:'/'}
-vn <silent> q :call Quote(QuoteCodes[getchar()])<CR>
+let QuoteMark={97:"'",113:'"',115:'*',105:'/'}
+vn <silent> q :call Quote(QuoteMark[getchar()])<CR>
 
 fun! Log(...)
 	let log=input(g:TLOG[:match(g:TLOG,'\n',0,6)]
@@ -102,16 +103,16 @@ fun! Log(...)
 endfun
 
 let QCD={110:":noh\<CR>",9:"\<Esc>",(g:N_ESC):"\<Esc>",
-\114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=substitute(@t[1:],' ','\\\\ ','g')
+\114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')
 \\<CR>",112:":call Paint()\<CR>",108:":call Log()\<CR>",101:":e <cWORD>\<CR>",
-\104:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",
-\98:":let qcx=HistMenu()|exe qcx=='' ? '' : 'e '.qcx\<CR>",
+\104:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",121:"^y$:\<C-R>\"",
+\98:":let qcx=HistMenu()|exe qcx=='' ? '' : 'e '.qcx\<CR>",89:"^y$:\<C-R>\"",
 \42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>"}
 fun! QCF(mess)
-	ec a:mess|let key=getchar()|return has_key(g:QCD,key)? g:QCD[key] : 
-	\QCF('[B]uffer [E]d [H]lp [L]og [N]ohls [P]aint [R]m swp [*]sub 
-	\[#]vsub > ')
+	ec a:mess|let key=getchar()
+	return has_key(g:QCD,key)? g:QCD[key] : QCF('[B]uffer [E]d [H]lp [L]og 
+	\[N]ohls [P]aint [R]m swp [Y]ank [*\#]sub > ')
 endfun!
 nn <expr> <Tab> QCF(line('.').'.'.col('.').'/'.line('$').' - '.
 \(localtime()-g:TLOG[0:9])/60.strftime('/%H:%M/%d - ').expand('%:t').' > ')
@@ -171,7 +172,7 @@ fun! AddHist(name,num)
 	en
 endfun
 fun! RmHist(ix)
-	if (a:ix>=len(g:histL) || a:ix<0) | retu '0$0'|en
+	if (a:ix>=len(g:histL) || a:ix<0) | retu '0'|en
 	if g:histLb[a:ix][0]==g:histLb[a:ix][2]
 		for i in range(a:ix+1,len(g:histLb)-1)
 			if g:histLb[i][2]==g:histLb[a:ix][0]
@@ -183,10 +184,10 @@ fun! RmHist(ix)
 	en
 	call remove(g:histLb,a:ix)
 	call map(g:HLb2fIx,'v:val>a:ix ? v:val-1 : (v:val==a:ix ? -1 : v:val)')
-	return remove(g:histL,a:ix)
+	return split(remove(g:histL,a:ix),'\$')[1]
 endfun
 fun! UpdHist()
-	exe'norm! '.split(RmHist(match(g:histL,'\V'.expand('%').'$')),'\$')[1].'gg'
+	exe'norm! '.RmHist(match(g:histL,'\V'.expand('%').'$')).'gg'
 endfun
 fun! FmtList(list, ...)
 	let tabW=a:0==0? 0 : a:1 | let padN=[0]+(tabW==0 ? [] : range(tabW-1,1,-1))
@@ -201,16 +202,18 @@ fun! FmtList(list, ...)
 	endfor
 	return ecstr
 endfun
-fun! HistMenu(...)
-	ec FmtList(g:histLb,g:maxW).' > ' | let sel=a:0==0? getchar() : a:1
+fun! HistMenu()
+	ec FmtList(g:histLb,g:maxW).' > ' | let sel=getchar()
 	if sel==9 || sel==32
-		redr|retu substitute(split(g:histL[0],'\$')[0],"\ ",'\\ ',"g")
+		redr|retu escape(g:histL[0][:match(g:histL[0],'\$')-1],' ')
 	elseif sel=="\<BS>"
-		ec 'RM >' | let sel=RmHist(g:HLb2fIx[g:Asc2HLb[getchar()]])
-		redr | retu sel!='0$0'? HistMenu("\<BS>") : HistMenu()
+		while 1
+			redr|ec FmtList(g:histLb+["DELETE >"],g:maxW)
+			if RmHist(g:HLb2fIx[g:Asc2HLb[getchar()]])=='0' | redr | brea|en
+		endwhile
 	else
-		ec ""|redr|retu g:HLb2fIx[g:Asc2HLb[sel]]==-1 ? '' : substitute(split(
-		\g:histL[g:HLb2fIx[g:Asc2HLb[sel]]],'\$')[0],"\ ",'\\ ',"g")
+		redr | let ix=g:HLb2fIx[g:Asc2HLb[sel]]
+		retu ix==-1 ? '' : escape(g:histL[ix][:match(g:histL[ix],'\$')-1],' ')
 	en
 endfun
 
@@ -233,14 +236,10 @@ fun! MultilineFT(command)
 		let g:PrevFT=[a:command,nr2char(key)]
 		let com=a:command
 	endif
-	if com==#'F'
-		call search(g:PrevFT[1],'bW')
-	elseif com==#'T'
-		exe (search(g:PrevFT[1],'bW')? 'norm! l' : '')
-	elseif com==#'f'
-		exe (search(g:PrevFT[1],'W')? 'norm! l' : '')
-	elseif com==#'t'
-		call search(g:PrevFT[1],'W')
+	if     com==#'F' | call search(g:PrevFT[1],'bW')
+	elseif com==#'T' | exe (search(g:PrevFT[1],'bW')? 'norm! l' : '')
+	elseif com==#'f' | exe (search(g:PrevFT[1],'W')? 'norm! l' : '')
+	elseif com==#'t' | call search(g:PrevFT[1],'W')
 	endif
 endfun
 fun! MultilinenFT(command)
@@ -305,7 +304,7 @@ fun! InitTextFile()
 	iab <buffer> id I'd
 	iab <buffer> im I'm
 	iab <buffer> Im I'm
-	ino <buffer> <silent> <F6> _<Esc>h?'<CR>x<C-O>i<Del>
+	ino <buffer> <silent> <F6> _<ESC>mt:call search("'",'b')<CR>x`ts
 	im <buffer> <silent> . ._<Left><C-R>=CapWait('.')<CR>
 	im <buffer> <silent> ? ?_<Left><C-R>=CapWait('?')<CR>
 	im <buffer> <silent> ! !_<Left><C-R>=CapWait('!')<CR>
