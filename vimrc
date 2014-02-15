@@ -22,7 +22,6 @@ if opt_device=~?'cygwin'
 if opt_device=~?'notepad'
 	se noswapfile
 	nno <c-s> :wa<cr>
-	small bug in @ mapping
 	nno <c-w> :wqa<cr>
 	nno <c-v> "*p
 	nno <c-q> <c-v> 
@@ -281,14 +280,6 @@ if has('signs')
 	let [Qnrm.77,Qnhelp.M]=[":call ToggleBookmarks()\<cr>","Bookmarks toggle"]
 en
 
-function! SafeSearchCommand(line1, line2, theCommand)
-  let search = @/
-  exe a:line1 . "," . a:line2 . a:theCommand
-  let @/ = search
-endfunction
-com! -range -nargs=+ SS call SafeSearchCommand(<line1>, <line2>, <q-args>)
-com! -range -nargs=* S call SafeSearchCommand(<line1>, <line2>, 's' . <q-args>)
-
 vn j gj
 vn k gk
 nn j gj
@@ -296,10 +287,10 @@ nn k gk
 nn gp :exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'<cr>
 
 fun! SoftCapsLock()
-	norm! i^
+	norm! a^
 	redr
 	let key=getchar()
-	while key!=g:EscAsc
+	while key!=g:EscAsc && key!=8
 		if key=="\<backspace>"
 			undoj | norm! X
 		el | undoj | exe "norm! i".toupper(nr2char(key))."\el" |en
@@ -307,9 +298,14 @@ fun! SoftCapsLock()
 		let key=getchar()
 	endwhile
 	undoj | norm! x
-	startinsert
+	if col(".")+1==col("$")
+		startinsert!
+	else
+		startinsert
+	en
 endfun
 let [Qnrm.99,Qnhelp.c]=[":call SoftCapsLock()\<cr>","Caps lock"]
+ino <c-h> <esc>:call SoftCapsLock()<cr>
 
 let Pad=repeat(' ',200)
 fun! FoldText()
@@ -327,7 +323,7 @@ fun! Writeroom(margin)
 	exe 'topleft' (a:margin*&columns/100) 'vsp blank'
 	wincmd l
 endfun
-let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | silent call Writeroom(exists('g:OPT_WRITEROOMWIDTH')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en\<cr>","Writeroom mode"]
+let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | silent call Writeroom(exists('g:OPT_WRITEROOMWIDTH')? g:OPT_WRITEROOMWIDTH : 25) | redr|echo 'Writeroom on' | else | only | redr|echo 'Writeroom Off' | en\<cr>","Writeroom mode"]
 
 if exists('opt_mousepan') && opt_mousepan
 	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (MousePan()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
@@ -364,7 +360,10 @@ en
 let CShst=[[0,7]]
 let [CShix,SwchIx]=[0,0]
 let CSgrp='Normal'
-fun! CSLoad(scheme)
+fun! CSLoad(scheme,...)
+	if a:0>0
+		let g:CS_NAME=a:1
+	en
 	let g:SCHEMES.current=deepcopy(a:scheme)
 	for k in keys(g:SCHEMES.current)
 		exe 'hi' k 'ctermfg='.g:SCHEMES.current[k][0].' ctermbg='.g:SCHEMES.current[k][1]
@@ -451,10 +450,13 @@ let [colorD.103,colorDh.g]=["let in=input('Group: ','','highlight')\n
 \let msg=g:CSgrp | en","hl group"]
 let [colorD.115,colorDh.s]=['let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
 \if !empty(name) | let g:SCHEMES.swatches[name]=[fg,bg] |en','Save swatch']
-let [colorD.83,colorDh.S]=['let name=input("Save scheme as: ","","customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=deepcopy(g:SCHEMES.current) | en | let continue=0','Save Scheme']
-let [colorD.76,colorDh.L]=["let in=get(g:SCHEMES,input('Load scheme: ','','customlist,CompleteSchemes'),{})\n
+let [colorD.83,colorDh.S]=['let name=input("Save scheme as: ",exists("g:CS_NAME")? g:CS_NAME : "","customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=deepcopy(g:SCHEMES.current) | en | let continue=0','Save Scheme']
+let [colorD.76,colorDh.L]=["let name=input('Load scheme: ',exists('g:CS_NAME')? g:CS_NAME : '','customlist,CompleteSchemes')\n
+\unlet! in|let in=get(g:SCHEMES,name,{})\n
 \if !empty(in)\n
-\    call CSLoad(in) | en\n
+\    call CSLoad(in,name)\n
+\el | echo 'Invalid colorscheme'\n
+\en\n
 \let continue=0",'Load scheme']
 let [Qnrm.67,Qnhelp.C]=[":call CSChooser()\<cr>","Customize colors"]
 let [Qnrm.7,Qnhelp['^G']]=[":ec 'hi<' . synIDattr(synID(line('.'),col('.'),1),'name') . '> trans<'
@@ -614,7 +616,7 @@ fun! LoadFormatting()
 			nm <buffer> <silent> i i^<Left><C-R>=CapHere()<CR>
 			nm <buffer> <silent> s s^<Left><C-R>=CapHere()<CR>
 			nm <buffer> <silent> cw cw^<Left><C-R>=CapHere()<CR>
-			nm buffer> <silent> C C^<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> C C^<Left><C-R>=CapHere()<CR>
 		en
 		iab <buffer> i I
 		iab <buffer> Id I'd
@@ -655,7 +657,7 @@ fun! LoadViminfoData()
 		let g:SCHEMES.swatches={} |en
 	hi clear tabline
 	if exists('g:opt_colorscheme') && has_key(g:SCHEMES,g:opt_colorscheme)
-		call CSLoad(g:SCHEMES[g:opt_colorscheme])
+		call CSLoad(g:SCHEMES[g:opt_colorscheme],g:opt_colorscheme)
 	el| call CSLoad(g:SCHEMES.current) | en
 	"windows doesn't support %s
 	let g:Qnrm.msg="ec printf('%-17.17s %'.(&columns-19).'s',eval(strftime('%m.\"smtwrfa\"[%w].%d.\" \".%I.\":%M \".g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60')),(expand('% ').' '.line('.').'-'.col('.').'/'.line('$'))[-&columns+19:])"
@@ -689,6 +691,7 @@ fun! WriteViminfo(file)
 		wv! |en
 endfun
 
+let [Qnrm.71,Qnhelp.G]=[":echo search('\\S\\s*\\n\\n\\n\\n\\n\\n','W')? '':search('\\S\\zs\\s*\\n\\n\\n\\n\\n\\n','Wb')\<cr>", "Goto Section End"]
 let [Qnrm.102,Qnhelp['f']]=["g;","foward edit"]
 let [Qnrm.98,Qnhelp['b']]=["g;","back edit"]
 let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
@@ -697,10 +700,8 @@ let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.
 let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
 let [Qnrm.76,Qnhelp.L]=[":exe colorD.76\<cr>","Load Colorscheme"]
 let [Qnrm.115,Qnhelp.s]=[":let &ls=&ls>1? 0:2\<cr>","Status line toggle"]
-
 let [Qnrm.119,Qnhelp.w]=[":wincmd w\<cr>","Next Window"]
 let [Qnrm.87,Qnhelp.W]=[":wincmd W\<cr>", "Prev Window"]
-
 let [Qnrm.114,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
 let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
 let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
