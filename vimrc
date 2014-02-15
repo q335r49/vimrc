@@ -46,6 +46,32 @@ endfun
 fun! CompleteSwatches(Arglead,CmdLine,CurPos)
 	return filter(keys(g:SWATCHES),'v:val=~a:Arglead')
 endfun
+let CSChooserD={
+\113:"let continue=0 | if has_key(g:CURCS,g:CSgrp) | exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0]).' ctermbg='.(g:CURCS[g:CSgrp][1]) |en",
+\(g:EscAsc):"let continue=0 | if has_key(g:CURCS,g:CSgrp) | exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0]).' ctermbg='.(g:CURCS[g:CSgrp][1]) |en",
+\10:"let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg|let g:CURCS[g:CSgrp]=[fg,bg]",
+\13:"let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg|let g:CURCS[g:CSgrp]=[fg,bg]",
+\104:'if fg>0 | let fg-=1 | let g:CShix+=1 | en',
+\108:'if fg<255 | let fg+=1 | let g:CShix+=1 | en',
+\98:'let g:CShix+=1 | let g:SwchIx=g:SwchIx>0? g:SwchIx-1 : len(swatchlist)-1 |
+\let [fg,bg]=g:SWATCHES[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]',
+\102:'let g:CShix+=1 | let g:SwchIx=g:SwchIx<len(swatchlist)-1? g:SwchIx+1 : 0 |
+\let [fg,bg]=g:SWATCHES[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]',
+\106:'if bg>0 | let bg-=1 | let g:CShix+=1 | en',
+\107:'if bg<255 | let bg+=1 | let g:CShix+=1 | en',
+\112:'if g:CShix > 0 | let g:CShix-=1 | let [fg,bg]=g:CShst[g:CShix] | en',
+\110:'if g:CShix<len(g:CShst)-1 | let g:CShix+=1 | let [fg,bg]=g:CShst[g:CShix] | en',
+\42:'let g:CShix+=1 | let [fg,bg]=[reltime()[1]%256,reltime()[1]%256]',
+\114:'let g:CShix+=1 | let fg=reltime()[1]%256 | en',
+\82:'let g:CShix+=1 | let bg=reltime()[1]%256',
+\105:'let [fg,bg]=[bg,fg]',
+\103:'let [in,cmd]=QSel(hi,"Group: ")|if in!=-1 && cmd!=g:EscAsc|
+\if has_key(g:CURCS,hi[in]) | let [fg,bg]=g:CURCS[hi[in]]|en|
+\if has_key(g:CURCS,g:CSgrp) | 
+\exe "hi ".g:CSgrp." ctermfg=".(g:CURCS[g:CSgrp][0])." ctermbg=".(g:CURCS[g:CSgrp][1])
+\| en | let g:CSgrp=hi[in] | let msg=g:CSgrp | en',
+\115:'let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
+\if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en'}
 fun! CSChooser(...)
 	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
 	if a:0==0
@@ -63,88 +89,31 @@ fun! CSChooser(...)
 	exe "echoh ".g:CSgrp
 	ec msg fg bg
 	let c=getchar()
-	while c!=g:EscAsc && c!=113 && c!=10 && c!=13
-		if c==104 && fg > 0
-			let fg-=1
-			let g:CShix+=1
-		elseif c==108 && fg < 255
-			let fg+=1
-			let g:CShix+=1
-		elseif c==98
-			let g:CShix+=1
-			let g:SwchIx=g:SwchIx>0? g:SwchIx-1 : len(swatchlist)-1
-			let [fg,bg]=g:SWATCHES[swatchlist[g:SwchIx]]
-			let msg.=' '.swatchlist[g:SwchIx]
-		elseif c==102
-			let g:CShix+=1
-			let g:SwchIx=g:SwchIx<len(swatchlist)-1? g:SwchIx+1 : 0
-			let [fg,bg]=g:SWATCHES[swatchlist[g:SwchIx]]
-			let msg.=' '.swatchlist[g:SwchIx]
-		elseif c==106 && bg > 0
-			let bg-=1
-			let g:CShix+=1
-		elseif c==107 && bg < 255
-			let bg+=1
-			let g:CShix+=1
-		elseif c==112 && g:CShix > 0
-			let g:CShix-=1
-			let [fg,bg]=g:CShst[g:CShix]
-		elseif c==110 && g:CShix < len(g:CShst)-1
-			let g:CShix+=1
-			let [fg,bg]=g:CShst[g:CShix]
-		elseif c==42
-			let g:CShix+=1
-			let [fg,bg]=[reltime()[1]%256,reltime()[1]%256]
-		elseif c==114
-			let g:CShix+=1
-			let fg=reltime()[1]%256
-		elseif c==82
-			let g:CShix+=1
-			let bg=reltime()[1]%256
-		elseif c==105
-			let [fg,bg]=[bg,fg]
-		elseif c==103
-			let [in,cmd]=QSel(hi,"Group: ")
-			if in!=-1 && cmd!=g:EscAsc
-				if has_key(g:CURCS,hi[in])
-					let [fg,bg]=g:CURCS[hi[in]] |en
-				if has_key(g:CURCS,g:CSgrp)
-					exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0])
-					\.' ctermbg='.(g:CURCS[g:CSgrp][1])
-				en
-				let g:CSgrp=hi[in]
-				let msg=g:CSgrp
-			en
-		elseif c==115
-			let name=input("Save swatch as: ",'','customlist,CompleteSwatches')
-			if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en
+	let continue=1
+	while 1
+		if has_key(g:CSChooserD,c)
+			exe g:CSChooserD[c]
 		el| let msg="[*]rand [fb]swatches [g]roup [hl]fg [i]nvert [jk]bg
 			\ [np]history fgbg[rR]and [s]ave" |en
-		if g:CShix<=len(g:CShst)-1
-			let g:CShst[g:CShix]=[fg,bg]
-		el| call add(g:CShst,[fg,bg])
-			let g:CShix=len(g:CShst)-1 |en
-		exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg |redr
-		exe "echoh ".g:CSgrp
-		ec msg fg bg
-		let msg=g:CSgrp
-		let c=getchar()
+		if continue
+			if g:CShix<=len(g:CShst)-1
+				let g:CShst[g:CShix]=[fg,bg]
+			el| call add(g:CShst,[fg,bg])
+				let g:CShix=len(g:CShst)-1 |en
+			exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg |redr
+			exe "echoh ".g:CSgrp
+			ec msg fg bg
+			let msg=g:CSgrp
+			let c=getchar()
+		el| if len(g:CShst)>100
+				let CShst=g:CShix<25? (g:CShst[:50]) : g:CShix>75? (g:CShst[50:])
+				\: g:CShst[g:CShix-25:g:CShix+25] |en
+			echoh None
+			return g:CShst[g:CShix] | en
 	endwhile
-	if (c==10 || c==13)
-		exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
-		let g:CURCS[g:CSgrp]=[fg,bg]
-	elseif has_key(g:CURCS,g:CSgrp)
-		exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0]).' ctermbg='
-		\.(g:CURCS[g:CSgrp][1]) |en
-	if len(g:CShst)>100
-		let CShst=g:CShix<25? (g:CShst[:50]) : g:CShix>75? (g:CShst[50:])
-		\: g:CShst[g:CShix-25:g:CShix+25] |en
-	echoh None
-	return g:CShst[g:CShix]
 endfun
 
 let Pad=repeat(' ',200)
-
 fun! CenterLine()
 	let line=matchstr(getline('.'),'^\s*\zs\S.*\S\ze\s*$')
 	if &tw==0
@@ -288,7 +257,7 @@ fun! CheckFormatted()
 	nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
 	redr|ec 'Formatting Options Loaded:' expand('%')
 endfun
-nn gf :e <cword><CR>
+nn gf :e <cWORD><cr>
 
 fun! TMenu(cmd,...)
 	let ec=a:0==0? eval(a:cmd.msg) : a:cmd[a:1]
@@ -461,5 +430,10 @@ let insD={103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",96:'`',
 let g:visD={(g:EscAsc):"",42:"y:,$s/\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \120:"y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",99:"y:\<c-r>\"",
-\'help':'*:sub g/etvar x/ec c/opy2cmd:','msg':"expand('%:t').' '.line('.').'.'.col('.')
+\'help':'*:sub g/ofile x/ec c/opy2cmd:',
+\103:"y:e \<c-r>\"\<cr>",
+\'msg':"expand('%:t').' '.line('.').'.'.col('.')
 \.'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
+
+
+
