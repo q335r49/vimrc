@@ -53,13 +53,16 @@ if opt_device=~?'droid4'
 	let opt_autocap=1
 	ino <c-b> <c-w>
 	nn <c-r> <nop> 
-	en
+en
 if has("gui_running")
 	se guifont=Envy_Code_R:h11:cANSI
 	colorscheme solarized
 	hi ColorColumn guibg=#222222 
 	hi Vertsplit guifg=grey15 guibg=grey15
-	se guioptions-=T | en
+	se guioptions-=T
+en
+
+omap a/ :<c-u>norm F/vt/<cr>
 
 ino <f1> <c-o>zh
 
@@ -87,7 +90,7 @@ fun! Undojx(cmd)
 	el
 		let @x=@".@x
 	en
-	echo @x
+	echo strtrans(@x)[-&columns+1:]
 	let g:ujx_pvXpos=newpos
 endfun
 nno <silent> x :<c-u>call Undojx('x')<cr>
@@ -148,39 +151,6 @@ fun! AsciiUI()
 endfun
 let [Qnrm.103,Qnhelp.g]=[":call AsciiUI()\<cr>","Show Ascii"]
 
-fun! Scrollbind()
-	if &scb
-		windo se noscb
-		ec "Scrollbind off"
-	else
-		norm! mtHmu
-		let winnr=winnr()
-		windo se invscb|1
-		windo se scb
-		exe winnr.'wincmd w'
-		norm! 'uzt't
-		ec "Scrollbind on"
-	en
-endfun
-let [Qnrm.83,Qnhelp.S]=[":call Scrollbind()\<cr>","Scrollbind on"]
-
-if !hlexists('Inactive')
-	hi Inactive ctermfg=235
-en
-fun! ToggleDimInactiveWin()
-	if exists('#DimWindows')
-		autocmd! DimWindows
-		windo syntax clear Inactive
-	el| windo syntax region Inactive start='^' end='$'
-		syntax clear Inactive
-		augroup DimWindows
-			autocmd BufEnter * syntax clear Inactive
-			autocmd BufLeave * syntax region Inactive start='^' end='$'
-		augroup end
-	en
-endfun
-let [Qnrm.68,Qnhelp.D]=[":call ToggleDimInactiveWin()\<cr>","Dim inactive windows"]
-
 if !exists("g:EscChar") | let g:EscChar="\e" | let g:EscAsc=27
 el | let g:EscAsc=char2nr(g:EscChar) |en
 if g:EscChar!="\e"
@@ -195,89 +165,12 @@ let Qvis[EscAsc]=""
 nno <space> <c-e>
 nno <bs> <c-y>
 nno <c-i> <c-y>
-
-if has('signs')
-	sign define scrollbox texthl=Visual text=[]
-	fun! ScrollbarGrab()
-		if getchar()=="\<leftrelease>" || v:mouse_col!=1
-			return|en
-		while getchar()!="\<leftrelease>"
-			let pos=1+(v:mouse_lnum-line('w0'))*line('$')/winheight(0)
-			call cursor(pos,1)
-			sign unplace 789
-			exe "sign place 789 line=".(pos*winheight(0)/line('$')+line('w0')).b:scrollexpr
-		endwhile
-	endfun
-	fun! UpdateScrollbox()
-		sign unplace 789
-		exe "sign place 789 line=".(line('w0')*winheight(0)/line('$')+line('w0')).b:scrollexpr
-	endfun
-	fun! ToggleScrollbar()
-		if exists('b:scrollexpr')
-			unlet b:scrollexpr
-			nun <buffer> <leftmouse>
-			iun <buffer> <leftmouse>
-			nun <buffer> <scrollwheelup>
-			nun <buffer> <scrollwheeldown>
-			iun <buffer> <scrollwheelup>
-			iun <buffer> <scrollwheeldown>
-			exe "sign unplace 789 file=" . expand("%:p")
-			exe "sign unplace 788 file=" . expand("%:p")
-		el| nno <silent> <buffer> <leftmouse> <leftmouse>:call ScrollbarGrab()<cr>
-			ino <silent> <buffer> <leftmouse> <leftmouse><c-o>:call ScrollbarGrab()<cr>
-			nno <buffer> <scrollwheelup> <scrollwheelup>:call UpdateScrollbox()<cr>
-			nno <buffer> <scrollwheelup> <scrollwheelup>:call UpdateScrollbox()<cr>
-			nno <buffer> <scrollwheeldown> <scrollwheeldown>:call UpdateScrollbox()<cr>
-			ino <buffer> <scrollwheelup> <scrollwheelup><c-o>:call UpdateScrollbox()<cr>
-			ino <buffer> <scrollwheeldown> <scrollwheeldown><c-o>: call UpdateScrollbox()<cr>
-			let b:scrollexpr=" name=scrollbox file=".expand("%:p")
-			exe "sign place 789 line=".(line('w0')*winheight(0)/line('$')+line('w0')).b:scrollexpr
-			exe "sign place 788 line=1".b:scrollexpr
-		en
-	endfun
-	for mark in map(range(97,122)+range(65,90),'nr2char(v:val)')
-		exe 'sign define bkmrk'.mark.' texthl=Visual text='.mark.'-'
-	endfor
-	fun! UpdateBookmark()
-		let mark=getchar()
-		if (65<=mark && mark<=90) || (97<=mark && mark<=122)
-			exe "sign unplace ".mark 
-			exe "sign place ".mark." line=".line('.')." name=bkmrk".nr2char(mark)." file=" . expand("%:p")
-		en
-		return "m".nr2char(mark)
-	endfun
-	fun! ToggleBookmarks()
-		if exists("b:bookmarks_shown")
-			unlet b:bookmarks_shown
-			exe 'sign unplace * buffer='.bufnr("%")
-			nunmap m
-			return
-		en
-		let b:bookmarks_shown=1
-		nnoremap <expr> m UpdateBookmark()
-		let curbn=bufnr("%")
-		for mark in map(range(65,90),'nr2char(v:val)')
-			let pos=getpos("'".mark)
-			if pos[0]==curbn 
-				exe "sign place ".char2nr(mark)." line=".pos[1]." name=bkmrk".mark." file=" . expand("%:p")
-			en
-		endfor
-		for mark in map(range(97,122),'nr2char(v:val)')
-			let pos=getpos("'".mark)
-			if pos[1]!=0
-				exe "sign place ".char2nr(mark)." line=".pos[1]." name=bkmrk".mark." file=" . expand("%:p")
-			en
-		endfor
-	endfun
-	let [Qnrm.66,Qnhelp.B]=[":call ToggleScrollbar()\<cr>","Scrollbar toggle"]
-	let [Qnrm.77,Qnhelp.M]=[":call ToggleBookmarks()\<cr>","Bookmarks toggle"]
-en
-
 vn j gj
 vn k gk
 nn j gj
 nn k gk
 nn gp :exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'<cr>
+nn gd :let temp=getline('.')[col('.')-1] \| if temp=~'[({\[]' \| exe 'norm! %x``x'\| elseif temp=~'[)}\]]' \| exe 'norm! %x``X' \| endif<cr>
 
 fun! SoftCap()
 	norm! a^
@@ -311,14 +204,6 @@ endfun
 
 com! -nargs=+ -complete=var Editlist call New('NestedList',<args>).show()
 com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
-
-fun! Writeroom(margin)
-	wa | only
-	exe 'botright' (a:margin*&columns/100) 'vsp blankR'
-	exe 'topleft' (a:margin*&columns/100) 'vsp blank'
-	wincmd l
-endfun
-let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | silent call Writeroom(exists('g:OPT_WRITEROOMWIDTH')? g:OPT_WRITEROOMWIDTH : 25) | redr|echo 'Writeroom on' | else | only | redr|echo 'Writeroom Off' | en\<cr>","Writeroom mode"]
 
 hi CS_LightOnDark ctermfg=15 ctermbg=0 cterm=NONE
 if opt_device=='cygwin'
@@ -419,46 +304,44 @@ let colorD.102='if g:CShix<len(g:CShst)-1|let g:CShix+=1|let hl=copy(g:CShst[g:C
 let colorD.114='let [hl[field],g:CShix]=[field==2? hl[field] : reltime()[1]%256,g:CShix+1]'
 let colorD.85="redr | echohl CS_LightOnDark\n
 \if input('> unlet SCHEME.'.g:CS_NAME.'.'.g:CS_grp.'? (y/n)','')==?'y' && has_key(g:SCHEMES[g:CS_NAME],g:CS_grp)\n
-\       unlet g:SCHEMES[g:CS_NAME][g:CS_grp]\n
-\en"
-let colorD["\<bs>"]="call CS_hi(g:CS_grp,get(g:SCHEMES[g:CS_NAME],g:CS_grp,''))\n
-\redr!\n
-\echoh None\n
+	\unlet g:SCHEMES[g:CS_NAME][g:CS_grp]\nen"
+let colorD["\<bs>"]="if has_key(g:SCHEMES[g:CS_NAME],g:CS_grp)\n
+	\call CS_hi(g:CS_grp,g:SCHEMES[g:CS_NAME][g:CS_grp])\n
+\en\nredr!\nechoh None\n
 \let g:CS_input='group'\n
 \echohl CS_LightOnDark\n
 \let in=input('> let SCHEMES.'.g:CS_NAME.'.',g:CS_grp,'highlight')\n
 \let g:CS_input=''\n
 \if in=='CS_EXIT'\n
-\   redr\n
-\   let g:CS_input='scheme'\n
-\   echohl CS_LightOnDark\n
-\   let name=input('> let SCHEMES.',g:CS_NAME,'customlist,CompleteSchemes')\n    
-\   let g:CS_input=''\n
-\   if !empty(name)\n
-\      let g:CS_NAME=name\n
-\      call CSLoad(name)\n
-\      exe g:colorD[\"\<bs>\"]\n
-\   else\n
-\      let continue=0\n
-\   en\n
+	\redr\n
+	\let g:CS_input='scheme'\n
+	\echohl CS_LightOnDark\n
+	\let name=input('> let SCHEMES.',g:CS_NAME,'customlist,CompleteSchemes')\n    
+	\let g:CS_input=''\n
+	\if !empty(name)\n
+		\let g:CS_NAME=name\n
+		\call CSLoad(name)\n
+		\exe g:colorD[\"\<bs>\"]\n
+	\else\n
+		\let continue=0\n
+	\en\n
 \elseif !empty(in)\n
-\   if has_key(g:SCHEMES[g:CS_NAME],in)\n
-\      let hl=copy(g:SCHEMES[g:CS_NAME][in])\n
-\   en\n
-\   if has_key(g:SCHEMES[g:CS_NAME],g:CS_grp)\n
-\		call CS_hi(g:CS_grp,g:SCHEMES[g:CS_NAME][g:CS_grp])\n
-\   en\n
-\   let g:CS_grp=in\n
-\el\n
-\   let continue=0\n
-\en"
+	\if has_key(g:SCHEMES[g:CS_NAME],in)\n
+		\let hl=copy(g:SCHEMES[g:CS_NAME][in])\n
+	\elseif hlID(in)\n
+		\let id=synIDtrans(hlID(in))\n
+		\let hl=[synIDattr(id,'fg','cterm'),synIDattr(id,'bg','cterm'),join(filter(copy(g:CS_attr[1:]),'synIDattr(id,v:val,\"cterm\")'),',')]\n
+		\let hl=[hl[0]==-1? 'NONE' : hl[0],hl[1]==-1? 'NONE' : hl[1],empty(hl[2])? 'NONE' : hl[2]]\n
+	\en\n
+	\let g:CS_grp=in\n
+\el\nlet continue=0\nen"
 let colorD[21]=colorD["\<bs>"]
 let colorD.87='echohl CS_LightOnDark | let name=input("  save as: SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) | let g:SCHEMES.swatches[name]=copy(hl) |en'
 let colorD.82="echo ''|let ix=0|for i in sort(keys(g:SCHEMES.swatches))\n
-\	call CS_hi('CS_'.ix,g:SCHEMES.swatches[i])\n
-\	exe 'echohl CS_'.ix\n
-\	echon '   '.i.'   '\n
-\	let ix+=1\n
+	\call CS_hi('CS_'.ix,g:SCHEMES.swatches[i])\n
+	\exe 'echohl CS_'.ix\n
+	\echon '   '.i.'   '\n
+	\let ix+=1\n
 \endfor\n".'echohl CS_LightOnDark | let name=input("> let SCHEMES.".g:CS_NAME.".".g:CS_grp." = SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) && has_key(g:SCHEMES.swatches,name) | let g:CShix=g:CShix+1 | let hl=copy(g:SCHEMES.swatches[name]) | else | echo "  **Swatch not found**" | sleep 1 | en'
 let [Qnrm.67,Qnhelp.C]=[":call CS_UI()\<cr>","Customize colors"]
 let [Qnrm.7,Qnhelp['^G']]=[":ec 'hi<' . synIDattr(synID(line('.'),col('.'),1),'name') . '> trans<'
@@ -483,60 +366,41 @@ cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 cnorea <expr> qnv ((getcmdtype()==':' && getcmdpos()<5)? "let &viminfo=''\|exe 'autocmd! WriteViminfo' \|qa!":"qnv")
 
-let lastft='f'
-let lastftchar=32
-fun! MLT(char)
-	let g:lastftchar=a:char
-    if search('\C\V'.nr2char(a:char),'bW')
-        norm! l
-    endif
-	return 'T'
+let prvft='f'
+let prvftc=32
+fun! mlF(c,...)
+	let [g:prvftc,g:prvft]=[a:c,a:0? 'f':'F']
+    let pos=searchpos('\C\V'.nr2char(g:prvftc),'bW')
+	call setpos("'x", pos==[0,0]? [0,line('.'),col('.'),0] : [0,pos[0],pos[1],0])
+	return "`x"
 endfun
-fun! MLF(char)
-	let g:lastftchar=a:char
-    call search('\C\V'.nr2char(a:char),'bW')
-	return 'F'
+fun! mlf(c,...)
+	let [g:prvftc,g:prvft]=[a:c,a:0? 'F':'f']
+    let pos=searchpos('\C\V'.nr2char(g:prvftc).(mode(1)=='no'? '\zs' : ''),'W')
+	call setpos("'x", pos==[0,0]? [0,line('.'),col('.'),0] : [0,pos[0],pos[1],0])
+	return "`x"
 endfun
-fun! MLf(char)
-	let g:lastftchar=a:char
-    if search('\C\V'.nr2char(a:char),'W')
-        norm! l
-    endif
-	return 'f'
+fun! mlT(c,...)
+	let [g:prvftc,g:prvft]=[a:c,a:0? 't':'T']
+    let pos=searchpos('\C\V'.nr2char(g:prvftc).'\zs','bW')
+	call setpos("'x", pos==[0,0]? [0,line('.'),col('.'),0] : [0,pos[0],pos[1],0])
+	return "`x"
 endfun
-fun! MLt(char)
-	let g:lastftchar=a:char
-    call search('\C\V'.nr2char(a:char),'W')
-	return 't'
+fun! mlt(c,...)
+	let [g:prvftc,g:prvft]=[a:c,a:0? 'T':'t']
+    let pos=searchpos('\C\V\_.'.(mode(1)=='no'? '\zs' : '').nr2char(g:prvftc),'W')
+	call setpos("'x", pos==[0,0]? [0,line('.'),col('.'),0] : [0,pos[0],pos[1],0])
+	return "`x"
 endfun
-fun! MLnT(char)
-	let g:lastftchar=a:char
-    if search('\C\V'.nr2char(a:char),'bW')
-        norm! l
-    endif
-	return 'T'
-endfun
-fun! MLnF(char)
-	let g:lastftchar=a:char
-    call search('\C\V'.nr2char(a:char),'bW')
-	return 'F'
-endfun
-fun! MLnt(char)
-	let g:lastftchar=a:char
-    if search('\C\V'.nr2char(a:char),'W')
-        norm! h
-    endif
-	return 't'
-endfun
-fun! MLnf(char)
-	let g:lastftchar=a:char
-    call search('\C\V'.nr2char(a:char),'W')
-	return 'f'
-endfun
-let ftfuncD={"f":function("MLf"),"t":function("MLt"),"F":function("MLF"),"T":function("MLT"),"nf":function("MLnf"),"nt":function("MLnt"),"nF":function("MLnF"),"nT":function("MLnT")}
-let invftD={"f":"F","F":"f","t":"T","T":"t","nf":"nF","nt":"nT","nF":"nf","nT":"nt"}
+no <buffer> <silent> <expr> F mlF(getchar())
+no <buffer> <silent> <expr> f mlf(getchar())
+no <buffer> <silent> <expr> T mlT(getchar())
+no <buffer> <silent> <expr> t mlt(getchar())
+no <buffer> <silent> <expr> ; mlv{prvft}(prvftc)
+no <buffer> <silent> <expr> , mlv{prvft<#'Z'? tolower(prvft) : toupper(prvft)}(prvftc,1)
 
 let g:charL=[]
+let g:opt_disable_syntax_while_panning=1
 fun! CapWait(prev)
 	call add(g:charL,a:prev)
 	redr | let next=nr2char(getchar())
@@ -629,18 +493,6 @@ fun! LoadFormatting()
 		iab <buffer> id I'd
 		iab <buffer> im I'm
 		iab <buffer> Im I'm
-		ono <buffer> <silent> F :let g:lastft=MLF(getchar())<cr>
-		ono <buffer> <silent> T :let g:lastft=MLT(getchar())<cr>
-		ono <buffer> <silent> f :let g:lastft=MLf(getchar())<cr>
-		ono <buffer> <silent> t :let g:lastft=MLt(getchar())<cr>
-		nn <buffer> <silent> F :let g:lastft=MLnF(getchar())<cr>
-		nn <buffer> <silent> T :let g:lastft=MLnT(getchar())<cr>
-		nn <buffer> <silent> f :let g:lastft=MLnf(getchar())<cr>
-		nn <buffer> <silent> t :let g:lastft=MLnt(getchar())<cr>
-		nn <buffer> <silent> ; :let g:lastft=g:ftfuncD["n".g:lastft](g:lastftchar)<cr>
-		nn <buffer> <silent> , :let g:lastft=g:invftD[g:ftfuncD[g:invftD["n".g:lastft]](g:lastftchar)]<cr>
-		ono <buffer> <silent> ; :let g:lastft=g:ftfuncD[g:lastft](g:lastftchar)<cr>
-		ono <buffer> <silent> , :let g:lastft=g:invftD[g:ftfuncD[g:invftD[g:lastft]](g:lastftchar)]<cr>
 	en
 endfun
 
@@ -696,12 +548,13 @@ fun! WriteViminfo(file)
 		wv! |en
 endfun
 
+let Qnrm["\<leftmouse>"]="\<leftmouse>"
 let [Qnrm.110,Qnhelp.np]=["\<c-w>l","Columns <>"]
 let Qnrm.112="\<c-w>h"
 let [Qnrm.119,Qnhelp.we]=["g;","Changes <>"]
 let Qnrm.101="g,"
 let [Qnrm.109,Qnhelp.m]=[":call TogglePanMode()\<cr>","Mouse pan Toggle"]
-let [Qnrm.71,Qnhelp.G]=[":echo search('\\S\\s*\\n\\n\\n\\n\\n\\n','W')? '':search('\\S\\zs\\s*\\n\\n\\n\\n\\n\\n','Wb')\<cr>", "Goto section End"]
+let [Qnrm.71,Qnhelp.G]=[":exe 'norm! '.(search('\\S\\s*\\n\\n\\n\\n\\n\\n','W')? 'g':'G' )\<cr>", "Goto section End"]
 let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.70,Qnhelp.F]=[":let [&ls,&stal]=&ls>1? [0,0]:[2,2]\<cr>","Fullscreen"]
 let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
@@ -734,7 +587,7 @@ if !exists('firstrun')
 	if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
 		ec 'Warning: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME
 		let Working_Dir=$HOME |en
-	for file in ['abbrev','pager','nav.vim']
+	for file in ['abbrev','pager','nav.vim','utils']
 		if !empty(glob(Working_Dir.'/'.file)) | exe 'so '.Working_Dir.'/'.file
 		el| ec 'Warning:' Working_Dir.'/'.file 'doesn't exist'
 		en
