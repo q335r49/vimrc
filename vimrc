@@ -1,3 +1,16 @@
+fun! Nexe()
+	let range=getline(line("'<"),line("'>"))
+	let commented=1 | for line in range
+		if line!~'^\s*"' | let commented=0 | break | en | endfor
+	if commented
+		for line in range
+			exe 'norm! :'.Ec(substitute(line,'^\s*"','',''),200)
+		endfor
+	el| for line in range
+			exe 'norm! :'.Ec(line,200)
+		endfor|en
+endfun
+
 fun! GetVar(str)
 	let varname=input('Store as:','','var') | if varnamei!=''
 		exe 'let g:'.varname
@@ -5,29 +18,58 @@ fun! GetVar(str)
 	en
 endfun
 
-fun! PrevHeading()
-	let indent=virtcol('.') | norm! -
-	while virtcol('.')==indent && line('.')!=1
-		norm! -
+fun! PrevHeading(indent)
+	let i=line('.')
+	let line=getline(i)
+	if strdisplaywidth(matchstr(line,'^\s*'))==a:indent
+		if i>0 | let i-=1 | end
+		while i>0
+			let line=getline(i)
+			if strdisplaywidth(matchstr(line,'^\s*'))==a:indent && line!~'^\s*$'
+				let i-=1
+			el|brea|en
+		endwhile
+	en
+	if i>0 | let i-=1 | end
+	while i>0
+		let line=getline(i)
+		if strdisplaywidth(matchstr(line,'^\s*'))!=a:indent || line=~'^\s*$'
+			let i-=1
+		el|brea|en
 	endwhile
-	while virtcol('.')!=indent && line('.')!=1
-		norm! -
-	endwhile
+	return i
 endfun
-fun! NextHeading()
-	let indent=virtcol('.') | norm! +
-	while virtcol('.')==indent && line('.')!=line('$')
-		norm! +
+fun! NextHeading(indent)
+	let i=line('.')
+	let end=line('$')
+	let line=getline(i)
+	if strdisplaywidth(matchstr(line,'^\s*'))==a:indent
+		if i<end | let i+=1 | end
+		while i<end
+			let line=getline(i)
+			if strdisplaywidth(matchstr(line,'^\s*'))==a:indent && line!~'^\s*$'
+				let i+=1
+			el|brea|en
+		endwhile
+	en
+	if i<end | let i+=1 | end
+	while i<end
+		let line=getline(i)
+		if strdisplaywidth(matchstr(line,'^\s*'))!=a:indent || line=~'^\s*$'
+			let i+=1
+		el|brea|en
 	endwhile
-	while virtcol('.')!=indent && line('.')!=line('$')
-		norm! +
-	endwhile
+	return i
 endfun
-nn <silent> + :call NextHeading()<CR>
-nn <silent> - :call PrevHeading()<CR>
+nn <expr> + "\<Esc>".NextHeading(&ts*v:count).'Gzz'
+nn <expr> - "\<Esc>".PrevHeading(&ts*v:count).'Gzz'
+vn <expr> + '^'.NextHeading(&ts*v:count).'Gzz'
+vn <expr> - '^'.PrevHeading(&ts*v:count).'Gzz'
 
 fun! Ec(x,...)
-	echoh LineNr | echom (a:0? (a:1.": "):'').string(a:x) | echoh None | return a:x
+	redr|echoh Directory | echom (a:0>1? (a:2):'').string(a:x) |echoh None
+	if a:0>0 | exe 'sleep '.a:1.'m' | en
+	return a:x
 endfun
 
 let Qpairs={'(':')','{':'}','[':']','<':'>'}
@@ -207,6 +249,7 @@ endfun
 
 fun! CheckFormatted()
 	if getline(1)!~'fo=aw' | retu|en
+	setl noai
    	call InitCap()
    	iab <buffer> i I
    	iab <buffer> Id I'd
@@ -230,88 +273,157 @@ fun! PrintTime(s,...) "%e crashes Windows!
 	\.(a:s%3600/60.'m ')
 endfun
 
-let LogWINH=6
-fun! Log(...)
-	if a:0==0
-		let g:cmdsave=&cmdheight
-		exe "se ch=".(g:LogWINH+1)
-		let offset=len(g:tlog)-g:LogWINH+1
-		let logmode=0
-		let cursor=len(g:tlog)
-	el
-		let offset=a:1
-		let logmode=a:2
-		let cursor=a:3
-	en
-	let g:logmsg=''
-	for i in range(offset,offset+g:LogWINH-1)
-		if i<0
-			let g:logmsg.="\n"
-		elseif i<len(g:tlog)
-			let g:logmsg.=(cursor==i? '>':' ')
-			\.PrintTime(g:tlog[i][0]-(i>0? g:tlog[i-1][0] : 0),
-			\g:tlog[i][0]).g:tlog[i][1]."\n"
-		elseif i>len(g:tlog)
-			let g:logmsg.="\n"
-		en	
-	endfor
-	if logmode==0
-		let g:cmdMode='g:tlogD'
-		if offset==len(g:tlog)-g:LogWINH+1
-			redr!|let ent=input(g:logmsg.'>'.PrintTime(localtime()-g:tlog[-1][0]))
+let PagerH=6
+fun! Pager(list)
+	let g:cmdsave=&cmdheight
+	exe "se ch=".(g:PagerH+1)
+	let logmode=1
+	let offset=len(a:list)-g:PagerH+(!logmode)
+	let cursor=len(a:list)-logmode
+	let ent=''
+	while ent!=g:N_ESC || logmode==0
+		let logmsg=''
+		for i in range(offset,offset+g:PagerH-1)
+			if i<0
+				let logmsg.="\n"
+			elseif i<len(a:list)
+				let logmsg.=g:Pad[1:4-len(i)].i.(cursor==i? '>':' ')
+				\.a:list[i][0:&columns-7]."\n"
+			elseif i>len(a:list)
+				let logmsg.="\n" | en	
+		endfor
+		if logmode==0
+			if ent==105
+				redr!|let ent=input(logmsg.'INS >')
+				call insert(a:list,ent,cursor)
+			elseif ent==97
+				redr!|let ent=input(logmsg.'APP >')
+				call insert(a:list,ent,cursor+1)
+				let cursor+=1
+				let offset+=1
+			else
+				redr!|let ent=input(logmsg.'CHG >'
+				\,a:list[cursor])
+				let a:list[cursor]=ent
+			en
+			let logmode=1
+		el| redr!|ec logmsg
+			let ent=getchar()
+			if ent==120 "x
+				if len(a:list)>0 | call remove(a:list,cursor) | en
+				if cursor==len(a:list) | let cursor=len(a:list)-1 | en
+			elseif ent==107 "k
+				if cursor>0
+					let cursor-=1
+					if cursor<offset
+						let offset-=1 | en
+				en
+			elseif ent==106 "j
+				if cursor<len(a:list)-1
+					let cursor+=1
+					if cursor>=offset+g:PagerH
+						let offset+=1 | en
+				en
+			elseif ent==99 || ent==105 || ent==97 "cia
+				let logmode=0	
+			elseif ent==71 "G
+				let cursor=len(a:list)-1
+				let offset=len(a:list)-g:PagerH	
+			elseif ent==65 "A
+				let cursor=len(a:list)
+				let offset=len(a:list)-g:PagerH+1
+				let logmode=0
+			elseif ent==113 "q
+				let ent=g:N_ESC
+			en
+		en
+	endwhile
+	exe 'se ch='.g:cmdsave
+endfun
+fun! Log()
+	let g:cmdsave=&cmdheight
+	exe "se ch=".(g:PagerH+1)
+	let logmode=1
+	let offset=len(g:tlog)-g:PagerH+(!logmode)
+	let cursor=len(g:tlog)-logmode
+	let ent=''
+	while ent!=g:N_ESC || logmode==0
+		let g:logmsg=''
+		for i in range(offset,offset+g:PagerH-1)
+			if i<0
+				let g:logmsg.="\n"
+			elseif i<len(g:tlog)
+				let g:logmsg.=((cursor==i? '>':' ')
+				\.PrintTime(g:tlog[i][0]-(i>0? g:tlog[i-1][0] : 0),
+				\g:tlog[i][0]).g:tlog[i][1]."\n")[0:&columns-1]
+			elseif i>len(g:tlog)
+				let g:logmsg.="\n" | en	
+		endfor
+		if logmode==0
+			if offset==len(g:tlog)-g:PagerH+1
+				redr!|let ent=input(g:logmsg.'>'.PrintTime(localtime()-g:tlog[-1][0]))
+			else
+				redr!|let ent=input(g:logmsg.'Edit:',g:tlog[cursor][1]) | en
+			if ent[0:1]==?'S:'
+				let g:tlog[-1]=[localtime(),len(ent)>2? ent[2:] : g:tlog[-1][1]]
+			elseif ent==''
+				let logmode=1
+				if offset==len(g:tlog)-g:PagerH+1
+					let offset-=1
+					let cursor-=1
+				en
+			else
+				if ent[0:1]==?'b:'
+					let ent=ent[2:].' @'.expand('%').'?'.line('.')	
+				en
+				if offset==len(g:tlog)-g:PagerH+1
+					call extend(g:tlog,[[localtime(),ent]])
+					let offset+=1
+					let cursor+=1
+				else
+					let g:tlog[cursor][1]=ent
+					let logmode=1
+				en
+			en
 		else
-			redr!|let ent=input(g:logmsg.'Edit:',g:tlog[cursor][1])
+			redr!|ec g:logmsg
+			let ent=getchar()
+			if ent==120 "x
+				if len(g:tlog)>1 | call remove(g:tlog,cursor) | en
+				if cursor==len(g:tlog) | let cursor=len(g:tlog)-1 | en
+			elseif ent==107 "k
+				if cursor>0
+					let cursor-=1
+					if cursor<offset
+						let offset-=1 | en
+				en
+			elseif ent==106 "j
+				if cursor<len(g:tlog)-1
+					let cursor+=1
+					if cursor>=offset+g:PagerH
+						let offset+=1 | en
+				en
+			elseif ent==99 "c
+				let logmode=0	
+			elseif ent==71 "G
+				let cursor=len(g:tlog)-1
+				let offset=len(g:tlog)-g:PagerH	
+			elseif ent==65 "A
+				let cursor=len(g:tlog)
+				let offset=len(g:tlog)-g:PagerH+1
+				let logmode=0
+			elseif ent==103 "g
+				let atpos=stridx(g:tlog[cursor][1],'@')
+				if atpos!=-1
+					let file=split(g:tlog[cursor][1][atpos+1:],'?')
+					if glob(file[0])!=#glob('%') | exe 'e '.file[0] | en
+					exe 'norm! '.file[1].'G'
+					let ent=g:N_ESC
+				en
+			en
 		en
-		let g:cmdMode='g:cmdD'
-	else
-		redr!|ec g:logmsg
-		let ent=getchar()
-	en
-	if ent[0:1]==?'S:'
-		let g:tlog[-1]=[localtime(),len(ent)>2? ent[2:] : g:tlog[-1][1]]
-	elseif ent==120 "x
-		if len(g:tlog)>1 | call remove(g:tlog,cursor) | en
-		if cursor==len(g:tlog) | let cursor=len(g:tlog)-1 | en
-	elseif ent==107 "k
-		if cursor>0
-			let cursor-=1
-			if cursor<offset
-				let offset-=1 | en
-		en
-	elseif ent==106 "j
-		if cursor<len(g:tlog)-1
-			let cursor+=1
-			if cursor>offset+g:LogWINH-1
-				let offset+=1 | en
-		en
-	elseif ent==99 "c
-		let logmode=0	
-	elseif ent==71 "G
-		let cursor=len(g:tlog)-1
-		let offset=len(g:tlog)-g:LogWINH	
-	elseif ent==65 "A
-		let offset=len(g:tlog)-g:LogWINH+1
-		let cursor=len(g:tlog)
-		let logmode=0
-	elseif ent==''
-		let logmode=1
-		if offset==len(g:tlog)-g:LogWINH+1
-			let offset-=1
-			let cursor-=1
-		en
-	elseif ent==g:N_ESC
-		exe 'se ch='.g:cmdsave
-		return
-	elseif logmode==0 
-		if offset==len(g:tlog)-g:LogWINH+1
-			call extend(g:tlog,[[localtime(),ent]])
-			let offset+=1
-			let cursor+=1
-		else
-			let g:tlog[cursor][1]=ent
-	   		let logmode=1
-		en
-	en | call Log(offset,logmode,cursor)
+	endwhile
+	exe 'se ch='.g:cmdsave
 endfun
 
 fun! TMenu(cmd,...)
@@ -614,7 +726,7 @@ fun! IniPaint()
 		exe 'se ve='.s:vesave
        	let g:OnTouch='IniScroll' |en
 endfun
-fun! OnRelease()
+fun! OnRelease() " Must move before release
 	if g:OnTouch=='OnVisual'
 		norm! v`v
 		let g:OnTouch='IniScroll'
@@ -628,6 +740,7 @@ fun! Write_Viminfo()
 	let g:TLOG=join(map(g:tlog,'v:val[0]."|".v:val[1]'),"\n")
 	let g:HISTL=join(map(g:histL,'join(v:val,"$")'),"\n")
 	if has("gui_running")
+		let g:S_GUIFONT=&guifont
 		let g:WINPOS='se co='.&co.' lines='.&lines.
 		\'|winp '.getwinposx().' '.getwinposy() | en
 	se viminfo=!,'20,<1000,s10,/50,:50
@@ -690,7 +803,8 @@ fun! SetOpt(...)
 	let g:normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',122:":wa\<CR>",
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
 \80:":call IniPaint()\<CR>",108:":call Log()\<CR>",
-\103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"vip\"zy:@z\<CR>",
+\103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",
+\88:"vip:\<C-U>call Nexe()\<CR>",
 \115:":let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
 \113:"\<Esc>",99:":call QuoteChange(nr2char(getchar()))\<CR>",
 \49:":exe 'e '.g:histL[0][0]\<CR>",50:":exe 'e '.g:histL[1][0]\<CR>",
@@ -737,10 +851,12 @@ endfun
 fun! OnVimEnter()
 	if !exists('g:WORKING_DIR') || !isdirectory(glob(g:WORKING_DIR))
 		call WelcomeMsg() | en
-	call SetOpt(g:INPUT_METH) |  exe 'so '.g:WORKING_DIR.'/abbrev'
+	call SetOpt(g:INPUT_METH)
 	if !argc()
 		let g:FORMAT_NEW_FILES=1
 		exe 'cd '.g:WORKING_DIR
+		so cmdnorm.vim
+		so abbrev
 		if len(g:histL)>0
 			exe 'e '.g:histL[0][0] | call CheckFormatted() | call OnWinEnter()
 		en
@@ -758,7 +874,7 @@ fun! OnVimEnter()
 	en
 endfun
 if !exists('do_once') | let do_once=1
-	se viminfo=!,'20,<1000,s10,/50,:50
+	se viminfo=!,'20,<1000,s10,/50,:150
 		if filereadable($VIMINFO_FILE) | rv $VIMINFO_FILE
 		el| let g:viminfo_file_invalid=1 | rv | en
 	se viminfo=
@@ -768,19 +884,13 @@ if !exists('do_once') | let do_once=1
 	au BufNewFile * call OnNewBuf()
 	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'),line('w0'))
 	au VimLeavePre * call Write_Viminfo()
-	se noshowmode
+	se noshowmode ai
 	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
 	se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
 	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 	se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 	se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-tlog[-1][0])}
-	"se guifont=Envy\ Code\ R\ 10 
-	se guifont=Envy_Code_R:h10 
 	se guioptions-=T
-	if has("gui_running")
-		colorscheme slate
-		if exists("WINPOS") | exe WINPOS | en
-	el | syntax off | en
 	hi ColorColumn guibg=#222222 ctermbg=237
 	hi Pmenu ctermbg=26 ctermfg=81
 	hi PmenuSel ctermbg=21 ctermfg=81
@@ -793,6 +903,15 @@ if !exists('do_once') | let do_once=1
 	hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
 	hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
 	let cmdMode='cmdD'
+	if has("gui_running")
+		colorscheme slate
+		if exists("WINPOS") | exe WINPOS | en
+		if !exists('S_GUIFONT')
+			"se guifont=Envy\ Code\ R\ 10 
+			se guifont=Envy_Code_R:h10 
+			let S_GUIFONT='Envy_Code_R:h10' 
+		el| exe 'se guifont='.S_GUIFONT | en
+	el | syntax off | en
 	if !exists('TLOG') | let tlog=[[localtime(),'0000']]
 	el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
 	if !exists("HISTL") | let g:HISTL="" | en
@@ -801,19 +920,41 @@ if !exists('do_once') | let do_once=1
 	call IniQuote("*")
 	nohl
 en
+
+"visual +/- (use &ts)
+	"don't count blank lines as 0 indent
+	"use count!!!
+"Pager
+	"2d arrays
+	"Undo
+	"Copy Paste
+	"Memory
+	"Readonly
+	"Increase/decrease height (+/-)
+	"Special functions
+		"merge with Log
+		"return values with position
+		"shopping list quick check!
+		"TOC
+		"On Noexist create a list (Command)
+		"User Menus
+	"better help msg based on LogPager ('more')
+	"l\Log menus, for going straight to normal
+	"bookmark jumps maintain log?? or, remember place after jump?!
+	"Open files (eg, shopping) as list
+		"longer arrays in viminfo, daily? viminfo backups
 "palette, generalized color scheme, pastel palette though! 'relational' colors!
-"complement, eg! balance customizability & uniformity
-"Use higlight line and normal to change it for *most* cases
-"have a *base scheme*: black and white??????
-"Quickly check spelling!
-"ve bug
-"time log bookmark
-"automatically change file names, '!mv' wrapper?
-"generalized delvable 2d array editor with formatted columns?
-"minewriter? file systems????
-"custom modes
+	"complement, eg! balance customizability & uniformity
+	"Use higlight line and normal to change it for *most* cases
+	"have a *base scheme*: black and white??????
+	"redraw at end of scroll!
+"vsp bug -- redo onrelease, by storing last remembered position? speed?
+	"ve bug
+	"Use getchar()?!!
 "make recently used files lowercase
-"shopping list quick check!
-"write fonts in viminfo!!!!
-"normal mode mappings in command mode!
-"fix `X
+"`t: trim spaces from end of lines
+"#t_ bug
+"out-of-box: viminfo prompt
+"Set message for cmdnormal
+"Colorful echos
+"Centering, left, right justify
