@@ -65,6 +65,8 @@ if has("gui_running")
 en
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 
+let Qnrm["\<c-l>"]=":call setline('.','txb:'.line('.'))\<cr>"
+
 let seed=reltime()[1]
 fun! RAND()
 	let g:seed=g:seed*1664525+1013904223
