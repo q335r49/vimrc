@@ -145,6 +145,9 @@ endfun
 fun! CompleteSwatches(Arglead,CmdLine,CurPos)
 	return filter(keys(g:SWATCHES),'v:val=~a:Arglead')
 endfun
+fun! CompleteSchemes(Arglead,CmdLine,CurPos)
+	return filter(keys(g:SCHEMES),'v:val=~a:Arglead')
+endfun
 fun! CSChooser(...)
 	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
 	if a:0==0
@@ -167,7 +170,7 @@ fun! CSChooser(...)
 		if has_key(g:CSChooserD,c)
 			exe g:CSChooserD[c]
 		el| let msg="[*]rand [fb]swatches [g]roup [hl]fg [i]nvert [jk]bg
-			\ [np]history fgbg[rR]and [s]ave" |en
+			\ [np]history fgbg[rR]and [s]ave [S]avescheme [L]oadscheme" |en
 		if continue
 			if g:CShix<=len(g:CShst)-1
 				let g:CShst[g:CShix]=[fg,bg]
@@ -327,9 +330,9 @@ fun! TMenu(cmd,...)
 	retu has_key(a:cmd,key)? a:cmd[key] : TMenu(a:cmd,'help')
 endfun!
 if exists("Cur_Device") && Cur_Device=="Droid4"
-	nno <expr> ' TMenu(g:normD)
-	ino <expr> ' TMenu(g:insD)
-	vno <expr> ' TMenu(g:visD)
+	nno <expr> _ TMenu(g:normD)
+	ino <expr> _ TMenu(g:insD)
+	vno <expr> _ TMenu(g:visD)
 else
 	nno <expr> ` TMenu(g:normD)
 	ino <expr> ` TMenu(g:insD)
@@ -341,7 +344,7 @@ cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
 cnorea <expr> bd! ((getcmdtype()==':' && getcmdpos()<5)? 'let NoMRUsav=1\|bd!':'bd!')
-cnorea <expr> wa ((getcmdtype()==':' && getcmdpos()<4)? "wa\|redr\|ec WriteVars('saveD')==0? 'vars saved' : 'ERROR!'" :'wa')
+cnorea <expr> wa ((getcmdtype()==':' && getcmdpos()<4)? "wa\|redr\|ec WriteVars(Working_Dir.'/saveD')==0? 'vars saved' : 'ERROR!'" :'wa')
 
 let g:charL=[]
 fun! CapWait(prev)
@@ -375,23 +378,23 @@ fun! InitCap(capnl)
 	if a:capnl==1
 		let b:CapStarters=".?!\<nl>\<cr>\<tab>\<space>"
 		let b:CapSeparators="\<nl>\<cr>\<tab>\<space>"
-		nm <buffer> <silent> O O_<Left><C-R>=CapWait("\r")<CR>
-		nm <buffer> <silent> o o_<Left><C-R>=CapWait("\r")<CR>
-		nm <buffer> <silent> cc cc_<Left><C-R>=CapHere()<CR>
-		nm <buffer> <silent> I I_<Left><C-R>=CapHere()<CR>
-		im <buffer> <silent> <CR> <CR>_<Left><C-R>=CapWait("\r")<CR>
-		im <buffer> <silent> <NL> <NL>_<Left><C-R>=CapWait("\n")<CR>
+		nm <buffer> <silent> O O^<Left><C-R>=CapWait("\r")<CR>
+		nm <buffer> <silent> o o^<Left><C-R>=CapWait("\r")<CR>
+		nm <buffer> <silent> cc cc^<Left><C-R>=CapHere()<CR>
+		nm <buffer> <silent> I I^<Left><C-R>=CapHere()<CR>
+		im <buffer> <silent> <CR> <CR>^<Left><C-R>=CapWait("\r")<CR>
+		im <buffer> <silent> <NL> <NL>^<Left><C-R>=CapWait("\n")<CR>
 	el| let b:CapStarters=".?!\<space>"
 		let b:CapSeparators="\<space>" | en
-	im <buffer> <silent> . ._<Left><C-R>=CapHere()<CR>
-	im <buffer> <silent> ? ?_<Left><C-R>=CapWait('?')<CR>
-	im <buffer> <silent> ! !_<Left><C-R>=CapWait('!')<CR>
-	nm <buffer> <silent> a a_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> A $a_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> i i_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> s s_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> cw cw_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> C C_<Left><C-R>=CapHere()<CR>
+	im <buffer> <silent> . .^<Left><C-R>=CapHere()<CR>
+	im <buffer> <silent> ? ?^<Left><C-R>=CapWait('?')<CR>
+	im <buffer> <silent> ! !^<Left><C-R>=CapWait('!')<CR>
+	nm <buffer> <silent> a a^<Left><C-R>=CapHere()<CR>
+	nm <buffer> <silent> A $a^<Left><C-R>=CapHere()<CR>
+	nm <buffer> <silent> i i^<Left><C-R>=CapHere()<CR>
+	nm <buffer> <silent> s s^<Left><C-R>=CapHere()<CR>
+	nm <buffer> <silent> cw cw^<Left><C-R>=CapHere()<CR>
+	nm <buffer> <silent> C C^<Left><C-R>=CapHere()<CR>
 endfun
 
 fun! CheckFormatted()
@@ -428,13 +431,16 @@ fun! WriteVimState()
 	exe 'cd '.g:Working_Dir 
 	let modtimeL=map(range(5),'getftime("varsave".v:val)')
 	if localtime()-max(modtimeL)>86400
-		call WriteVars('varsave'.index(modtimeL,min(modtimeL)))
+		call WriteVars(g:Working_Dir.'/varsave'.index(modtimeL,min(modtimeL)))
 	en
 	call WriteVars('saveD')
 	if has("gui_running")
 		let g:S_GUIFONT=&guifont |en
 	"curdir is necessary to retain relative path
 	se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
+	if argc()
+		argd *
+	en
 	mksession! .lastsession
 	if exists('g:RemoveBeforeWriteViminfo')
 		sil exe '!rm '.g:Viminfo_File |en
@@ -481,26 +487,29 @@ if len(MRUF)>60
 let NoMRUsav=0
 if !exists('CURCS') | let CURCS={} | el | call CSLoad(CURCS) |en
 if !exists('SWATCHES') | let SWATCHES={} |en
+if !exists('SCHEMES') | let SCHEMES={} |en
 au BufWinEnter * call RemHist(expand('%'))
 au BufRead * call CheckFormatted()
 au BufHidden * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
 au VimLeavePre * call WriteVimState()
-se noshowmode wrap linebreak sidescroll=1 ignorecase smartcase incsearch
+se wrap linebreak sidescroll=1 ignorecase smartcase incsearch
 se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 se stl=\ %l.%02c/%L\ %<%f%=\ } fcs=vert:\  showbreak=·\ 
+se term=screen-256color
+"se noshowmode
 redir END
 if !argc() && filereadable('.lastsession')
 	so .lastsession
 en
 
-let normD={39:"'",110:":se invhls\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
-\82:"R",67:":call CSChooser()\<cr>",9:":call TODO.show()\<cr>",
+let normD={95:"_",96:'`',48:"@",
+\110:":se invhls\<cr>",(g:EscAsc):"\<esc>",122:":wa\<cr>",9:":call TODO.show()\<cr>",
+\82:"R",67:":call CSChooser()\<cr>",116:":call TODO.show()\<cr>",
 \114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
 \80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
-\107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:nohl\<cr>",
-\116:"\<c-w>\<c-w>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
+\107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:nohl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
 \101:":call EdMRU()\<cr>",119:":se invwrap\<cr>",
 \49:":exe 'e '.escape(g:MRUF[0],' ')\<cr>",50:":exe 'e '.escape(g:MRUF[1],' ')\<cr>",
 \113:"\<esc>",51:":exe 'e '.escape(g:MRUF[2],' ')\<cr>",
@@ -511,15 +520,14 @@ let normD={39:"'",110:":se invhls\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>
 \'help':'123:buff C/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap z:wa *#:sub',
 \'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
 \.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]",
-\48:"@",
 \111:":call LOGDIC.111(1)\<cr>",
 \115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>"}
 
-let insD={39:"'",103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",96:'`',
+let insD={95:"_",96:'`',48:"@",
+\103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",
 \113:"\<c-o>\<esc>",111:"\<c-r>=input('`o','','customlist,CmpMRU')\<cr>",
 \49:"\<esc>:exe 'e '.g:MRUF[0]\<cr>",50:"\<esc>:exe 'e '.g:MRUF[1]\<cr>",
 \107:"\<esc>:s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:nohl\<cr>",
-\48:"@",
 \51:"\<esc>:exe 'e '.g:MRUF[2]\<cr>",110:"\<c-o>:noh\<cr>",
 \102:"\<c-r>=escape(expand('%'),' ')\<cr>",119:"\<c-o>\<c-w>\<c-w>",
 \'help':'123:buff f/ilename g/etchar k:center o/pen w/indow:',
@@ -561,7 +569,10 @@ let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 \exe "hi ".g:CSgrp." ctermfg=".(g:CURCS[g:CSgrp][0])." ctermbg=".(g:CURCS[g:CSgrp][1])
 \| en | let g:CSgrp=hi[in] | let msg=g:CSgrp | en',
 \115:'let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
-\if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en'}
+\if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en',
+\83:'let name=input("Save scheme as: ","","customlist,CompleteSchemes") |
+\if !empty(name) | let g:SCHEMES[name]=g:CURCS |en',
+\76:'let schemek=keys(g:SCHEMES) | let [in,cmd]=QSel(schemek,"scheme: ")|if in!=-1 && cmd!=g:EscAsc | let g:CURCS=g:SCHEMES[schemek[in]] | call CSLoad(g:CURCS) |en'}
 
 "Added changelog
 "Added shortcuts to log functions in normD command
@@ -608,3 +619,8 @@ let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 "fixed viminfo bug (&vi was being reset to default)
 "changed seach hl quick command to toggle
 "changed foldtext to display custom marks
+"cleared args before mksession to prevent unnecessary file loading
+"curdevice for device specific settings
+"changed tmenu trigger to _
+"changed autocap cursor to ^
+"Added [S]ave and [L]oad colorscheme
