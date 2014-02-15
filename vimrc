@@ -102,7 +102,7 @@ fun! Quote(sel,dr)
 	el| let A=(RQ>-1? RQ-cur : -1) | let T=(LQ>-1? cur-LQ : -1) | en
 	if T>-1 && A>-1 && getpos("'q")!=getpos('.')
 		retu 'norm! '.(T>0 ? T.g:Qx1[a:dr] : '').'x'
-		\.(T+A-!a:dr>0? (T+A-!a:dr).g:Qx1[!a:dr] : '').'x' 
+	   \.(T+A-!a:dr>0? (T+A-!a:dr).g:Qx1[!a:dr] : '').'x' 
 	elsei T!=-1 | retu 'norm! mq'.(T>0? T.g:Qx1[a:dr] :'').g:Qx2[a:dr]
 	elsei A!=-1 | retu 'norm! mq'.(A>0? A.g:Qx1[!a:dr] :'').g:Qx3[a:dr]
 	el|retu g:Qx4[a:dr] | en
@@ -279,60 +279,50 @@ fun! PrintList(list,i,cursor)
 	\.(type(a:list[a:i])==3? string(a:list[a:i]) : (a:list[a:i]))[:&columns-8]."\n"
 endfun
 fun! Pager(list,...)
-	let funcD=a:0==0? {'Print':'PrintList'} : a:1
+	let listD=a:0==0? {'Print':'PrintList'} : a:1
 	let g:cmdsave=&cmdheight
+	if has_key(listD,'cursor') && listD.cursor>=0 && listD.cursor<len(a:list)	
+		let cursor=listD.cursor	
+	el| let cursor=len(a:list)-1 | en
+	if has_key(listD,'offset')
+		if cursor<listD.offset
+			let offset=cursor
+		elseif cursor>listD.offset+g:PagerH-1
+			let offset=cursor-g:PagerH+1
+		el| let offset=listD.offset
+		endif
+	el| let offset=cursor-g:PagerH+1 | en
 	exe "se ch=".(g:PagerH+1)
-	let logmode=1
-	let offset=len(a:list)-g:PagerH+(!logmode)
-	let cursor=len(a:list)-logmode
 	let ent=''
-	while ent!=g:N_ESC || logmode==0
+	while ent!=g:N_ESC
 		let g:logmsg=''
 		for i in range(offset,offset+g:PagerH-1)
 			if i<0
 				let g:logmsg.="\n"
 			elseif i<len(a:list)
-				let g:logmsg.={funcD.Print}(a:list,i,cursor)
+				let g:logmsg.={listD.Print}(a:list,i,cursor)
 			elseif i>len(a:list)
 				let g:logmsg.="\n" | en	
 		endfor
 		redr!|ec g:logmsg
 		let ent=getchar()
-		if has_key(funcD,ent)
-			if func[ent]!=''
-				let newcursor={funcD[ent]}(a:list,cursor)
-				if newcursor<offset
-					let offset=newcursor
-				elseif newcursor>offset+g:PagerH-1
-					let offset+=newcursor-offset-g:PagerH+1
-				endif
-				let cursor=newcursor
-			en
+		if has_key(listD,ent)
+			if listD[ent]!='' | let cursor={listD[ent]}(a:list,cursor) | en
 		else
 			if ent==120 "x
 				if len(a:list)>0 | call remove(a:list,cursor) | en
 				if cursor==len(a:list) | let cursor=len(a:list)-1 | en
 			elseif ent==107 "k
-				if cursor>0
-					let cursor-=1
-					if cursor<offset
-						let offset-=1 | en
-				en
+				if cursor>0 | let cursor-=1 | en
 			elseif ent==106 "j
-				if cursor<len(a:list)-1
-					let cursor+=1
-					if cursor>=offset+g:PagerH
-						let offset+=1 | en
-				en
+				if cursor<len(a:list)-1 | let cursor+=1 | en
 			elseif ent==71 "G
 				let cursor=len(a:list)-1
-				let offset=len(a:list)-g:PagerH	
 			elseif ent==65 "A
 				let cursor=len(a:list)
 				let offset=len(a:list)-g:PagerH+1
 				redr!|let ent=input(g:logmsg.'CHG >',a:list[cursor])
 				let a:list[cursor]=ent
-				break
 			elseif ent==113 "q
 				let ent=g:N_ESC
 			elseif ent==105 "i
@@ -340,13 +330,11 @@ fun! Pager(list,...)
 				if len(a:list)==0
 					call insert(a:list,ent,cursor+1)
 					let cursor+=1
-					let offset+=1
 				el| call insert(a:list,ent,cursor) |en
 			elseif ent==97 "a
 				redr!|let ent=input(g:logmsg.'APP >')
 				call insert(a:list,ent,cursor+1)
 				let cursor+=1
-				let offset+=1
 			elseif ent==115 "s
 				redr!| exe 'let g:'.input(g:logmsg.'Save as: ').'=a:list'
 			elseif ent==99 "c
@@ -354,39 +342,63 @@ fun! Pager(list,...)
 				let a:list[cursor]=ent
 			en
 		en
+		if cursor<offset
+			let offset=cursor
+		elseif cursor>offset+g:PagerH-1
+			let offset+=cursor-offset-g:PagerH+1
+		endif
 	endwhile
+	if has_key(listD,'cursor') | let listD.cursor=cursor |en
+	if has_key(listD,'offset') | let listD.offset=offset |en
 	exe 'se ch='.g:cmdsave
-endfun
+endfun "Builtin functions xkjGAqiasc
 
+let LogDic={'cursor':'','offset':'','65':'LogAppend','105':'LogInsert','115':'LogStill','103':'LogGomrk',
+\'Print':'PrintLogLine','98':'LogBkmrk','99':'LogChange','97':'LogAppend'}
 fun! PrintLogLine(list, i, cursor)
 	return ((a:cursor==a:i? '>':' ')
 	\.PrintTime(a:list[a:i][0]-(a:i>0? a:list[a:i-1][0] : 0),
 	\a:list[a:i][0]).a:list[a:i][1])[0:&columns-2]."\n"
 endfun
 fun! LogChange(list,cursor)
-	redraw!
-	let a:list[a:cursor][1]=input(g:logmsg.'CHG >',a:list[a:cursor][1])
+	redr!|let a:list[a:cursor][1]=input(g:logmsg.'CHG >',a:list[a:cursor][1])
+	return a:cursor
+endfun
+fun! LogStill(list,cursor)
+	let a:list[len(a:list)-1][0]=localtime()
+	return len(a:list)-1
+endfun
+fun! LogInsert(list,cursor)
+	if len(a:list)==0
+		let time=localtime()
+	el| let time=a:list[a:cursor][0] |en
+	redr! | call insert(a:list,[time,input(g:logmsg.'Insert: ')],a:cursor)
 	return a:cursor
 endfun
 fun! LogAppend(list,cursor)
-	redraw!
-	call insert(a:list,[localtime(),input(g:logmsg.PrintTime(localtime()-a:list[-1][0]))],len(a:list))
+	redr!|call insert(a:list,[localtime(),input(g:logmsg.PrintTime(localtime()-a:list[-1][0]))],len(a:list))
 	return len(a:list)-1
 endfun
-fun! LogStill(list,cursor)
-	redraw!
-	let a:list[len(a:list)-1]=[localtime(),input(g:logmsg.'STILL >',a:list[len(a:list)-1][1])]
-	return len(a:list)-1
+fun! LogBkmrk(list, cursor)
+	let sepix=stridx(a:list[a:cursor][1],' `')
+	if sepix==-1 | let a:list[a:cursor][1].=' `'.line('.').' '.expand('%')
+	el| let a:list[a:cursor][1]=a:list[a:cursor][1][:sepix-1] | en
+	return a:cursor
 endfun
-let LogDic={'Print':'PrintLogLine','99':'LogChange','97':'LogAppend','115':'LogStill'}
+fun! LogGomrk(list, cursor)
+	let linenr=stridx(a:list[a:cursor][1],' `')
+	let name=stridx(a:list[a:cursor][1],' ',linenr+2)
+	if linenr!=-1 && name!=-1
+		let name=a:list[a:cursor][1][name+1:]
+		let linenr=a:list[a:cursor][1][linenr+2:name-1]
+		if glob(name)!=#glob('%') | exe 'e '.name | en
+		call cursor(linenr,0) | norm! zz
+	en
+	return a:cursor
+endfun
 fun! Log()
 	call Pager(g:tlog,g:LogDic)
 endfun
-
-"todo:
-"How do you lock functions? Merely having an empty function, right? good.
-"make Change do nothing on empty entry
-"Bookmarks... easy
 
 fun! TMenu(cmd,...)
 	let ec=a:0==0? eval(a:cmd.msg) : a:cmd[a:1]
@@ -503,7 +515,6 @@ fun! InitCap()
 endfun
 
 let g:Dashes=repeat('-',200)|let g:Pad=repeat(' ',200)
-let g:Tabs=repeat("\t",50)
 let g:OnTouch='IniScroll'
 se wiw=1
 fun! IniScroll()
@@ -776,10 +787,9 @@ fun! SetOpt(...)
 \102:"\<C-R>=escape(expand('%'),' ')\<CR>",
 \113:"\<Esc>a",'help':'b[123] [f]ilename [g]etchar l[s]:',
 \'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])"}
-	let g:visD={(g:N_ESC):"\<Esc>", 113:"\<Esc>",
-\103:"y:call GetVar(@\")\<CR>",
+	let g:visD={(g:N_ESC):"",103:"y:call GetVar(@\")\<CR>",
 \120:"y:@\"\<CR>",99:"y:\<C-R>\"",'help':'[g]etvar e[x]e 2[c]md:',
-\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])"}
+\'msg':"expand('%:t').' '.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])"}
 	let g:cmdD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):" \<BS>",96:" \<BS>`",
 \115:"\<C-R>=eval(join(repeat([HistMenu()],2),'==-1 ? \"\" : 
 \escape(split(histL[').'],\"\\\\\\$\")[0],\" \")')\<CR>",
@@ -876,14 +886,12 @@ if !exists('do_once') | let do_once=1
 en
 
 "Pager
+	"shopping list
 	"eval() for multidim
 	"Undo (use global variables)
 	"Copy Paste
-	"Memory
 	"Increase/decrease height (+/-)
 	"Special functions
-		"merge with Log
-		"shopping list
 		"TOC
 		"User Menus ... recipe cabinet: doable, like vsp
 	"better help msg based on LogPager ('more')
@@ -894,9 +902,6 @@ en
 	"Use higlight line and normal to change it for *most* cases
 	"have a *base scheme*: black and white??????
 	"redraw at end of scroll!
-"vsp bug -- redo onrelease, by storing last remembered position? speed?
-	"ve bug
-	"Use getchar()?!!
 "make recently used files lowercase
 "`t: trim spaces from end of lines
 "#t_ bug
@@ -905,3 +910,5 @@ en
 "Colorful echos
 "Centering, left, right justify
 "custom fonts for every *WORKING DIRECTORY* -- not stored in viminfo!!!
+"connectbot bug
+	"restore position at end of OnReSize
