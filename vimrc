@@ -15,10 +15,9 @@ if opt_device=~?'cygwin'
 	ino <c-_> <c-w>
 	nno <c-_> db
 	let opt_LongPressTimeout=[99999,99999]
-	let Viminfo_File= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings/viminfo'
-	let Cyg_Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings'
-	let Working_Dir= 'C:/Users/q335r49/Desktop/Dropbox/q335writings' | en
 	nno <MiddleMouse> <LeftMouse>:q<cr>
+	let Viminfo_File= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings/viminfo'
+	let Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings' | en
 if opt_device=~?'notepad'
 	se noswapfile
 	nno <c-s> :wa<cr>
@@ -665,7 +664,7 @@ fun! WriteVimState(file)
 	if has("gui_running") | let g:S_GUIFONT=&guifont |en
 	if a:file==#'exit'
 		"curdir is necessary to retain relative path
-		exe 'cd '.(g:opt_device=~?'cygwin'? g:Cyg_Working_Dir : g:Working_Dir)
+		exe 'cd '.g:Working_Dir
 		se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
 		if argc() | argd *
 		el | mksession! .lastsession | en
@@ -714,13 +713,11 @@ if !exists('firstrun')
 		ec 'Warning: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME
 		let Working_Dir=$HOME |en
 	for file in ['abbrev','pager','lab.vim']
-		if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
+		if !empty(glob(Working_Dir.'/'.file)) | exe 'so '.Working_Dir.'/'.file
 		el| ec 'Warning:' Working_Dir.'/'.file 'unreadable'|en
 	endfor
-	if !argc() && isdirectory(Working_Dir)
-		if opt_device=~?'cygwin'
-			exe 'cd '.Cyg_Working_Dir
-		el| exe 'cd '.Working_Dir | en | en
+	if !argc() && isdirectory(glob(Working_Dir))
+		exe 'cd '.Working_Dir | en
 	let setViExpr="se viminfo=!,'120,<100,s10,/50,:500,h,n"
 	if !exists('g:Viminfo_File')
 		ec "Warning: g:Viminfo_File undefined, falling back to default"
