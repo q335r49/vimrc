@@ -464,15 +464,33 @@ endfun
 
 fun! Write_Viminfo()
 	let g:TLOG=join(map(g:tlog,'v:val[0]."|".v:val[1]'),"\n")
-	let g:LAST_FILE=expand('%')|let g:HISTL=join(g:histL,"\n")
-	se viminfo=!,'20,<1000,s10,/50,:50,n~/.viminfo 
-	wv | se viminfo=
-	!cp ~/.viminfo viminfo
+	let g:LAST_FILE=expand('%')
+	let g:HISTL=join(g:histL,"\n")
+	se viminfo=!,'20,<1000,s10,/50,:50
+	if exists('g:viminfo_file_invalid')
+		wv
+	elseif !exists('g:USE_WV_WORKAROUND')
+		try
+			wv $VIMINFO_FILE
+		catch
+			let g:USE_WV_WORKAROUND=1
+			wv ~/.viminfo
+			!cp ~/.viminfo $VIMINFO_FILE
+		endtry
+	el| let g:USE_WV_WORKAROUND=1
+		wv ~/.viminfo
+		!cp ~/.viminfo $VIMINFO_FILE
+	en | se viminfo=
 endfun
 
 if !exists('do_once') | let do_once=1
-se viminfo=!,'20,<1000,s10,/50,:50,n/mnt/sdcard/q335writings/viminfo
-rv | se viminfo=
+se viminfo=!,'20,<1000,s10,/50,:50
+	if filereadable($VIMINFO_FILE)
+		rv $VIMINFO_FILE
+	el| let g:viminfo_file_invalid=1
+		rv
+	en
+se viminfo=
 au VimLeavePre * call Write_Viminfo()
 
 se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
