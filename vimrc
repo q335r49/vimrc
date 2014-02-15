@@ -1,5 +1,3 @@
-"add days to log menu
-
 if !exists('do_once') | let do_once=1
 se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
 se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
@@ -127,29 +125,57 @@ nno <expr> ` TMenu(g:normD)
 ino <expr> ` TMenu(g:insD)
 cno <expr> ` eval('TMenu('.g:cmdMode.')')
 
-let HLb=split('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ','\zs')
+let HLb=split('1234567890abcdefghijklmnopqrstuvwxyz
+\ABCDEFGHIJKLMNOPQRSTUVWXYZ','\zs')
 let Asc2HLb=repeat([-1],256) | for i in range(len(HLb))
-	let Asc2HLb[char2nr(tolower(HLb[i]))]=i
-	let Asc2HLb[char2nr(toupper(HLb[i]))]=i
+	let Asc2HLb[char2nr(HLb[i])]=i
 endfor
 let g:maxW=15
 fun! GetLbl(file)
 	let name=matchstr(a:file,"[[:alnum:]][^/\\\\]*\\$")[:-2]	
 	return len(name)+3>g:maxW ? name[0:g:maxW-8]."~".name[-3:] : name
-endfun
+endfu4
 fun! InitHist()
 	let g:histLb=map(copy(g:histL),'GetLbl(v:val)')
 	let g:HLb2fIx=repeat([-1],len(g:HLb)+1) "invar: g:HLb2fIx[-1]=-1
+	let unassigned=range(len(g:histLb))
+	for i in unassigned
+		let lbl=g:Asc2HLb[char2nr(tolower(g:histLb[i][0]))]
+		if lbl==-1 | let unassigned[i]=-1
+		elseif g:HLb2fIx[lbl]==-1
+			let g:histLb[i]=g:HLb[lbl].')'.g:histLb[i]
+			let g:HLb2fIx[lbl]=i
+		else | let lbl=g:Asc2HLb[char2nr(toupper(g:histLb[i][0]))]
+			if g:HLb2fIx[lbl]==-1
+				let g:histLb[i]=g:HLb[lbl].')'.g:histLb[i]
+				let g:HLb2fIx[lbl]=i
+			el |let unassigned[i]=-1 |en
+		en
+	endfor
 	let firstopenslot=0
 	for i in range(len(g:histLb))
-		let lbl=g:Asc2HLb[char2nr(g:histLb[i][0])]
-		if lbl==-1 || g:HLb2fIx[lbl]!=-1
+		if unassigned[i]==-1
 			let lbl=match(g:HLb2fIx,-1,firstopenslot)
-			let firstopenslot=lbl+1	
+			let g:histLb[i]=g:HLb[lbl].')'.g:histLb[i]
+			let g:HLb2fIx[lbl]=i
+			let firstopenslot+=1
 		en
-		let g:histLb[i]=g:HLb[lbl].')'.g:histLb[i]
-		let g:HLb2fIx[lbl]=i
 	endfor
+endfun
+fun! RmHist(ix)
+	if (a:ix>=len(g:histL) || a:ix<0) | retu 0|en
+	if g:histLb[a:ix][0]==?g:histLb[a:ix][2]
+		for i in range(a:ix+1,len(g:histLb)-1)
+		if g:histLb[i][2]==?g:histLb[a:ix][0] && g:histLb[i][2]!=?g:histLb[i][0]
+			let g:HLb2fIx[g:Asc2HLb[char2nr(g:histLb[i][0])]]=-1
+			let g:HLb2fIx[g:Asc2HLb[char2nr(g:histLb[a:ix][0])]]=i
+			let g:histLb[i]=g:histLb[a:ix][0].g:histLb[i][1:]
+		break|en
+		endfor
+	en
+	call remove(g:histLb,a:ix)
+	call map(g:HLb2fIx,'v:val>a:ix ? v:val-1 : (v:val==a:ix ? -1 : v:val)')
+	return split(remove(g:histL,a:ix),'\$')[1]
 endfun
 fun! InsHist(name,num)
 	if a:name==''|retu|en
@@ -159,8 +185,13 @@ fun! InsHist(name,num)
 		let g:histL=g:histL[:len(g:HLb)-16] | call InitHist()
 	retu|en
 	let name=GetLbl(g:histL[0])
-	let lbl=g:Asc2HLb[char2nr(name[0])]
-	let collision=g:HLb2fIx[lbl]
+	let lbll=g:Asc2HLb[char2nr(tolower(name[0]))]
+	let lblu=g:Asc2HLb[char2nr(toupper(name[0]))]
+	let collisionl=g:HLb2fIx[lbll]
+	let collisionu=g:HLb2fIx[lblu]
+	if collisionl==-1
+		let lbl=lbll | let collision=collisionl
+	el |let lbl=lblu | let collision=collisionu |en
 	call map(g:HLb2fIx,'v:val==-1 ? -1 : v:val+1')
 	if lbl==-1
 		let newIx=match(g:HLb2fIx,-1)	
@@ -176,21 +207,6 @@ fun! InsHist(name,num)
 		let g:HLb2fIx[lbl]=0	
 		call insert(g:histLb,g:HLb[lbl].')'.name)
 	en
-endfun
-fun! RmHist(ix)
-	if (a:ix>=len(g:histL) || a:ix<0) | retu '0'|en
-	if g:histLb[a:ix][0]==g:histLb[a:ix][2]
-		for i in range(a:ix+1,len(g:histLb)-1)
-			if g:histLb[i][2]==g:histLb[a:ix][0]
-				let g:HLb2fIx[g:Asc2HLb[char2nr(g:histLb[i][0])]]=-1
-				let g:HLb2fIx[g:Asc2HLb[char2nr(g:histLb[a:ix][0])]]=i
-				let g:histLb[i]=g:histLb[a:ix][0].g:histLb[i][1:]
-			break|en
-		endfor
-	en
-	call remove(g:histLb,a:ix)
-	call map(g:HLb2fIx,'v:val>a:ix ? v:val-1 : (v:val==a:ix ? -1 : v:val)')
-	return split(remove(g:histL,a:ix),'\$')[1]
 endfun
 fun! FmtList(list, ...)
 	let tabW=a:0==0? 0 : a:1 | let padN=[0]+(tabW==0 ? [] : range(tabW-1,1,-1))
