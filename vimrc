@@ -279,11 +279,7 @@ fun! PrintList(list,i,cursor)
 	\.(type(a:list[a:i])==3? string(a:list[a:i]) : (a:list[a:i]))[:&columns-8]."\n"
 endfun
 fun! Pager(list,...)
-	if a:0==0
-		let PrintFunc='PrintList'
-	else
-		let PrintFunc=a:1
-	en
+	let funcD=a:0==0? {'Print':'PrintList'} : a:1
 	let g:cmdsave=&cmdheight
 	exe "se ch=".(g:PagerH+1)
 	let logmode=1
@@ -291,70 +287,79 @@ fun! Pager(list,...)
 	let cursor=len(a:list)-logmode
 	let ent=''
 	while ent!=g:N_ESC || logmode==0
-		let logmsg=''
+		let g:logmsg=''
 		for i in range(offset,offset+g:PagerH-1)
 			if i<0
-				let logmsg.="\n"
+				let g:logmsg.="\n"
 			elseif i<len(a:list)
-				let logmsg.={PrintFunc}(a:list,i,cursor)
+				let g:logmsg.={funcD.Print}(a:list,i,cursor)
 			elseif i>len(a:list)
-				let logmsg.="\n" | en	
+				let g:logmsg.="\n" | en	
 		endfor
 		if logmode==0
-			if ent==105 "i
-				redr!|let ent=input(logmsg.'INS >')
-				if len(a:list)==0
+			if has_key(funcD,'_'.ent)
+				call {funcD['_'.ent]}(a:list,i,cursor)
+			else
+				if ent==105 "i
+					redr!|let ent=input(g:logmsg.'INS >')
+					if len(a:list)==0
+						call insert(a:list,ent,cursor+1)
+						let cursor+=1
+						let offset+=1
+					el| call insert(a:list,ent,cursor) |en
+				elseif ent==97 "a
+					redr!|let ent=input(g:logmsg.'APP >')
 					call insert(a:list,ent,cursor+1)
 					let cursor+=1
 					let offset+=1
-				el| call insert(a:list,ent,cursor) |en
-			elseif ent==97 "a
-				redr!|let ent=input(logmsg.'APP >')
-				call insert(a:list,ent,cursor+1)
-				let cursor+=1
-				let offset+=1
-			elseif ent==115 "s
-				redr!| exe 'let g:'.input(logmsg.'Save as: ').'=a:list'
-			else
-				redr!|let ent=input(logmsg.'CHG >',a:list[cursor])
-				let a:list[cursor]=ent
+				elseif ent==115 "s
+					redr!| exe 'let g:'.input(g:logmsg.'Save as: ').'=a:list'
+				else
+					redr!|let ent=input(g:logmsg.'CHG >',a:list[cursor])
+					let a:list[cursor]=ent
+				en
+				let logmode=1
 			en
-			let logmode=1
-		el| redr!|ec logmsg
+		el| redr!|ec g:logmsg
 			let ent=getchar()
-			if ent==120 "x
-				if len(a:list)>0 | call remove(a:list,cursor) | en
-				if cursor==len(a:list) | let cursor=len(a:list)-1 | en
-			elseif ent==107 "k
-				if cursor>0
-					let cursor-=1
-					if cursor<offset
-						let offset-=1 | en
+			if has_key(funcD,ent)
+				call {funcD.ent}(a:list,i,cursor)
+			else
+				if ent==120 "x
+					if len(a:list)>0 | call remove(a:list,cursor) | en
+					if cursor==len(a:list) | let cursor=len(a:list)-1 | en
+				elseif ent==107 "k
+					if cursor>0
+						let cursor-=1
+						if cursor<offset
+							let offset-=1 | en
+					en
+				elseif ent==106 "j
+					if cursor<len(a:list)-1
+						let cursor+=1
+						if cursor>=offset+g:PagerH
+							let offset+=1 | en
+					en
+				elseif ent==99 || ent==105 || ent==97 "cia
+					let logmode=0	
+				elseif ent==71 "G
+					let cursor=len(a:list)-1
+					let offset=len(a:list)-g:PagerH	
+				elseif ent==65 "A
+					let cursor=len(a:list)
+					let offset=len(a:list)-g:PagerH+1
+					let logmode=0
+				elseif ent==113 "q
+					let ent=g:N_ESC
+				elseif ent==115 "s
+					let logmode=0
 				en
-			elseif ent==106 "j
-				if cursor<len(a:list)-1
-					let cursor+=1
-					if cursor>=offset+g:PagerH
-						let offset+=1 | en
-				en
-			elseif ent==99 || ent==105 || ent==97 "cia
-				let logmode=0	
-			elseif ent==71 "G
-				let cursor=len(a:list)-1
-				let offset=len(a:list)-g:PagerH	
-			elseif ent==65 "A
-				let cursor=len(a:list)
-				let offset=len(a:list)-g:PagerH+1
-				let logmode=0
-			elseif ent==113 "q
-				let ent=g:N_ESC
-			elseif ent==115 "s
-				let logmode=0
 			en
 		en
 	endwhile
 	exe 'se ch='.g:cmdsave
 endfun
+
 fun! Log()
 	let g:cmdsave=&cmdheight
 	exe "se ch=".(g:PagerH+1)
@@ -446,8 +451,13 @@ fun! PrintLogLine(list, i, cursor)
 	\.PrintTime(a:list[a:i][0]-(a:i>0? a:list[a:i-1][0] : 0),
 	\a:list[a:i][0]).a:list[a:i][1])[0:&columns-2]."\n"
 endfun
+fun! LogChange(list,i,cursor)
+		
+endfun
+let LogDic={'Print':'PrintLogLine',
+\'099':'LogChange','98':'LogBookmark','97':'LogAppend','115':'LogStill'}
 fun! Log2()
-	call Pager(g:tlog,'PrintLogLine')
+	call Pager(g:tlog,g:LogDic)
 endfun
 
 fun! TMenu(cmd,...)
