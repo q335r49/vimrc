@@ -1,3 +1,17 @@
+fun! NextHeading(...)
+	norm! ^
+	let indent=virtcol('.')-1
+	norm! 0
+	call search('^'.repeat('\t',indent/&ts).repeat(' ',indent%&ts)
+	\.'[^[:space:]]'.(indent==0? '':'\|'.repeat(' ',indent)),a:0? 'Wb':'W')
+endfun
+nn + :call NextHeading()<CR>
+nn - :call NextHeading('b')<CR>
+
+fun! Ec(x,...)
+	echom '<'.(a:0? a:1.a:x : a:x).'>' | return a:x
+endfun
+
 let Qpairs={'(':')','{':'}','[':']','<':'>'}
 let QpairsOpp={')':'(','}':'{',']':'[','>':'<'}
 let Qx1=['h','l']
@@ -160,17 +174,19 @@ fun! Edit(file)
 			call setline(1,localtime()." vim: set nowrap ts=4 tw=62 fo=aw: "
 			\.strftime('%H:%M %m/%d/%y'))
 			setlocal nowrap ts=4 tw=62 fo=aw |en
-		if getline(1)=~'tw='
+		if getline(1)=~'fo=aw'
 			call InitCap()
 			iab <buffer> i I
 			iab <buffer> Id I'd
 			iab <buffer> id I'd
 			iab <buffer> im I'm
 			iab <buffer> Im I'm
-			nmap <buffer> A }b$a
-			nmap <buffer> I {w0i
-			nno <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
-			nno <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
+			nn <buffer> <silent> { :call search('[^ ]\n\s*.\\|\n\n\s*.','Wbe')<CR>
+			nn <buffer> <silent> } :call search('[^ ]$','W')<CR>
+			nm <buffer> A }a
+			nm <buffer> I {i
+			nn <buffer> > :se ai<CR>mt>apgqap't:se noai<CR>
+			nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
 			redr|ec 'Editing as text: '.file[0] |en
 	el| exe 'e '.escape(file[0],' ') | en
 	if len(file)>1 | call cursor(split(file[1],'|'))
@@ -178,7 +194,7 @@ fun! Edit(file)
 		call cursor(ix>=0? split(split(g:histL[ix],'\$')[1],'|') : [1,1]) |en
 endfun
 command! -nargs=1 -complete=file Edit call Edit('<args>')
-nno gf :call Edit(expand('<cWORD>'))<CR>
+nno gf :call Edit(expand('<cword>'))<CR>
 
 fun! PrintTime(s,...)
 	retu strftime('%b%e %I:%M ',a:0>0? (a:1) : localtime())
@@ -566,13 +582,14 @@ fun! SetOpt(...)
 \115:"\<C-R>='S:'.((inputsave()? '':'').input(g:logmsg.'STILL:')
 \.(inputrestore()? '':''))\<CR>\<CR>",'help':'[L]og [R]ename [S]till [X]Del:',
 \(g:N_ESC):"\<C-R>=input(g:logmsg)\<CR>\<CR>",
+\113:"\<C-R>=input(g:logmsg)\<CR>\<CR>",
 \'msg':"PrintTime(localtime()-g:tlog[0][0],g:tlog[0][0]).len(g:tlog).'L:'"}
 	let g:normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',119:":wa\<CR>",
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
 \112:":call IniPaint()\<CR>",108:":call Log()\<CR>",
 \103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"^y$:\<C-R>\"\<CR>",
-\113:"\<Esc>",
 \115:":let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
+\113:"\<Esc>",
 \99:":call QuoteChange(nr2char(getchar()))\<CR>",
 \49:":call Edit(g:histL[0])\<CR>",
 \50:":call Edit(g:histL[1])\<CR>",
@@ -601,7 +618,7 @@ fun! SetOpt(...)
 \'msg':"expand('%:t').' '.line('.').'.'.col('.').'/'.line('$').' '
 \.PrintTime(localtime()-g:tlog[-1][0])"}
 endfun
-fun! FirstRunSetup()
+fun! WelcomeMsg()
 	if has('win16') || has('win32') || has('win64') | let os='WIN'
 	elseif exists('$VIMINFO_FILE') | let os='AND'
 	el| let os='UX' | en
@@ -614,13 +631,13 @@ fun! FirstRunSetup()
 endfun
 fun! OnVimEnter()
 	if !exists('g:WORKING_DIR') || !isdirectory(glob(g:WORKING_DIR))
-		call FirstRunSetup() | en
+		call WelcomeMsg() | en
 	call SetOpt(g:INPUT_METH) |  exe 'so '.g:WORKING_DIR.'/abbrev'
 	if !argc() | exe 'cd '.g:WORKING_DIR
-		if len(g:histL)>0 | call Edit(g:histL[0])
-			call RmHist(match(g:histL,'\V'.escape(expand('%'),'\').'$'))
+		if len(g:histL)>0 | call Edit(g:histL[0]) | call RmHist(0)
 	en | en
 	if glob(g:WORKING_DIR)=='/home/q335/Desktop/Dropbox/q335writings'
+	\ && !has("gui_running")
 		map OA <Up>
 		map OB <Down>
 		map OD <Left>
@@ -637,9 +654,9 @@ if !exists('do_once') | let do_once=1
 		el| let g:viminfo_file_invalid=1 | rv | en
 	se viminfo=
 	au VimEnter * call OnVimEnter()
-	au BufWinEnter * call RmHist(match(g:histL,'\V'.escape(expand('%'),'\').'$'))
+	au BufWinEnter * call RmHist(match(g:histL,'\V\^'.escape(expand('%'),'\').'$'))
 	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
-	au VimLeavePre * call InsHist(expand('%'),line('.'),col('.')) | call Write_Viminfo()
+	au VimLeavePre * call Write_Viminfo()
 	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
 	se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
 	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
@@ -662,8 +679,7 @@ if !exists('do_once') | let do_once=1
 	el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
 	let histL=exists('HISTL') ? split(HISTL,"\n") : [] | call InitHist()
 	call IniQuote("@")
+	nohl
 en
-"Change } behavior to include indented paragraphs
-"Remove LogMenu
-"Use Working directory to set everything, change welcome message
-"Use q for quitting, universally
+"Nextheading for formatted paragraphs
+"Handle entering files with bookmarks? Check autoformat on bufenter
