@@ -1,6 +1,7 @@
-redir => g:StartupErr
-
 se nocompatible
+se timeoutlen=1
+
+redir => g:StartupErr
 
 if !exists('Cur_Device')
 	echom "Warning: Cur_Device is undefined, device specific settings may not be loaded."
@@ -14,17 +15,115 @@ if Cur_Device=='cygwin'
 	vno <c-v> "*p
 	ino <c-_> <c-w>
 	nno <c-_> db
-	let OPT_DisableAutocap=1
+	let opt_DisableAutocap=1
+	let opt_LongPressTimeout=[99999,99999]
+	let opt_TmenuKey="`"
 	let Viminfo_File='~/.viminfo'
 	let Cyg_Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings'
 	let Working_Dir= 'C:/Users/q335r49/Desktop/Dropbox/q335writings'
-	let EscChar=''
+	let EscChar="\e"
 	if Cur_RunAs=='notepad'
 		se noswapfile
 		nno <c-s> :wa<cr>			
 		nno <c-w> :wqa<cr>
+		nno <c-v> "*p
+		nno <c-q> <c-v> 
 		let opt_colorscheme='notepad'
 	en
+elseif Cur_Device='droid4'
+	let opt_TmenuKey="_"
+	let opt_LongPressTimeout=[0,500000]
+	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
+el
+	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
+	let opt_TmenuKey="`"
+	let opt_LongPressTimeout=[0,500000]
+en
+let opt_TmenuAsc=char2nr(opt_TmenuKey)
+
+fun! SoftCapsLock()
+	let key=getchar()
+	while key!=g:EscAsc
+		if key=="\<backspace>"
+			norm! x
+		el| exe "norm! a".toupper(nr2char(key)) |en
+		redraw!
+		let key=getchar()
+	endwhile
+endfun
+
+fun! MLT()
+    if search('\C\V'.nr2char(getchar()),'bW')
+        norm! l
+    endif
+endfun
+fun! MLF()
+    call search('\C\V'.nr2char(getchar()),'bW')
+endfun
+fun! MLf()
+    if search('\C\V'.nr2char(getchar()),'W')
+        norm! l
+    endif
+endfun
+fun! MLt()
+    call search('\C\V'.nr2char(getchar()),'W')
+endfun
+fun! MLnT()
+    if search('\C\V'.nr2char(getchar()),'bW')
+        norm! l
+    endif
+endfun
+fun! MLnF()
+    call search('\C\V'.nr2char(getchar()),'bW')
+endfun
+fun! MLnt()
+    if search('\C\V'.nr2char(getchar()),'W')
+        norm! h
+    endif
+endfun
+fun! MLnf()
+    call search('\C\V'.nr2char(getchar()),'W')
+endfun
+
+fun! InvertSetting(choice)
+	if a:choice==119
+		se invwrap
+	elseif a:choice==104
+		se invhls
+	elseif a:choice==108
+		se invlist
+	en
+endfun
+
+if !exists('Cur_Device')
+	echom "Warning: Cur_Device is undefined, device specific settings may not be loaded."
+	let Cur_Device=''
+en
+if !exists('Cur_RunAs')
+	let Cur_RunAs=''
+en
+let opt_LongPressTimeout=[0,500000]
+if Cur_Device=='cygwin'
+	vno <c-c> "*y
+	vno <c-v> "*p
+	ino <c-_> <c-w>
+	nno <c-_> db
+	let opt_DisableAutocap=1
+	let opt_LongPressTimeout=[99999,99999]
+	let Viminfo_File='~/.viminfo'
+	let Cyg_Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings'
+	let Working_Dir= 'C:/Users/q335r49/Desktop/Dropbox/q335writings'
+	let EscChar="\e"
+	if Cur_RunAs=='notepad'
+		se noswapfile
+		nno <c-s> :wa<cr>			
+		nno <c-w> :wqa<cr>
+		nno <c-v> "*p
+		nno <c-q> <c-v> 
+		let opt_colorscheme='notepad'
+	en
+el
+	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
 en
 
 nno <c-p> :call GotoPreviousFold()<cr>
@@ -38,12 +137,15 @@ endfun
 
 ab /f {{{}}}2k$a
 
+if Cur_Device=="Droid4"
+	nn R <c-r>
+	nn <c-r> <nop>
+en
+
 nn j gj
 nn k gk
 nn gj j
 nn gk k
-nn R <c-r>
-nn <c-r> <nop>
 ino <c-z> <Space>
 nn <expr> gp '`['.getregtype().'`]'
 
@@ -77,7 +179,6 @@ fun! Getcharuntil(t)
 endfun
 
 let g:prevglide=0
-nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
 fun! Mscroll()
 	exe v:mouse_win.'wincmd w'
 	if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1)
@@ -97,8 +198,9 @@ fun! Mscroll()
 		endw
 	el| let pos=winline()
 		if pos==1 | exe "keepj norm! \<c-y>" |en
+		while 1 "continue scrolling if no fold or jumps are detected
 	  	let [timeL,diffL]=[[],[]]
-		while Getcharuntil([0,500000]) is "\<leftdrag>"
+		while Getcharuntil(g:opt_LongPressTimeout) is "\<leftdrag>"
 			exe 'keepj norm! '.v:mouse_lnum.'G'
 			let diff=winline()+(v:mouse_col-1)/&columns-pos
 			call add(timeL,g:gcwait)
@@ -108,11 +210,13 @@ fun! Mscroll()
 				exe 'keepj norm! '.(diff>0? diff."\<c-y>":-diff."\<c-e>")
 				redr|ec line('w0') '/' line('$')|en
 		endwhile
-		if ReltimeLT([0,500000],g:gcwait)
+		let action_executed=1
+		if ReltimeLT(g:opt_LongPressTimeout,g:gcwait)
 			try | keepj norm! za
 			catch *
 				try | exe "keepj norm! \<c-]>"
 				catch *
+					let action_executed=0
 				endtry
 			endtry
 		elseif ReltimeLT(g:gcwait,[0,100000])
@@ -139,6 +243,10 @@ fun! Mscroll()
 				let g:prevglide=(2200-delay)*glide/4200
 			el| let g:prevglide=0 |en
 		en
+		if action_executed
+			break
+		en
+		endwhile
 	en
 endfun
 
@@ -349,7 +457,6 @@ fun! EdMRU()
 	redr
 endfun
 
-
 fun! GetLbl(file)
 	let name=matchstr(a:file,"[[:alnum:]][^/\\\\]*$")
 	return len(name)>12 ? name[0:7]."~".name[-3:] : name
@@ -362,8 +469,6 @@ fun! InsHist(name,lnum,cnum,w0)
 		cal insert(g:MRUL,[a:lnum,a:cnum,a:w0])
 	en
 endfun
-
-
 
 fun! RemHist(file)
 	let i=match(g:MRUF,'^'.a:file.'$')
@@ -380,27 +485,21 @@ fun! TMenu(cmd,...)
 	if 1+len(ec)/&columns >= &cmdheight
 		let save=&cmdheight | exe 'se cmdheight='.(1+len(ec)/&columns)
 			ec ec | let key=getchar() | redr!
-		exe 'se cmdheight='.save
+		let &cmdheight=save
 	el| ec ec
 		let key=getchar()|redr! | en
 	retu has_key(a:cmd,key)? a:cmd[key] : TMenu(a:cmd,'help')
 endfun!
-if Cur_Device=="Droid4"
-	nno <expr> _ TMenu(g:normD)
-	ino <expr> _ TMenu(g:insD)
-	vno <expr> _ TMenu(g:visD)
-else
-	nno <expr> ` TMenu(g:normD)
-	ino <expr> ` TMenu(g:insD)
-	vno <expr> ` TMenu(g:visD)
-endif
+exe "nno <expr> ".opt_TmenuKey." TMenu(g:normD)"
+exe "ino <expr> ".opt_TmenuKey." TMenu(g:insD)"
+exe "vno <expr> ".opt_TmenuKey." TMenu(g:visD)"
 
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
-"cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
-"cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
-"cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
-"cnorea <expr> bd! ((getcmdtype()==':' && getcmdpos()<5)? 'let NoMRUsav=1\|bd!':'bd!')
-"cnorea <expr> wa ((getcmdtype()==':' && getcmdpos()<4)? "wa\|redr\|ec (WriteVars(Working_Dir.'/saveD')==0? 'vars saved' : 'ERROR!')" :'wa')
+cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
+cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
+cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
+cnorea <expr> bd! ((getcmdtype()==':' && getcmdpos()<5)? 'let NoMRUsav=1\|bd!':'bd!')
+cnorea <expr> wa ((getcmdtype()==':' && getcmdpos()<4)? "wa\|redr\|ec (WriteVars(Working_Dir.'/saveD')==0? 'vars saved' : 'ERROR!')" :'wa')
 
 let g:charL=[]
 fun! CapWait(prev)
@@ -430,7 +529,7 @@ fun! CapHere()
 	\ : (trunc=~'[?!.]\s*$\|^\s*$' && trunc!~'\.\.\s*$') ? (CapWait(trunc[-1:-1])) : "\<del>"
 endfun
 fun! InitCap(capnl)
-	if exists('g:OPT_DisableAutocap') | retu|en
+	if exists('g:opt_DisableAutocap') | retu|en
 	ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
 	if a:capnl==1
 		let b:CapStarters=".?!\<nl>\<cr>\<tab>\<space>"
@@ -456,8 +555,7 @@ endfun
 
 fun! CheckFormatted()
 	let options=getline(1)
-	let options=options[:stridx(options,':')]
-	if options=~?'fold'
+	if &fdm!='manual'
 		nn <buffer>	<cr> za
 	en
 	if options=~?'prose'
@@ -468,8 +566,17 @@ fun! CheckFormatted()
 		iab <buffer> id I'd
 		iab <buffer> im I'm
 		iab <buffer> Im I'm
+
+		onoremap <silent> F :call MLF()<CR>
+		onoremap <silent> T :call MLT()<CR>
+		onoremap <silent> f :call MLf()<CR>
+		onoremap <silent> t :call MLt()<CR>
+		nnoremap <silent> F :call MLnF()<CR>
+		nnoremap <silent> T :call MLnT()<CR>
+		nnoremap <silent> f :call MLnf()<CR>
+		nnoremap <silent> t :call MLnt()<CR>
 	en
-	if options=~'fo=aw'
+	if &fo=~'a'
 		nn <buffer> <silent> { :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
 		nn <buffer> <silent> } :if !search('\S\n\\|\s\n\s*\n','W')\|exe'norm!G$'\|en<CR>
 		nm <buffer> A }a
@@ -501,8 +608,9 @@ fun! WriteVimState()
 	se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
 	if argc()
 		argd *
+	el
+		mksession! .lastsession
 	en
-	mksession! .lastsession
 	if exists('g:RemoveBeforeWriteViminfo')
 		sil exe '!rm '.g:Viminfo_File |en
 endfun
@@ -555,21 +663,19 @@ if !exists('SWATCHES') | let SWATCHES={} |en
 if !exists('SCHEMES') | let SCHEMES={'lastscheme':''} | en
 if exists('opt_colorscheme')
 	call CSLoad(SCHEMES[opt_colorscheme])
-else
-	if has_key(SCHEMES,SCHEMES.lastscheme)
-		call CSLoad(SCHEMES[SCHEMES.lastscheme])
-	el
-		call CSLoad({})
-	en
+elseif has_key(SCHEMES,SCHEMES.lastscheme)
+	call CSLoad(SCHEMES[SCHEMES.lastscheme])
+el
+	call CSLoad({})
 en
 au BufWinEnter * call RemHist(expand('%'))
-au BufRead * call CheckFormatted()
+au BufWinEnter * call CheckFormatted()
 au BufHidden * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
 au VimLeavePre * call WriteVimState()
 se wrap linebreak sidescroll=1 ignorecase smartcase incsearch
 se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
-se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
+se whichwrap+=b,s,h,l,<,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 se stl=\ %l.%02c/%L\ %<%f%=\ 
 se fcs=vert:\  showbreak=.\  
 se term=screen-256color
@@ -579,7 +685,6 @@ if Cur_Device=='cygwin' "from code.google.com/p/mintty/wiki/Tips
 	let &t_SI.="\e[6 q"
 	let &t_EI.="\e[2 q"
 	let &t_te.="\e[0 q"
-	inoremap <Esc> <Esc><Esc>
 	se noshowmode
 en
 redir END
@@ -587,28 +692,41 @@ if !argc() && filereadable('.lastsession')
 	so .lastsession
 en
 
-let normD={95:"_",96:'`',48:"@",
-\110:":se invhls\<cr>",(g:EscAsc):"\<esc>",122:":wa\<cr>",32:":call TODO.show()\<cr>",
+fun! AdjustFontSize(k)
+	let cmd=a:k
+	while cmd==60 || cmd==62
+		silent exe "!echo -e \"\\e]7770;".(cmd==60? "-":"+")."1\\a\" &" | redraw!
+		let cmd=getchar()
+	endwhile
+endfun
+
+let normD={(g:EscAsc):"\<esc>",(g:opt_TmenuAsc):g:opt_TmenuKey}
+let normD=extend(normD,{62:":silent call AdjustFontSize(62)\<cr>",
+\60:":silent call AdjustFontSize(60)\<cr>",
+\122:":wa\<cr>",32:":call TODO.show()\<cr>",
 \82:"R",99:":call CSChooser()\<cr>",116:":call TODO.show()\<cr>",
 \114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
 \80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
 \107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invhl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
-\101:":call EdMRU()\<cr>",119:":se invwrap\<cr>",
+\101:":call EdMRU()\<cr>",
+\105:":call InvertSetting(getchar())\<cr>",
 \49:":exe 'e '.escape(g:MRUF[0],' ')\<cr>",50:":exe 'e '.escape(g:MRUF[1],' ')\<cr>",
 \113:"\<esc>",51:":exe 'e '.escape(g:MRUF[2],' ')\<cr>",
 \112:"i\<c-r>=eval(input('Put: ','','var'))\<cr>",109:":mes\<cr>",
 \42:":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \35:":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>",
-\'help':'123:buff c/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap z:wa *#:sub ^w/riteroom',
+\'help':'<>:Font 123:buff c/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap z:wa *#:sub ^w/riteroom',
 \'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
 \.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]",
 \111:":call LOGDIC.111(1)\<cr>",
 \115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>",
-\23:":call Writeroom(25)\<cr>"}
+\23:":call Writeroom(25)\<cr>"})
 
-let insD={95:"_",96:'`',48:"@",
-\103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",
+let insD={(g:EscAsc):"\<c-o>\<esc>",(g:opt_TmenuAsc):g:opt_TmenuKey}
+let insD=extend(insD,{105:":call InvertSetting(getchar())\<cr>",
+\97:"\<c-o>:call SoftCapsLock()\<cr>",
+\103:"\<c-r>=getchar()\<cr>",
 \113:"\<c-o>\<esc>",111:"\<c-r>=input('`o','','customlist,CmpMRU')\<cr>",
 \49:"\<esc>:exe 'e '.g:MRUF[0]\<cr>",50:"\<esc>:exe 'e '.g:MRUF[1]\<cr>",
 \107:"\<esc>:s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invnohl\<cr>",
@@ -616,15 +734,17 @@ let insD={95:"_",96:'`',48:"@",
 \102:"\<c-r>=escape(expand('%'),' ')\<cr>",119:"\<c-o>\<c-w>\<c-w>",
 \'help':'123:buff f/ilename g/etchar k:center o/pen w/indow:',
 \'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
-\.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]"}
+\.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]"})
 
-let g:visD={(g:EscAsc):"",42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
+let visD={(g:EscAsc):"",(g:opt_TmenuAsc):g:opt_TmenuKey}
+let g:visD=extend(visD,{42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \99:":ce\<cr>",120:"y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",103:"y:\<c-r>\"",
 \'help':'*:sub c/enter e/dit g/et2cmd u/nformat x/ec',
 \101:"y:e \<c-r>\"\<cr>",117:":s/ \\n/ /\<cr>",
+\67:"\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>",
 \'msg':"expand('%:t').' '.line('.')
-\.'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"}
+\.'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"})
 
 let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 \|exe 'hi '.g:CSgrp.' ctermfg='.(g:cs_current[g:CSgrp][0]).' ctermbg='.(g:cs_current[g:CSgrp][1]) |en",
@@ -716,7 +836,7 @@ let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 "added cygwin customizations (must define Cyg_Working_Dir... confusing as hell)
 "Writeroom(margin) function for wide screens
 "Mapped normal c-n c-p to search for folds
-"OPT_DisableAutocap added
+"opt_DisableAutocap added
 "Changed Writeroom to take percentage
 "Autoexit after saving a color scheme
 "added ^W to activate writeroom in normD
@@ -728,15 +848,15 @@ let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 "Cygwin: innoremap escape to escape-escape to prevent delay
 "set nocompatible to avoid absurd errors
 "notepad mode (set Cur_RunAs='notepad') with ^W ^S nmaps
-
-"TODO:
+"added option to set colorscheme (set opt_colorscheme), eliminated unnecessary persistent vars
 "`il `iw for invlist, invwrap in normal / insert mode
-"multiline FTft for prose
-"set up persistent undo
-"prevent args vim from interfering with normal vim?
-"Use "Default" and not cs_current on initialize
-"Prompt to set as default on save && Command to set as default
-"Change "runas" to "Cur_Function"
-"Some way to reinitialize all variables
-"debug backup system, saveD
-"Eliminate hold to expand for Cygwin
+"mutline fFtT for prose
+"Eliminate longpress to expand folds for Cygwin by setting opt_LongPressTimeout
+"Mouse now continues scrolling even for low timeouts if there is no fold or no jump under cursor
+"mintty: `< anc `> to adjust font size
+"no Mscroll for cygwin
+"added `C to visD to copy and unwrap lines
+"CheckFormatted: set wrap and autoformat options to execute after loading modelines, simplifying detection
+"streamlined opt_TenuKey to change keymenu
+"set timeoutlen=1 to avoid delay when exiting insert mode
+"software caps lock for insert mode via `a
