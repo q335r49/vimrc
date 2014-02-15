@@ -15,7 +15,7 @@ hi StatusLine cterm=underline ctermfg=244 ctermbg=236
 hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
 hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
 se viminfo=!,'20,<1000,s10,/50,:50 | rv | se viminfo=
-au VimEnter * se viminfo=!,'20,<1000,s10,/50,:50 | call InitHist()
+au VimEnter * se viminfo=!,'20,<1000,s10,/50,:50 | cal InitHist() | Ed main
 if exists('OPT_THUMBOARD')
 	let K_ESC='@'|let N_ESC=64
 	exe 'no '.K_ESC.' <Esc>'
@@ -43,10 +43,8 @@ el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
 let g:histL=exists('FHIST') ? split(FHIST,"\n") : []
 if !exists('g:MAIN_DIRECTORY') || !isdirectory(g:MAIN_DIRECTORY)
 	echoerr 'Set MAIN_DIRECTORY!'
-elseif !argc()
-	exe 'cd '.g:MAIN_DIRECTORY
-	so abbrev | silent e main.txt | en
-au BufWinLeave * call InsHist(expand('%'),line('.'))
+elseif !argc() | exe 'cd '.g:MAIN_DIRECTORY | so abbrev | en
+au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
 au VimLeavePre * let g:FHIST=join(g:histL,"\n")
 \|let g:TLOG=join(map(g:tlog,'v:val[0]."|".v:val[1]'),"\n")
 endif
@@ -125,7 +123,7 @@ let HLb=split('1234567890abcdefghijklmnopqrstuvwxyz
 let Asc2HLb=repeat([-1],256) | for i in range(len(HLb))
 	let Asc2HLb[char2nr(HLb[i])]=i
 endfor
-let g:maxW=15
+let maxW=15
 fun! GetLbl(file)
 	let name=matchstr(a:file,"[[:alnum:]][^/\\\\]*\\$")[:-2]	
 	return len(name)+3>g:maxW ? name[0:g:maxW-8]."~".name[-3:] : name
@@ -172,10 +170,10 @@ fun! RmHist(ix)
 	call map(g:HLb2fIx,'v:val>a:ix ? v:val-1 : (v:val==a:ix ? -1 : v:val)')
 	return split(remove(g:histL,a:ix),'\$')[1]
 endfun
-fun! InsHist(name,num)
+fun! InsHist(name,lnum,cnum)
 	if a:name==''|retu|en
 	call RmHist(match(g:histL,'\V'.a:name.'$'))
-	call insert(g:histL,a:name.'$'.a:num)
+	call insert(g:histL,a:name.'$'.a:lnum.'|'.a:cnum)
 	if len(g:histL)>=len(g:HLb)-8
 		let g:histL=g:histL[:len(g:HLb)-16] | call InitHist()
 	retu|en
@@ -224,6 +222,34 @@ fun! HistMenu()
 		elseif RmHist(g:HLb2fIx[g:Asc2HLb[sel2]])=='0' | redr|retu -1 | en|endw
 	redr|retu (sel==96||sel==9||sel==32)? 0 : g:HLb2fIx[g:Asc2HLb[sel]]
 endfun
+fun! Edit(file)
+	let file=split(a:file,'\$')
+	if file[0]=='' | retu|en
+	if !bufloaded(file[0])
+		if !filereadable(file[0])
+			exe 'e '.escape(file[0],' ')." | norm! i".localtime()
+			\." vim: set nowrap ts=4 tw=62 fo=aw: ".strftime('%H:%M %m/%d/%y')
+			setlocal nowrap ts=4 tw=62 fo=aw
+			return
+		el| exe 'e '.escape(file[0],' ')
+			if getline(1)=~'tw='
+				call InitCap()
+				iab <buffer> i I
+				iab <buffer> Id I'd
+				iab <buffer> id I'd
+				iab <buffer> im I'm
+				iab <buffer> Im I'm
+				nmap <buffer> A }b$a
+				nmap <buffer> I {w0i
+				nno <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
+				nno <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
+				redr | ec 'Editing as text: '.file[0] | en | en
+	el| exe 'e '.escape(file[0],' ') | en
+	if len(file)>1 | call cursor(split(file[1],'|'))
+	el| let ix=match(g:histL,'\V'.file[0].'$')
+		call cursor(ix>=0? split(split(g:histL[ix],'\$')[1],'|') : [1,1]) | en
+endfun
+command! -nargs=1 -complete=file Ed call Edit('<args>')
 
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
 cnorea <expr> waq ((getcmdtype()==':' && getcmdpos()<5)? 'wa\|q':'waq')
@@ -305,12 +331,7 @@ fun! CapHere()
 	return col(".")==1 ? CapWait("\r")
 	\ : trunc=~'[?!.]\s*$\|^\s*$' ? CapWait(trunc[-1:-1]) : "\<del>"
 endfun
-fun! LoadTextMappings()
-	iab <buffer> i I
-	iab <buffer> Id I'd
-	iab <buffer> id I'd
-	iab <buffer> im I'm
-	iab <buffer> Im I'm
+fun! InitCap()
 	ino <buffer> <silent> <F6> _<ESC>mt:call search("'",'b')<CR>x`ts
 	im <buffer> <silent> . ._<Left><C-R>=CapWait('.')<CR>
 	im <buffer> <silent> ? ?_<Left><C-R>=CapWait('?')<CR>
@@ -328,29 +349,7 @@ fun! LoadTextMappings()
 	nm <buffer> <silent> cw cw_<Left><C-R>=CapHere()<CR>
 	nm <buffer> <silent> R R_<Left><C-R>=CapHere()<CR>
 	nm <buffer> <silent> C C_<Left><C-R>=CapHere()<CR>
-	nmap <buffer> A }b$a
-	nmap <buffer> I {w0i
-	nno <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
-	nno <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
-	redr | ec 'Editing as text: '.expand('%')
 endfun
-fun! Edit(file)
-	let file=split(a:file,'\$')
-	if file[0]=='' | retu|en
-	if !bufloaded(file[0])
-		if !filereadable(file[0])
-			exe 'e '.escape(file[0],' ')." | norm! i".localtime()
-			\." vim: set nowrap ts=4 tw=62 fo=aw: ".strftime('%H:%M %m/%d/%y')
-			setlocal nowrap ts=4 tw=62 fo=aw
-		el| exe 'e '.escape(file[0],' ')
-			if len(file)>1 | call cursor(file[1],1)
-			el| let ix=match(g:histL,'\V'.file[0].'$')
-				if ix>0 | call cursor(g:histL[ix][match(g:histL[ix],'\$')+1:],1)
-		en| en |en
-		if getline('1')=~'tw=' | call LoadTextMappings() | en
-	el | exe 'b '.bufnr(file[0]) | en
-endfun
-command! -nargs=1 -complete=file Ed call Edit('<args>')
 
 let s:Dashes=repeat('-',200)|let s:Pad=repeat(' ',200)
 let s:Speed = range(1,25)
@@ -358,7 +357,8 @@ let g:OnTouch='InitScroll'
 se wiw=1
 fun! InitScroll()
 	let s:vesave=&ve | se ve=all
-	let s:pP=[winnr(),winline(),wincol()]
+	let s:pP=[winnr(),winline(),0]
+	call getchar() | let s:pP[2]=v:mouse_col
 	let g:OnTouch='OnScroll'
 	let s:initCol=s:pP[2]
 endfun
@@ -366,25 +366,16 @@ fun! OnScroll()
 	let s:cP=[winnr(),winline(),wincol()]
 	if s:cP[0]==s:pP[0]
 		if s:initCol
-			let s:initCol=(abs(s:cP[2]-s:initCol)<10)*s:initCol
+			let s:initCol=(abs(s:cP[2]-s:initCol)<19)*s:initCol
     		let difC=0
-		else
-    		let difC=s:cP[2]-s:pP[2]
-		endif
+		el| let difC=s:cP[2]-s:pP[2] |en
 		let difR=s:cP[1]-s:pP[1]
     	let s:pP=s:cP
-		let cmd=(difC>0? difC."z\<left>":difC<0? (-difC)."z\<right>":'')
-		\.(difR>0? s:Speed[difR]."\<C-Y>":difR<0? s:Speed[-difR]."\<C-E>":'')
-		if cmd
-			exe 'norm! '.cmd
-	    	redraw | echo s:Dashes[2:line('w0')*&columns/line('$')]
-	    elseif line('.')==line('$')
-	    	exe "norm! \<C-Y>"
-	    endif
-	else
-		let g:OnTouch='OnResize'
-		call OnResize()
-	endif
+		exe 'norm! '.(difC>0? difC."z\<left>":difC<0? (-difC)."z\<right>":'')
+		\.(difR>0? s:Speed[difR]."\<C-Y>":difR<0? s:Speed[-difR]"\<C-E>":'')
+	    redr|ec line('.').'/'.line('$')
+	    if line('w0')==line('$') | exe "norm! \<C-Y>" |en
+	el| let g:OnTouch='OnResize' | call OnResize() |en
 endfun
 fun! OnVisual()
 	let cdiff=virtcol("'v")-wincol()
