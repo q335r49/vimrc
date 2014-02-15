@@ -1,3 +1,12 @@
+fun! InList(list,element)
+	for i in range(len(a:list))
+		if a:list[i][0]==#a:element
+			return i
+		en
+	endfor
+	return -1
+endfun
+
 fun! NextHeading(...)
 	norm! ^
 	let indent=virtcol('.')-1
@@ -166,8 +175,8 @@ fun! HistMenu()
 	redr|retu g:HLb2fIx[g:Asc2HLb[sel]]
 endfun
 fun! OnBufRead()
-	let ix=match(g:histL,expand('%'))
-	call cursor(ix>=0? g:histL[1:2] : [1,1])
+	let ix=InList(g:histL,expand('%'))
+	if ix>=0 | call cursor(g:histL[ix][1],g:histL[ix][2]) | en 
 	call CheckFormatted()
 endfun
 fun! OnNewBuf()
@@ -654,7 +663,7 @@ if !exists('do_once') | let do_once=1
 		el| let g:viminfo_file_invalid=1 | rv | en
 	se viminfo=
 	au VimEnter * call OnVimEnter()
-	au BufWinEnter * call RmHist(match(g:histL,expand('%')))
+	au BufWinEnter * call RmHist(InList(g:histL,expand('%')))
 	au BufRead * call OnBufRead()
 	au BufNewFile * call OnNewBuf()
 	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
@@ -685,5 +694,6 @@ if !exists('do_once') | let do_once=1
 	nohl
 en
 "Nextheading for formatted paragraphs
-"Handle entering files with bookmarks? Check autoformat on bufenter
-"Multi-dimensional array to avoid splits
+"screen pos save
+"Store histLb with hist (as short name)?
+"Consolidate OnBufRead, BufWinEnter
