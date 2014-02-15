@@ -212,8 +212,10 @@ let [Qnrm.q,Qnhelp.q]=["","exit"]
 let Qnrm["\<c-[>"]=""
 let [Qnrm.g,Qnhelp.g]=[":noh\<cr>","go away highlight"]
 let [Qnrm["\<f1>"],Qnhelp["<f1>"]]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>\<cr>","Help word under cursor"]
-let [Qnrm.1,Qnrm.2,Qnrm.3,Qnrm.4,Qnrm.5,Qnrm.6,Qnrm.7,Qnrm.8,Qnrm.9]=map(range(1,9),'":tabn".v:val."\<cr>"')
-	let Qnhelp['1..9']="Switch tabs"
+let [Qnrm.1,Qnrm.2,Qnrm.3]=map(range(1,3),'":tabn".v:val."\<cr>"')
+	let Qnhelp['1..3']="Switch tabs"
+let [Qnrm.4,Qnrm.5,Qnrm.6]=map(range(4,6),'"@".v:val')
+	let Qnhelp['4..6']="Playback macro"
 let [Qnrm["\<c-i>"],Qnrm[" "],Qnhelp['<tab,space']]=[":tabp|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":tabn|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","Tabs <>"]
 let [Qnrm.s,Qnrm.d,Qnhelp.sd]=[":wincmd w|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":wincmd W|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","Columns <>"]
 let [Qnrm.w,Qnrm.e,Qnhelp.we]=[":norm! g;zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":norm! g,zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","Changes <>"]
