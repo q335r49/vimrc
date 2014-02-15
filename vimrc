@@ -4,6 +4,10 @@ let opt_autocap=0
 if !exists('opt_device')
 	echom "Warning: opt_device is undefined."
 	let opt_device='' | en
+if opt_device=~?'windows'
+	let Working_Dir='C:\Users\q335r49\Desktop\Dropbox\q335writings'
+	let Viminfo_File='C:\Users\q335r49\Desktop\Dropbox\q335writings\viminfo'
+	en
 if opt_device=~?'cygwin'
 	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
 	cno <c-h> <left>
@@ -51,7 +55,8 @@ if empty(opt_device)
 	nn <silent> <leftmouse> <leftmouse>:call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
 	let opt_LongPressTimeout=[0,500000] | en
 if has("gui_running")
-	colorscheme slate
+	se guifont=Envy_Code_R:h11:cANSI
+	colorscheme solarized
 	hi ColorColumn guibg=#222222 
 	hi Vertsplit guifg=grey15 guibg=grey15
 	se guioptions-=T | en
@@ -69,9 +74,40 @@ fun! Qmenu(cmd)
 endfun
 nno <expr> q Qmenu(g:Qnrm)
 vno <expr> q Qmenu(g:Qvis)
-
 let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
+
+fun! SplitAtSpace(str,w)
+	let breaks=[0]
+	while breaks[-1]<len(a:str)-a:w
+		let match=strridx(a:str,' ',breaks[-1]+a:w)
+		call extend(breaks,match<=breaks[-1]? [breaks[-1]+a:w-1,breaks[-1]+a:w] : [match-1,match+1])
+	endw
+	call add(breaks,len(a:str)-1)
+	return map(range(len(breaks)/2),'a:str[breaks[2*v:val]:breaks[2*v:val+1]]')
+endfun
+fun! Dialogue(A,B,...)
+	echohl Question
+	let [mainw,marginw]=[exists("a:1")? a:1 : 60,exists("a:2")? a:2 : 5]
+	let colw=mainw*8/10
+	let Bprint0='printf("%'.mainw.'.'.mainw.'s: %'.(marginw-2).'.'.(marginw-2).'s",lines[0],a:B)'
+	let BprintfN='%'.mainw.'.'.mainw.'s'
+	let Aline0='printf("%-'.(marginw-2).'.'.(marginw-2).'s: %s",a:A,lines[0])'
+	let AprintfN=repeat(' ',marginw).'%s'
+	norm! mq
+	let [turn,input]=['A',strtrans(input(a:A.': '))]
+	whi input!='//'
+		if !empty(input)
+			let lines=SplitAtSpace(input,colw)
+			let @t=join(insert(map(range(1,len(lines)-1),'printf({turn}printfN,lines[v:val])'),eval({turn}line0)),"\n")
+			exe "norm! O\e\"tP`q" | redr!
+		el| let turn=turn=='A'? 'B':'A' | en
+		let input=strtrans(input(a:{turn}.': '))
+	endw
+	echohl None
+endfun
+
+
 
 fun! PrintDic(dict,width)
 	let [L,cols,keys]=[len(a:dict),min([(&columns-1)/a:width,18]),sort(keys(a:dict))]
@@ -620,6 +656,8 @@ fun! LoadFormatting()
 	en
 endfun
 
+
+com! -nargs=1 -complete=file RestoreSettings rv! <args>|call RestoreSavedVars()
 fun! RestoreSavedVars()
 	silent exe "norm! :let v=g:SAVED_\<c-a>'\<c-b>\<right>\<right>\<right>\<right>\<right>\<right>'\<cr>"
 	if exists('v') && len(v)>8
@@ -641,7 +679,7 @@ fun! RestoreSavedVars()
 		call CSLoad(g:SCHEMES[g:opt_colorscheme])
 	el| call CSLoad(g:SCHEMES.current) | en
 	"windows doesn't support %s
-	let g:Qnrm.msg="ec printf('%-17.17s %'.(&columns-19).'s',eval(strftime('%m.\"smtwrfa\"[%w].%d.\" \".%l.\":%M \".g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60')),(expand('% ').' '.line('.').'-'.col('.').'/'.line('$'))[-&columns+19:])"
+	let g:Qnrm.msg="ec printf('%-17.17s %'.(&columns-19).'s',eval(strftime('%m.\"smtwrfa\"[%w].%d.\" \".%I.\":%M \".g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60')),(expand('% ').' '.line('.').'-'.col('.').'/'.line('$'))[-&columns+19:])"
 	try | silent exe g:Qnrm.msg
 	catch | let g:Qnrm.msg="ec line('.').','.col('.').'/'.line('$')" | endtry
 	let g:Qvis.msg=g:Qnrm.msg
@@ -712,26 +750,22 @@ if !exists('firstrun')
 	if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
 		ec 'Warning: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME
 		let Working_Dir=$HOME |en
-	for file in ['abbrev','pager','lab.vim']
+	for file in ['abbrev','pager']
 		if !empty(glob(Working_Dir.'/'.file)) | exe 'so '.Working_Dir.'/'.file
-		el| ec 'Warning:' Working_Dir.'/'.file 'unreadable'|en
+		el| ec 'Warning:' Working_Dir.'/'.file 'doesn't exist'
+		en
 	endfor
-	if !argc() && isdirectory(glob(Working_Dir))
-		exe 'cd '.Working_Dir | en
+	if !argc() | exe 'cd '.Working_Dir | en
 	let setViExpr="se viminfo=!,'120,<100,s10,/50,:500,h,n"
 	if !exists('g:Viminfo_File')
 		ec "Warning: g:Viminfo_File undefined, falling back to default"
 		exe setViExpr[:-3]
 	el| let viminfotime=strftime("%Y-%m-%d-%H-%M-%S",getftime(glob(g:Viminfo_File)))
 		let conflicts=sort(split(glob(g:Viminfo_File.' (conflicted*'),"\n"))
-		if !empty(conflicts)
-			let latest_date=matchstr(conflicts[-1],'conflicted copy \zs.*\ze)')
-			if latest_date>viminfotime
-				if input("\nA more recent viminfo has been found!\nLoad ".conflicts[-1]."? (yes / no)")=~?'^y'
-					echo "Loading" conflicts[-1] "...\nUse :wv to overrite current viminfo."
-					exe setViExpr.conflicts[-1]
-				el| exe setViExpr.g:Viminfo_File | en
-			el| exe setViExpr.g:Viminfo_File | en
+		let latest_date=matchstr(get(conflicts,-1,''),'conflicted copy \zs.*\ze)')
+		if !empty(latest_date) && latest_date>viminfotime && input("\nA more recent viminfo has been found!\nLoad ".conflicts[-1]."? (yes / no)")=~?'^y'
+			echo "Loading" conflicts[-1] "...\nUse :wv to overrite current viminfo."
+			exe setViExpr.conflicts[-1]
 		el| exe setViExpr.g:Viminfo_File | en
 	en
 	au VimEnter * call RestoreSavedVars() 
@@ -742,7 +776,9 @@ if !exists('firstrun')
 	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 	se whichwrap+=b,s,h,l,,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 	se fcs=vert:\  showbreak=.\  
-	se term=screen-256color
+	if opt_device!~?'windows'	
+		se term=screen-256color
+	en
 	if opt_device=~?'cygwin'
 		let &t_ti.="\e[2 q"
 		let &t_SI.="\e[6 q"
