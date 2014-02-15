@@ -366,38 +366,19 @@ cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 cnorea <expr> qnv ((getcmdtype()==':' && getcmdpos()<5)? "let &viminfo=''\|exe 'autocmd! WriteViminfo' \|qa!":"qnv")
 
-let prvft='f'
-let prvftc=32
-fun! mlF(c,...)
-	let [g:prvftc,g:prvft]=[a:c,a:0? 'f':'F']
-    let pos=searchpos('\C\V'.nr2char(g:prvftc),'bW')
+let [pvft,pvftc]=[1,32]
+fun! MLFT(x,c,i)
+	let [g:pvftc,g:pvft]=[a:c,a:i]
+    let pos=searchpos((a:x==2? mode(1)=='no'? '\C\V\_.\zs' : '\C\V\_.' : '\C\V').nr2char(g:pvftc).(a:x==1 && mode(1)=='no' || a:x==-2? '\zs' : ''),a:x<0? 'bW' : 'W')
 	call setpos("'x", pos==[0,0]? [0,line('.'),col('.'),0] : [0,pos[0],pos[1],0])
 	return "`x"
 endfun
-fun! mlf(c,...)
-	let [g:prvftc,g:prvft]=[a:c,a:0? 'F':'f']
-    let pos=searchpos('\C\V'.nr2char(g:prvftc).(mode(1)=='no'? '\zs' : ''),'W')
-	call setpos("'x", pos==[0,0]? [0,line('.'),col('.'),0] : [0,pos[0],pos[1],0])
-	return "`x"
-endfun
-fun! mlT(c,...)
-	let [g:prvftc,g:prvft]=[a:c,a:0? 't':'T']
-    let pos=searchpos('\C\V'.nr2char(g:prvftc).'\zs','bW')
-	call setpos("'x", pos==[0,0]? [0,line('.'),col('.'),0] : [0,pos[0],pos[1],0])
-	return "`x"
-endfun
-fun! mlt(c,...)
-	let [g:prvftc,g:prvft]=[a:c,a:0? 'T':'t']
-    let pos=searchpos('\C\V\_.'.(mode(1)=='no'? '\zs' : '').nr2char(g:prvftc),'W')
-	call setpos("'x", pos==[0,0]? [0,line('.'),col('.'),0] : [0,pos[0],pos[1],0])
-	return "`x"
-endfun
-no <buffer> <silent> <expr> F mlF(getchar())
-no <buffer> <silent> <expr> f mlf(getchar())
-no <buffer> <silent> <expr> T mlT(getchar())
-no <buffer> <silent> <expr> t mlt(getchar())
-no <buffer> <silent> <expr> ; mlv{prvft}(prvftc)
-no <buffer> <silent> <expr> , mlv{prvft<#'Z'? tolower(prvft) : toupper(prvft)}(prvftc,1)
+no <buffer> <silent> <expr> F MLFT(-1,getchar(),-1)
+no <buffer> <silent> <expr> f MLFT(1,getchar(),1)
+no <buffer> <silent> <expr> T MLFT(-2,getchar(),-2)
+no <buffer> <silent> <expr> t MLFT(2,getchar(),2)
+no <buffer> <silent> <expr> ; MLFT(pvft,pvftc,pvft)
+no <buffer> <silent> <expr> , MLFT(-pvft,pvftc,pvft)
 
 let g:charL=[]
 let g:opt_disable_syntax_while_panning=1
