@@ -571,8 +571,9 @@ fun! SetOpt(...)
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
 \112:":call IniPaint()\<CR>",108:":call Log()\<CR>",
 \103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"^y$:\<C-R>\"\<CR>",
+\113:"\<Esc>",
 \115:":let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
-\113:":call QuoteChange(nr2char(getchar()))\<CR>",
+\99:":call QuoteChange(nr2char(getchar()))\<CR>",
 \49:":call Edit(g:histL[0])\<CR>",
 \50:":call Edit(g:histL[1])\<CR>",
 \51:":call Edit(g:histL[2])\<CR>",
@@ -586,6 +587,7 @@ fun! SetOpt(...)
 \50:"\<Esc>:call Edit(g:histL[1])\<CR>",
 \51:"\<Esc>:call Edit(g:histL[2])\<CR>",
 \102:"\<C-R>=escape(expand('%'),' ')\<CR>",
+\113:"\<Esc>a",
 \'help':'b[123] [f]ilename [g]etchar l[s]:',
 \'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])"}
 	let g:cmdD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):" \<BS>",96:" \<BS>`",
@@ -593,6 +595,7 @@ fun! SetOpt(...)
 \escape(split(histL[').'],\"\\\\\\$\")[0],\" \")')\<CR>",
 \102:"\<C-R>=escape(expand('%'),' ')\<CR>",
 \108:"\<C-R>=matchstr(getline('.'),'[[:graph:]].*[[:graph:]]')\<CR>",
+\113:" \<BS>",
 \119:"\<C-R>=expand('<cword>')\<CR>",87:"\<C-R>=expand('<cWORD>')\<CR>",
 \'help':'[f]ilename [g]etchar [l]ine l[s] [wW]ord:',
 \'msg':"expand('%:t').' '.line('.').'.'.col('.').'/'.line('$').' '
@@ -617,6 +620,16 @@ fun! OnVimEnter()
 		if len(g:histL)>0 | call Edit(g:histL[0])
 			call RmHist(match(g:histL,'\V'.escape(expand('%'),'\').'$'))
 	en | en
+	if glob(g:WORKING_DIR)=='/home/q335/Desktop/Dropbox/q335writings'
+		map OA <Up>
+		map OB <Down>
+		map OD <Left>
+		map OC <Right>
+		map! OA <Up>
+		map! OB <Down>
+		map! OD <Left>
+		map! OC <Right>
+	en
 endfun
 if !exists('do_once') | let do_once=1
 	se viminfo=!,'20,<1000,s10,/50,:50
@@ -648,6 +661,9 @@ if !exists('do_once') | let do_once=1
 	if !exists('TLOG') | let tlog=[[localtime(),'0000']]
 	el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
 	let histL=exists('HISTL') ? split(HISTL,"\n") : [] | call InitHist()
-	call IniQuote("'")
+	call IniQuote("@")
 en
-"norm! l error in quote( ... separate func?
+"Change } behavior to include indented paragraphs
+"Remove LogMenu
+"Use Working directory to set everything, change welcome message
+"Use q for quitting, universally
