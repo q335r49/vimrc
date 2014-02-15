@@ -122,9 +122,6 @@ no <expr> ; Multift(pvft,pvftc,pvft)
 no <expr> , Multift(-pvft,pvftc,pvft)
 om a/ :<c-u>norm F/vt/<cr>
 
-ino <f1> <c-o>zh
-nn <f1> zh
-
 let s:ujx_pvXpos=[0,0,0,0]
 let s:ujx_eolnotreached=1
 fun! Undojx(cmd)
@@ -181,7 +178,7 @@ let [Qnrm.87,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","W
 let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
 let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
 let [Qnrm.113,Qnhelp.q]=[":noh\<cr>","No highlight search"]
-let [Qnrm["\<f1>"],Qnhelp["<f1>"]]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>","Help word under cursor"]
+let [Qnrm["\<f1>"],Qnhelp["<f1>"]]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>\<cr>","Help word under cursor"]
 let [Qnrm.49,Qnrm.50,Qnrm.51,Qnrm.52,Qnrm.53,Qnrm.54,Qnrm.55,Qnrm.56,Qnrm.57]=map(range(1,9),'":tabn".v:val."\<cr>"')
 	let Qnhelp['1..9']="Switch tabs"
 let [Qnrm.9,Qnrm.32,Qnhelp['<tab,space']]=[":call QmenuCycle('tabp')\<cr>",":call QmenuCycle('tabn')\<cr>","Tabs <>"]
