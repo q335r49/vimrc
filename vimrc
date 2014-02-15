@@ -12,7 +12,6 @@ fun! IniQuote(mark)
 endfun
 fun! Quote(sel,dr)
 	if a:sel==0
-		echom 999
 	    norm! mrhel"tylbh"uyl`r
 		if @u=~"[\[{(\*'\"/]" | call IniQuote(@u)
 		elsei @t=~"[\)}]\*'\"/]" | call IniQuote(@t) | en
@@ -178,10 +177,10 @@ command! -nargs=1 -complete=file Edit call Edit('<args>')
 nno gf :call Edit(expand('<cWORD>'))<CR>
 
 fun! PrintTime(s,...)
-	retu strftime('%b %d %I:%M [',a:0>0? (a:1) : localtime())
-	\.(a:s>86399? (a:s/86400.'d '):'')
-	\.(a:s%86400>3599? (a:s%86400/3600.'h '):'')
-	\.(a:s%3600/60.'m').'] '
+	retu strftime('%b%e %I:%M ',a:0>0? (a:1) : localtime())
+	\.(a:s>86399? (a:s/86400.'d'):'')
+	\.(a:s%86400>3599? (a:s%86400/3600.'h'):'')
+	\.(a:s%3600/60.'m ')
 endfun
 fun! Log()
 	let g:logmsg=''|for i in range(len(g:tlog)>5? len(g:tlog)-5:0,len(g:tlog)-1)
@@ -202,9 +201,9 @@ fun! Log()
 endfun
 
 fun! TMenu(cmd,...)
-	if a:0==0 | ec eval(a:cmd.msg) | el | ec a:cmd[a:1] | en
+	ec a:0==0? eval(a:cmd.msg) : a:cmd[a:1]
 	let key=getchar()|redr!
-	return has_key(a:cmd,key)? a:cmd[key] : TMenu(a:cmd,'help')
+	retu has_key(a:cmd,key)? a:cmd[key] : TMenu(a:cmd,'help')
 endfun!
 nno <expr> ` TMenu(g:normD)
 ino <expr> ` TMenu(g:insD)
@@ -570,15 +569,16 @@ fun! SetOpt(options)
 \101:":call Edit(expand('<cWORD>'))\<CR>",
 \103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"^y$:\<C-R>\"\<CR>",
 \115:":let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
-\49:":call Edit(g:histL[0])\<CR>",
-\50:":call Edit(g:histL[2])\<CR>",51:":call Edit(g:histL[3])\<CR>",
+\48:":call Edit(g:histL[0])\<CR>",
+\50:":call Edit(g:histL[2])\<CR>",
+\51:":call Edit(g:histL[3])\<CR>",
 \42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \111:":call SetOpt(\<C-R>=g:INPUT_METH==?'thumb'? \"'key'\" : \"'thumb'\"\<CR>)\<CR>
 \:ec 'Current input is '.g:INPUT_METH\<CR>",
 \'help':'b[12] [e]d [g]:h [l]og [n]ohl t[o]gglekbd [p]nt l[s] [r]mswp [w]a e[X]e s/[*#]',
-\'msg':"line('.').'.'.col('.').'/'.line('$').' '
-\.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
+\'msg':"line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])
+\.'('.join(map(g:histLb[:4],'v:key.v:val[2:5]'),\" \").'):'"}
 	let g:insD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):"\<Esc>a",96:'`',
 \115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
 \49:"\<Esc>:call Edit(g:histL[0])\<CR>",
@@ -644,3 +644,5 @@ if !exists('do_once') | let do_once=1
 	if !argc() | exe 'cd '.g:WORKING_DIR
 		if len(histL)>1 | au VimEnter * call Edit(histL[0])
 en|en|en
+"no help files, or separate help browswe
+"check for absolute equivalence in histlb!
