@@ -44,11 +44,11 @@ fun! CSTest(...)
 			let [newfg,newbg]=dictmode? a:1[list[histix]] : list[histix]
 		elseif c==110 && histix < len(list)-1
 			let histix+=1
-			[newfg,newbg]=dictmode? a:1[list[histix]] : list[histix]
+			let [newfg,newbg]=dictmode? a:1[list[histix]] : list[histix]
 		elseif c==114 && !dictmode
 			let histix+=1
-			let newfg=system("echo $RANDOM")%256
-			let newbg=system("echo $RANDOM")%256
+			let newfg=reltime()[1]%256
+			let newbg=reltime()[1]%256
 		elseif c==115 && !dictmode
 			let name=input("Swatch name:")
 			exe 'let g:SwatchDic["'.name.'"]=['.newfg.','.newbg.']'
@@ -91,10 +91,14 @@ fun! CSSet(name,...)
 		\.' ctermbg='.(g:SwatchDic[a:1][1]%256) |en
 endfun
 
-let g:Pad=repeat(' ',200)
+let Pad=repeat(' ',200)
 fun! CenterLine()
-	let line=matchstr(getline('.'),'^\s*\zs.*\S\ze\s*$')
-	call setline(line('.'),g:Pad[:(&columns-strdisplaywidth(line))/2].line)
+	let line=matchstr(getline('.'),'^\s*\zs\S.*\S\ze\s*$')
+	if &tw==0
+		call setline(line('.'),g:Pad[1:(&columns-strdisplaywidth(line))/2].line)
+	elseif &tw > strdisplaywidth(line)
+		call setline(line('.'),g:Pad[1:(&tw-strdisplaywidth(line))/2].line)
+	en
 endfun
 
 fun! Save(name)
