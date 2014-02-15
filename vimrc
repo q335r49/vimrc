@@ -62,11 +62,20 @@ if has("gui_running")
 	hi Vertsplit guifg=grey15 guibg=grey15
 	se guioptions-=T
 en
-let g:txpHotkey='Q'
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
+
+let [Qnrm.112,Qnhelp.p]=["\<f10>","nav-mode hotkey"]
 
 nno <silent> G :<c-u>exe v:count? v:count : search('\S\s*\n\n\n\n\n\n','W')? '' : 99999<cr>zz
 nno <silent> gg :<c-u>exe v:count? v:count : search('\S\s*\n\n\n\n\n\n','Wb')? '' : 1<cr>zz
+
+fun! DeleteHiddenBuffers()
+	let tpbl=[]
+	call map(range(1, tabpagenr('$')), 'extend(tpbl, tabpagebuflist(v:val))')
+	for buf in filter(range(1, bufnr('$')), 'bufexists(v:val) && index(tpbl, v:val)==-1')
+		silent execute 'bwipeout' buf
+	endfor
+endfun
 
 fun! Writeroom(...)
 	let margin=a:0? a:1 : input("margin: ", &tw? max([(&columns-&tw-3)/2,10]) : 25)
@@ -80,7 +89,7 @@ com! Write call Writeroom()
 
 fun! PRINT(vars)
 	redr
-	return "exe eval(input(join(map(split('".a:vars."',','),'v:val.\":\".eval(v:val)'),' '),'\"\"'))"
+	return "exe eval('\"'.input(join(map(split('".a:vars."',','),'v:val.\":\".eval(v:val)'),' '),'').'\"')"
 endfun
 
 let [pvft,pvftc]=[1,32]
@@ -131,21 +140,21 @@ endfun
 nno <silent> x :<c-u>call Undojx('x')<cr>
 nno <silent> X :<c-u>call Undojx('X')<cr>
 
-nno <expr> q Qmenu(g:Qnrm)
-vno <expr> q Qmenu(g:Qvis)
+nmap <expr> q Qmenu(g:Qnrm)
+vmap <expr> q Qmenu(g:Qvis)
 nno <c-r> q
 vno <c-r> q
 se stl=%f\ %l/%L\ %c%V
 fun! Qmenu(menu,...)
 	let [view,stal]=[winsaveview(),&stal]
-	let [view.topline,&stal,cul,&cul,cuc,&cuc,&ls,ls]=[view.topline+!stal,2,&cul,1,&cuc,1,2,&ls]
+	let [view.topline,&stal,cuc,&cuc,&ls,ls]=[view.topline+!stal,1,&cuc,1,2,&ls]
 	echohl StatusLineNC
 	echo strftime('%c').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
 	echohl None
 	call winrestview(view)
 	redr
 	let c=getchar()
-	let [view.topline,&cul,&stal,&cuc,&ls]=[view.topline-!stal,cul,stal,cuc,ls]
+	let [view.topline,&stal,&cuc,&ls]=[view.topline-!stal,stal,cuc,ls]
 	call winrestview(view)
 	return get(a:menu,c,a:menu.default)
 endfun
@@ -158,7 +167,6 @@ let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.70,Qnhelp.F]=[":let [&ls,&stal]=&ls>=1? [0,0]:[1,1]\<cr>","Fullscreen"]
 let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
 let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
-let [Qnrm.87,Qnhelp.W]=[":wincmd W\<cr>", "Prev Window"]
 let [Qnrm.114,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
 let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
 let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
@@ -168,16 +176,16 @@ let [Qnrm.104,Qnhelp.h]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>","He
 let [Qnrm.49,Qnrm.50,Qnrm.51,Qnrm.52,Qnrm.53,Qnrm.54,Qnrm.55,Qnrm.56,Qnrm.57]=map(range(1,9),'":tabn".v:val."\<cr>"')
 	let Qnhelp['1..9']="Switch tabs"
 let [Qnrm.9,Qnrm.32,Qnhelp['<tab,space']]=[":call QmenuCycle('tabp')\<cr>",":call QmenuCycle('tabn')\<cr>","Tabs <>"]
-let [Qnrm.100,Qnrm.115,Qnhelp.sd]=[":call QmenuCycle('wincmd w')\n",":call QmenuCycle('wincmd W')\n","Columns <>"]
-let [Qnrm.119,Qnrm.101,Qnhelp.we]=[":call QmenuCycle('norm! g;zz')\n",":call QmenuCycle('norm! g,zz')\n","Changes <>"]
-let [Qnrm.23,Qnhelp['^W']]=[":call QmenuCycle('tabc')\n","tabc"]
-let [Qnrm.60,Qnrm.62,Qnhelp['<>']]=[":call QmenuCycle('tabm -1')\n",":call QmenuCycle('tabm +1')\n","tabm <>"]
+let [Qnrm.100,Qnrm.115,Qnhelp.sd]=[":call QmenuCycle('wincmd w')\<cr>",":call QmenuCycle('wincmd W')\<cr>","Columns <>"]
+let [Qnrm.119,Qnrm.101,Qnhelp.we]=[":call QmenuCycle('norm! g;zz')\<cr>",":call QmenuCycle('norm! g,zz')\<cr>","Changes <>"]
+let [Qnrm.23,Qnhelp['^W']]=[":call QmenuCycle('tabc')\<cr>","tabc"]
+let [Qnrm.77,Qnrm.109,Qnhelp['<>']]=[":call QmenuCycle('tabm -1')\<cr>",":call QmenuCycle('tabm +1')\<cr>","tabm <>"]
+let [Qnrm.62,Qnrm.60,Qnhelp['<>']]=[":call QmenuCycle('3wincmd >')\<cr>",":call QmenuCycle('3wincmd <')\<cr>","resize split"]
 fun! QmenuCycle(cmd)
 	let cmd=a:cmd
 	while !empty(cmd)
 		exe cmd
 		let cmd=matchstr(Qmenu(g:Qnrm),'QmenuCycle(''\zs[^'']*')
-		redr
 	endw
 endfun
 let Qnrm.42=":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>"
@@ -329,9 +337,18 @@ endfun
 fun! CS_UI()
     cno <expr> = g:CS_input=='group'? "\<cr>" : "="
     cno <expr> <bs> g:CS_input=='group' && getcmdline()==''? "CS_EXIT\<cr>" : "\<bs>" 
+    exe "cno <expr> ".nr2char(31)." g:CS_input=='group' && getcmdline()==''? \"CS_EXIT\\<cr>\" : \"\\<c-u>\""
     cno . <cr>
 	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
-	let hl=copy(get(g:SCHEMES[g:CS_NAME],g:CS_grp,g:CS_histL[-1]))
+	let hlUnderCursor=synIDattr(synIDtrans(synID(line('.'),col('.'),1)),'name')
+	if !empty(hlUnderCursor)
+		let g:CS_grp=hlUnderCursor
+ 		let fg=synIDattr(synIDtrans(hlID(g:CS_grp)),'fg')
+ 		let bg=synIDattr(synIDtrans(hlID(g:CS_grp)),'bg')
+		let hl=copy(get(g:SCHEMES[g:CS_NAME],g:CS_grp,[fg>-1? fg : 'NONE',bg>-1? bg : 'NONE','NONE']))
+	else
+		let hl=copy(get(g:SCHEMES[g:CS_NAME],g:CS_grp,g:CS_histL[-1]))
+	en
 	let swatchlist=keys(g:SCHEMES.swatches)
 	let continue=1
 	let g:CS_input=''
@@ -365,7 +382,7 @@ fun! CS_UI()
 			echon ']'
 		en
 		exe "echoh" g:CS_grp
-		echon ' hjklJKr <bs>Up <cr>Save [L]ink [g]oLink [WR]Favs [bf]Hist [U]nlet'
+		echon ' hjklJKr <bs>Up <cr>Save [L]ink [g]oLink [WR]Favs [bf]Hist [U]nlet [^R]eload'
 		exe get(g:colorD,getchar(),'')
 	endwhile
 	if len(g:CS_histL)>100
@@ -428,6 +445,7 @@ let colorD["\<bs>"]="if has_key(g:SCHEMES[g:CS_NAME],g:CS_grp)\n
 	\en\n
 	\let g:CS_grp=in\n
 \el\nlet continue=0\nen"
+let colorD.31=colorD["\<bs>"]
 let colorD.21=colorD["\<bs>"]
 let colorD.87='echohl CS_LightOnDark | let name=input("  save as: SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) | let g:SCHEMES.swatches[name]=copy(hl) |en'
 let colorD.82="echo ''|let ix=0|for i in sort(keys(g:SCHEMES.swatches))\n
@@ -436,7 +454,8 @@ let colorD.82="echo ''|let ix=0|for i in sort(keys(g:SCHEMES.swatches))\n
 	\echon '   '.i.'   '\n
 	\let ix+=1\n
 \endfor\n".'echohl CS_LightOnDark | let name=input("> let SCHEMES.".g:CS_NAME.".".g:CS_grp." = SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) && has_key(g:SCHEMES.swatches,name) | let g:CS_histi=g:CS_histi+1 | let hl=copy(g:SCHEMES.swatches[name]) | else | echo "  **Swatch not found**" | sleep 1 | en'
-let [Qnrm.67,Qnhelp.C]=[":call CS_UI()\<cr>","Customize colors"]
+let colorD.18='call CSLoad(g:CS_NAME)'
+let [Qnrm.67,Qnhelp.C]=[":call CS_UI()\<cr>","Colors chooser"]
 let [Qnrm.7,Qnhelp['^G']]=[":ec 'hi<' . synIDattr(synID(line('.'),col('.'),1),'name') . '> trans<'
 \ . synIDattr(synID(line('.'),col('.'),0),'name') . '> lo<'
 \ . synIDattr(synIDtrans(synID(line('.'),col('.'),1)),'name') . '>'\<cr>","Get highlight"]
