@@ -66,12 +66,25 @@ if has("gui_running")
 en
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 
+let seed=reltime()[1]
+fun! RAND()
+	let g:seed=g:seed*1664525+1013904223
+	return g:seed
+endfun
+
+fun! WWGoPar(count,dir)
+	for i in range(a:count)
+		let NUL=a:dir? search('\S\n\s*.\|\n\s*\n\s*.\|\%^','Wbe') : cursor(line('.'),col('.')+1)+search('\S\n\|\s\n\s*\n\|\%$','W')
+	endfor
+	return setpos("'t",[0,line('.'),col('.'),0])? "\<esc>" : "`t"
+endfun
+
 fun! NormG(count)
-	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')+1,1)+search('\S\s*\n\n\n\n\n\n','W')? line('.') : line('$')]
+	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')+1,1)+search('\S\s*\n\s*\n\s*\n\s*\n\s*\n\s*\n','W')? line('.') : line('$')]
 	return (mode=='no'? "\<esc>0".v:operator : mode==?'v'? "\<esc>".mode : "\<esc>").line.'G'.(mode=='v'? '$' : '')
 endfun
 fun! Normgg(count)
-	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')-1,1)+search('\S\s*\n\n\n\n\n\n','Wb')? line('.') : 1]
+	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')-1,1)+search('\S\s*\n\s*\n\s*\n\s*\n\s*\n\s*\n','Wb')? line('.') : 1]
 	return (mode=='no'? "\<esc>$".v:operator :  mode==?'v'? "\<esc>".mode : "\<esc>").line.'G'.(mode=='v'? '0' : '')
 endfun
 no <expr> G NormG(v:count) 
@@ -164,7 +177,7 @@ let Qnrm["\<leftmouse>"]="\<leftmouse>"
 let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
 let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
-let [Qnrm.114,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
+let [Qnrm.87,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
 let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
 let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
 let [Qnrm.113,Qnhelp.q]=[":noh\<cr>","No highlight search"]
@@ -497,6 +510,9 @@ fun! CapHere()
 	return col(".")==1 ? (b:CapSeparators!=' '? CapWait("\r") : "\<del>") : (trunc=~'[?!.]\s*$\|^\s*$' && trunc!~'\.\.\s*$') ? (CapWait(trunc[-1:-1])) : "\<del>"
 endfun
 fun! LoadFormatting()
+	if !filereadable(expand('%'))
+		echom 'New file '.expand('%')
+	en
 	let options=getline(1)
 	if options=~?'foldmark'
 		exe "ab <buffer> /f {{{\<cr>\<cr>\<cr>\}}}\<esc>3k$a\<c-o>"
@@ -520,8 +536,8 @@ fun! LoadFormatting()
 	elseif options=~?'prose' |  setl wrap | en
 	if &fo=~#'a'
 		if &fo=~#'w'	
-			nn <buffer> <silent> { :call search('\S\n\s*.\\|\n\s*\n\s*.\\|\%^','Wbe')<CR>
-			nn <buffer> <silent> } 0:call search('\S\n\\|\s\n\s*\n\\|\%$','W')<CR>
+			no <buffer> <silent> <expr> { WWGoPar(v:count1,1)
+			no <buffer> <silent> <expr> } WWGoPar(v:count1,0)
 			nn <buffer> <silent> I :call search('\S\n\s*.\\|\n\s*\n\s*.\\|\%^','Wbe')<CR>i
 			nn <buffer> <silent> A 0:exe 'norm! '.(search('\S\n\\|\s\n\s*\n','W')? 'g' : '$')<CR>a
 		el| nn <buffer> <silent> I :call search('^\s*\n\s*\S\\!\%^','Wbec')<CR>i
@@ -609,13 +625,6 @@ fun! WriteViminfo(file,...)
 		wv! |en
 endfun
 
-let [Qnrm.112,Qnhelp.p]=["\<f10>","nav-mode hotkey"]
-for i in keys(TXB_GetKeyDict())
-	if !has_key(Qnrm,i)
-		let Qnrm[i]=":exe exists('t:txb')? 'call TXBcmd(".i.")' : 'ec \"Plane not yet loaded!\"'\<cr>"
-	en
-endfor
-
 if !exists('firstrun')
 	let firstrun=0
 	if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
@@ -657,8 +666,13 @@ if !exists('firstrun')
 		let &t_te.="\e[0 q"
 	se noshowmode | en
 	au BufRead * call LoadFormatting()
+	au BufNewFile plane* exe "norm! iProse hardwrap60\<esc>500o\<esc>gg"
 	au VimLeavePre * call WriteViminfo('exit')
 	if !argc() && filereadable('.lastsession')
 	 	so .lastsession | en
 	unlet i conflicts file latest_date setViExpr viminfotime
 en
+
+for i in exists('TXBcmds')? keys(TXBcmds) : []
+	let Qnrm[i]=has_key(Qnrm,i)? Qnrm[i] : ":exe exists('t:txb')? 'call TXBcmd(".i.")' : 'ec \"Plane not loaded!\"'\<cr>"
+endfor
