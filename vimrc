@@ -80,7 +80,7 @@ if opt_device=~?'cygwin'
 en
 if opt_device=~?'notepad'
 	se noswapfile
-	nno <c-s> :wa<cr>
+	nno <c-s> :wa<cr>			
 	nno <c-w> :wqa<cr>
 	nno <c-v> "*p
 	nno <c-q> <c-v> 
@@ -655,11 +655,9 @@ if !exists('g:Viminfo_File')
 el
 	exe "rv ".g:Viminfo_File
 en
-if exists("g:VARSAVES")
-	for i in range(g:VARSAVES)
-		exe VARSAV_{i}
-	endfor
-en
+for i in range(g:VARSAVES)
+	exe VARSAV_{i}
+endfor
 if has("gui_running")
 	colorscheme slate
 	hi ColorColumn guibg=#222222 
@@ -718,7 +716,7 @@ let normD={68:":call ToggleDimInactiveWin()\<cr>",
 \119:":se invwrap\<cr>",
 \122:":wa\<cr>",32:":call TODO.show()\<cr>",
 \99:":call CSChooser()\<cr>",
-\82:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
+\114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
 \71:":cal g:LOGDIC.show()\<cr>",
 \107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invhl\<cr>",
 \104:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
@@ -754,7 +752,7 @@ let normD.helpstring="\n
 \                       ------------------\n
 \ 1..9 Switch Tabs                     \ *,#  substitute <cword>\n
 \ B    toggle scrollbar                \ o    punch in timelog\n
-\ c    customize colors                \ R    !rm *.swp for this file\n
+\ c    customize colors                \ r    !rm *.swp for this file\n
 \ C    toggle bookmarks                \ S    toggle spelling\n
 \ D    dim inactive windows            \ s    toggle statusline\n
 \ g    ascii to char                   \ t    toggle tabline\n
@@ -763,10 +761,6 @@ let normD.helpstring="\n
 \ L    toggle timelog                  \ W    toggle Writeroom\n
 \ n    turn off hl search              \ x    source paragraph\n
 \ N    toggle linenumbers              \ z    :wa\n"
-if opt_device=~?'droid4'
-	let normD[114]="R"
-	let normD.helpstring.="\n".opt_device." specific:\nR    Replace mode\n"
-en
 
 let insD={'default':"\<c-o>:ec '123:buff f/ilename g/etchar k:center w/indow:'\<cr>",
 \97:"\<c-o>:call SoftCapsLock()\<cr>",
