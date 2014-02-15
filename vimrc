@@ -1,7 +1,13 @@
 se nocompatible
-se timeoutlen=1
 
 redir => g:StartupErr
+
+nno <space> 10jzz
+nno <bs> 10kzz
+
+nno <MiddleMouse> <LeftMouse>:q<cr>
+
+hi clear tabline
 
 if !exists('Cur_Device')
 	echom "Warning: Cur_Device is undefined, device specific settings may not be loaded."
@@ -11,6 +17,7 @@ if !exists('Cur_RunAs')
 	let Cur_RunAs=''
 en
 if Cur_Device=='cygwin'
+	se timeoutlen=1
 	vno <c-c> "*y
 	vno <c-v> "*p
 	ino <c-_> <c-w>
@@ -30,7 +37,7 @@ if Cur_Device=='cygwin'
 		nno <c-q> <c-v> 
 		let opt_colorscheme='notepad'
 	en
-elseif Cur_Device='droid4'
+elseif Cur_Device=='droid4'
 	let opt_TmenuKey="_"
 	let opt_LongPressTimeout=[0,500000]
 	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
@@ -92,6 +99,16 @@ fun! InvertSetting(choice)
 		se invhls
 	elseif a:choice==108
 		se invlist
+	elseif a:choice==116
+		let &showtabline=!&showtabline
+	elseif a:choice==115
+		let &ls=&ls>1? 0:2
+	elseif a:choice==110
+		se invnumber
+	elseif a:choice==87
+		if winwidth(0)==&columns	
+			silent call Writeroom(exists('OPT_WRITEROOMWIDTH')? OPT_WRITEROOMWIDTH : 25)
+		else | only | en
 	en
 endfun
 
@@ -164,7 +181,7 @@ endfun
 let Pad=repeat(' ',200)
 fun! FoldText()
 	let l=getline(v:foldstart)
-	return g:Pad[v:foldlevel].'( '.l[:stridx(l,'{{{')-1].' )'
+	return g:Pad[v:foldlevel].'('.l[:stridx(l,'{{{')-1].')'
 endfun
 
 fun! ReltimeLT(t1,t2)
@@ -313,7 +330,7 @@ fun! CSChooser(...)
 		call add(g:CShst,[fg,bg])
 	elseif a:0==1 && type(a:1)==1 && has_key(g:SWATCHES,a:1)
 		let [fg,bg]=g:SWATCHES[a:1]
-		call add(g:CShst,[fg,bg])
+		call add(gName:CShst,[fg,bg])
 	el|retu|en
 	let swatchlist=keys(g:SWATCHES)
 	exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg | redr
@@ -677,10 +694,11 @@ se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 se whichwrap+=b,s,h,l,<,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 se stl=\ %l.%02c/%L\ %<%f%=\ 
+
 se fcs=vert:\  showbreak=.\  
 se term=screen-256color
 se so=4
-if Cur_Device=='cygwin' "from code.google.com/p/mintty/wiki/Tips
+if Cur_Device=='cygwin'
 	let &t_ti.="\e[2 q"
 	let &t_SI.="\e[6 q"
 	let &t_EI.="\e[2 q"
@@ -688,6 +706,7 @@ if Cur_Device=='cygwin' "from code.google.com/p/mintty/wiki/Tips
 	se noshowmode
 en
 redir END
+
 if !argc() && filereadable('.lastsession')
 	so .lastsession
 en
@@ -700,16 +719,16 @@ fun! AdjustFontSize(k)
 	endwhile
 endfun
 
-let normD={(g:EscAsc):"\<esc>",(g:opt_TmenuAsc):g:opt_TmenuKey}
+let normD={(EscAsc):"\<esc>",(opt_TmenuAsc):opt_TmenuKey}
 let normD=extend(normD,{62:":silent call AdjustFontSize(62)\<cr>",
 \60:":silent call AdjustFontSize(60)\<cr>",
 \122:":wa\<cr>",32:":call TODO.show()\<cr>",
-\82:"R",99:":call CSChooser()\<cr>",116:":call TODO.show()\<cr>",
+\82:"R",99:":call CSChooser()\<cr>",
 \114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
 \80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
 \107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invhl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
 \101:":call EdMRU()\<cr>",
-\105:":call InvertSetting(getchar())\<cr>",
+\116:":call InvertSetting(getchar())\<cr>",
 \49:":exe 'e '.escape(g:MRUF[0],' ')\<cr>",50:":exe 'e '.escape(g:MRUF[1],' ')\<cr>",
 \113:"\<esc>",51:":exe 'e '.escape(g:MRUF[2],' ')\<cr>",
 \112:"i\<c-r>=eval(input('Put: ','','var'))\<cr>",109:":mes\<cr>",
@@ -717,13 +736,11 @@ let normD=extend(normD,{62:":silent call AdjustFontSize(62)\<cr>",
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \35:":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>",
 \'help':'<>:Font 123:buff c/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap z:wa *#:sub ^w/riteroom',
-\'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
-\.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]",
+\'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]",
 \111:":call LOGDIC.111(1)\<cr>",
-\115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>",
-\23:":call Writeroom(25)\<cr>"})
+\115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>"})
 
-let insD={(g:EscAsc):"\<c-o>\<esc>",(g:opt_TmenuAsc):g:opt_TmenuKey}
+let insD={(EscAsc):"\<c-o>\<esc>",(opt_TmenuAsc):opt_TmenuKey}
 let insD=extend(insD,{105:":call InvertSetting(getchar())\<cr>",
 \97:"\<c-o>:call SoftCapsLock()\<cr>",
 \103:"\<c-r>=getchar()\<cr>",
@@ -736,15 +753,14 @@ let insD=extend(insD,{105:":call InvertSetting(getchar())\<cr>",
 \'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
 \.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]"})
 
-let visD={(g:EscAsc):"",(g:opt_TmenuAsc):g:opt_TmenuKey}
-let g:visD=extend(visD,{42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
-\\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
-\99:":ce\<cr>",120:"y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",103:"y:\<c-r>\"",
+let visD={(EscAsc):"",(opt_TmenuAsc):opt_TmenuKey}
+let visD=extend(visD,{42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
+\99:":ce\<cr>",103:"y:\<c-r>\"",
+\120:":\<c-w>exe join(getline(\"'<\",\"'>\"),'|')\<cr>",
 \'help':'*:sub c/enter e/dit g/et2cmd u/nformat x/ec',
 \101:"y:e \<c-r>\"\<cr>",117:":s/ \\n/ /\<cr>",
 \67:"\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>",
-\'msg':"expand('%:t').' '.line('.')
-\.'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"})
+\'msg':"expand('%:t').' '.line('.').'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"})
 
 let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 \|exe 'hi '.g:CSgrp.' ctermfg='.(g:cs_current[g:CSgrp][0]).' ctermbg='.(g:cs_current[g:CSgrp][1]) |en",
@@ -857,6 +873,13 @@ let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 "no Mscroll for cygwin
 "added `C to visD to copy and unwrap lines
 "CheckFormatted: set wrap and autoformat options to execute after loading modelines, simplifying detection
-"streamlined opt_TenuKey to change keymenu
-"set timeoutlen=1 to avoid delay when exiting insert mode
+"streamlined opt_TenuKey to change keymenu  
+"cygwin: set timeoutlen=1 to avoid delay when exiting insert mode
 "software caps lock for insert mode via `a
+"TD: Command to jump to previous cursor position?
+"Middle click to close split or tab
+"added `it `is to toggle tab bar and status line
+"updated visual `x to work on all lines
+"added <space> and <bs> as pgdown / pgup
+"TD: combine tabline and statusline, revamp MRU system
+"TD: signs
