@@ -1,8 +1,10 @@
 redir => g:StartupErr
 
+com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
+
 fun! QSel(list,msg)
 	let [inp,c]=['','']
-	while c!=g:EscAsc && c!=10 && c!=13
+	while c!=g:EscAsc && (c==0 || c>30)
 		let inp=c=="\<bs>"? inp[:-2] : inp.nr2char(c)
 		let [lenmatch,qual,qual1,qual2,qual3]=[len(a:msg)+2,0,'','','']
 		for e in range(len(a:list))
@@ -10,8 +12,7 @@ fun! QSel(list,msg)
 			let thisqual=pos>-1? pos==0? inp==#a:list[e][:len(inp)-1]? 3 : 2 : 1 : 0
 			if !thisqual | continue | en
 			if thisqual>qual
-				if qual
-					let qual{qual}.=a:list[match].' '
+				if qual | let qual{qual}.=a:list[match].' ' |en
 				let [match,matchpos,qual]=[e,pos,thisqual]
 			el| let qual{thisqual}.=a:list[e].' ' |en
 			let lenmatch+=len(a:list[e])+1
@@ -20,18 +21,18 @@ fun! QSel(list,msg)
 		redr!
 		if qual==1
 			echon a:msg '(' a:list[match][:matchpos-1] ')' inp len(a:list[match])>matchpos+len(inp)
-			\?'('.a:list[match][matchpos+len(inp):].') _ ':' _ ' qual1[len(a:list[match])+1:]
+			\?'('.a:list[match][matchpos+len(inp):].') | ':' | ' qual1
 		elseif qual==2
-			echon a:msg inp len(a:list[match])>len(inp)?'('.a:list[match][len(inp):].') _ '
-			\: ' _ ' qual2[len(a:list[match])+1:] qual1
+			echon a:msg inp len(a:list[match])>len(inp)?'('.a:list[match][len(inp):].') | '
+			\: ' | ' qual2 qual1
 		elseif qual==3
-			echon a:msg inp len(a:list[match])>len(inp)?'('.a:list[match][len(inp):].') _ '
-			\: ' _ ' qual3[len(a:list[match])+1:] qual2 qual1
+			echon a:msg inp len(a:list[match])>len(inp)?'('.a:list[match][len(inp):].') | '
+			\: ' | ' qual3 qual2 qual1
 		el| echon a:msg inp ' (No match)' |en
 		let c=getchar()
 	endwhile
 	ec '' |redr
-	return c==g:EscAsc? -1 : qual? match : -1
+	return [qual!=0? match : -1,c]
 endfun
 
 let CShst=[[0,7]]
@@ -103,8 +104,8 @@ fun! CSChooser(...)
 		elseif c==105
 			let [fg,bg]=[bg,fg]
 		elseif c==103
-			let in=QSel(hi,"Group: ")
-			if in!=-1
+			let [in,cmd]=QSel(hi,"Group: ")
+			if in!=-1 && cmd!=g:EscAsc
 				if has_key(g:CURCS,hi[in])
 					let [fg,bg]=g:CURCS[hi[in]] |en
 				if has_key(g:CURCS,g:CSgrp)
@@ -147,7 +148,7 @@ let Pad=repeat(' ',200)
 fun! CenterLine()
 	let line=matchstr(getline('.'),'^\s*\zs\S.*\S\ze\s*$')
 	if &tw==0
-		call setline(line('.'),g:Pad[1:(&columns-strdisplaywidth(line))/2].line)
+		call setline(line('.'),g:Pad[1:(winwidth(0)-strdisplaywidth(line))/2].line)
 	elseif &tw > strdisplaywidth(line)
 		call setline(line('.'),g:Pad[1:(&tw-strdisplaywidth(line))/2].line)
 	en
@@ -225,10 +226,21 @@ fun! Ec(...)
 	return a:1
 endfun
 
-fun! GetMRU()
-	let sel=QSel(g:MRUF,'e: ')
-	if sel!=-1 | exe 'e '.g:MRUF[sel] |en
+fun! EdMRU()
+	let [sel,cmd]=QSel(g:MRUF,'`o ')
+	if sel!=-1 && cmd!=g:EscAsc
+		if cmd==18 "<c-r>
+			exe 'botright vsp '.g:MRUF[sel]
+		elseif cmd==12 "<c-l>
+			exe 'topleft vsp '.g:MRUF[sel]
+		elseif cmd==20 "<c-t>
+			exe 'topleft sp '.g:MRUF[sel]
+		elseif cmd==2 "<c-b>
+			exe 'botright sp '.g:MRUF[sel]
+		el| exe 'e '.g:MRUF[sel] |en
+	en
 endfun
+
 fun! GetLbl(file)
 	let name=matchstr(a:file,"[[:alnum:]][^/\\\\]*$")
 	return len(name)>12 ? name[0:7]."~".name[-3:] : name
@@ -239,8 +251,8 @@ fun! InsHist(name,lnum,cnum,w0)
 	cal insert(g:MRUF,a:name)
 	cal insert(g:MRUL,[a:lnum,a:cnum,a:w0])
 endfun
-fun! RemHist()
-	let i=match(g:MRUF,'^'.expand('%').'$')
+fun! RemHist(file)
+	let i=match(g:MRUF,'^'.a:file.'$')
 	if i==-1 | retu|en
 	exe "norm! ".g:MRUL[i][2]."z\<cr>".(g:MRUL[i][0]>g:MRUL[i][2]? 
 	\ (g:MRUL[i][0]-g:MRUL[i][2]).'j':'').g:MRUL[i][1].'|'
@@ -345,9 +357,9 @@ fun! WriteVimState()
 		retu|en
 	call WriteVars('saveD')
 	if has("gui_running")
-		let g:S_GUIFONT=&guifont
-		let g:WINPOS='se co='.&co.' lines='.&lines.
-		\'|winp '.getwinposx().' '.getwinposy() |en
+		let g:S_GUIFONT=&guifont |en
+	se sessionoptions=winpos,resize,winsize,tabpages,folds
+	mksession! lastsession
 	se viminfo=!,'20,<1000,s10,/50,:150
 	if !exists("g:Viminfo_File") | wviminfo
 	el| if exists('g:RemoveBeforeWriteViminfo')
@@ -388,7 +400,6 @@ if has("gui_running")
 	hi ColorColumn guibg=#222222 
 	hi Vertsplit guifg=grey15 guibg=grey15
  	se guioptions-=T
-	if exists("WINPOS") | exe WINPOS |en
 	if !exists('S_GUIFONT')
 		"se guifont=Envy\ Code\ R\ 10 
 		se guifont=Envy_Code_R:h10 
@@ -406,38 +417,35 @@ if len(MRUF)>60
 let NoMRUsav=0
 if !exists('CURCS') | let CURCS={} | el | call CSLoad(CURCS) |en
 if !exists('SWATCHES') | let SWATCHES={} |en
-if !argc() && len(MRUF)>0
-	sil exe 'e '.g:MRUF[0]
-	sil call CheckFormatted()
-	call RemHist() |en
-au BufWinEnter * call RemHist()
+au BufWinEnter * call RemHist(expand('<afile>'))
 au BufRead * call CheckFormatted()
 au BufNewFile * call OnNewBuf()
-au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'),line('w0'))
+au BufWinLeave * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
 au VimLeavePre * call WriteVimState()
-se noshowmode nowrap linebreak sidescroll=1 ignorecase smartcase incsearch
+se noshowmode wrap linebreak sidescroll=1 ignorecase smartcase incsearch
 se ai tabstop=4 history=150 mouse=a ttymouse=xterm2 hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
-se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:< showbreak=\ \ 
+se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:< showbreak=..
 se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-LastTime)}
 nohl
 redir END
+if !argc() && filereadable('lastsession') | so lastsession | en
 
 let normD={110:":noh\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
 \99:":call CSChooser()\<cr>",9:":call TODO.show()\<cr>",
 \114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
 \80:":call IniPaint()\<cr>",108:":call g:LOGDIC.show()\<cr>",
-\101:":call CenterLine()\<cr>",119:"\<c-w>\<c-w>",
+\67:":call CenterLine()\<cr>",119:"\<c-w>\<c-w>",
 \103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
-\111:":call GetMRU()\<cr>",
+\111:":call EdMRU()\<cr>",
 \49:":exe 'e '.g:MRUF[0]\<cr>",50:":exe 'e '.g:MRUF[1]\<cr>",
 \113:"\<esc>",51:":exe 'e '.g:MRUF[2]\<cr>",
 \112:"i\<c-r>=eval(input('Put: ','','var'))\<cr>",109:":mes\<cr>",
 \42:":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \35:":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>",
-\'help':'123:buff c/olor c[e]nter g/ethelp l/og n/ohl r/mswp
-\ m/sg o/pen p/utvar w/ind z:wa *#:sub',
+\'help':'123:buff c/olor C/enter g/ethelp l/og n/ohl r/mswp
+\ m/sg o/pen(^R^L^T^B) p/utvar w/ind z:wa *#:sub',
 \'msg':"expand('%:t').' '.join(map(g:MRUF[:2],'GetLbl(v:val)'),' ').' '
 \.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
 
@@ -452,6 +460,6 @@ let insD={103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",96:'`',
 
 let g:visD={(g:EscAsc):"",42:"y:,$s/\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
-\120:"y:exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",99:"y:\<c-r>\"",
+\120:"y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",99:"y:\<c-r>\"",
 \'help':'*:sub g/etvar x/ec c/opy2cmd:','msg':"expand('%:t').' '.line('.').'.'.col('.')
 \.'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
