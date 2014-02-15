@@ -21,7 +21,6 @@ if opt_device=~?'cygwin'
 	vno <c-v> "*p
 	no! <c-_> <c-w>
 	nno <c-_> db
-	nno <MiddleMouse> <LeftMouse>:q<cr>
 	let Viminfo_File= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings/viminfo'
 	let Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings' | en
 	se ttimeoutlen=10
@@ -157,14 +156,16 @@ vmap <expr> q Qmenu(g:Qvis)
 nno Q q
 vno Q q
 se stl=%f\ %l/%L\ %c%V
-fun! Qmenu(menu,...)
+fun! Qmenu(menu)
+	let matchID=matchadd("CursorColumn",'\%#')
 	let [view,stal]=[winsaveview(),&stal]
-	let [view.topline,&stal,cuc,&cuc,&ls,ls]=[view.topline+!stal,1,&cuc,1,2,&ls]
+	let [view.topline,&stal,&ls,ls]=[view.topline+!stal,1,2,&ls]
 	echo strftime('%c').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
 	call winrestview(view)
 	redr
-	let [c,view.topline,&stal,&cuc,&ls]=[getchar(),view.topline-!stal,stal,cuc,ls]
+	let [c,view.topline,&stal,&ls]=[getchar(),view.topline-!stal,stal,ls]
 	call winrestview(view)
+	call matchdelete(matchID)
 	return get(a:menu,c,a:menu.default)
 endfun
 let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
