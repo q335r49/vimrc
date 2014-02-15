@@ -1,3 +1,29 @@
+let Qpairs={'(':')','{':'}','[':']','<':'>'}
+fun! IniQuote(mark)
+	let @h=a:mark | let @i=has_key(g:QPAIRS,a:mark)? (g:QPAIRS[a:mark]) : a:mark
+	let g:QLXP="expand('<cWORD>')=~\"^".(@h=='"'? '\'.@h : @h)."\""
+	let g:QRXP="expand('<cWORD>')=~\"".(@i=='"'? '\'.@i : @i)."$\""
+	return @h.@i
+endfun
+fun! QuoteE()
+	let LQ=eval(g:QLXP)	| let RQ=eval(g:QRXP)	
+	if RQ && LQ && getpos("'q")!=getpos('.') | norm! hExlBx
+	elsei RQ | norm! mqhExE"ip
+	elsei LQ | norm! mqlBxEElB"hP
+	el| norm! lB"hPE"ipmq
+	en
+endfun
+fun! QuoteB()
+	let LQ=eval(g:QLXP)	| let RQ=eval(g:QRXP)	
+	if RQ && LQ && getpos("'q")!=getpos('.') | norm! hExlBx
+	elsei LQ | norm! mqlBxB"hP
+	elsei RQ | norm! mqhExBBhE"ip
+	el| norm! hE"ipB"hPmq
+	en
+endfun
+nn <silent> [ :call QuoteB()<CR>
+nn <silent> ] :call QuoteE()<CR>
+
 let HLb=split('1234567890abcdefghijklmnopqrstuvwxyz
 \ABCDEFGHIJKLMNOPQRSTUVWXYZ','\zs')
 let Asc2HLb=repeat([-1],256) | for i in range(len(HLb))
@@ -107,7 +133,7 @@ fun! Edit(file)
 	if file[0]=='' | retu|en
 	if !bufloaded(file[0])
 		exe 'e '.escape(file[0],' ')
-		if !filereadable(file[0])
+		if !filereadable(glob(file[0]))
 			call setline(1,localtime()." vim: set nowrap ts=4 tw=62 fo=aw: "
 			\.strftime('%H:%M %m/%d/%y'))
 			setlocal nowrap ts=4 tw=62 fo=aw |en
@@ -233,7 +259,7 @@ fun! CapWait(prev)
 	if next=~'[.?!\r\n[:blank:]]'
 		exe 'norm! i' . next . "\<Right>"
 		return CapWait(next)
-	elseif next==g:K_ESC
+	elseif next=='' || next==g:K_ESC
 		return "\<del>"
 	elseif a:prev=~'[\r\n[:blank:]]'
 		return toupper(next) . "\<del>"
@@ -368,7 +394,7 @@ fun! WinPushH(winnr,L)
 endfun
 fun! WinPullH(winnr,L)
 	exe a:winnr.'winc w|winc h'
-   	exe 'vert res +'.(winnr()!=a:winnr? min([winwidth(a:winnr)-1,a:L]):0)
+	exe 'vert res +'.(winnr()!=a:winnr? min([winwidth(a:winnr)-1,a:L]):0)
 endfun
 fun! WinPushJ(winnr,L)
 	exe a:winnr.'winc w|winc j'
@@ -463,8 +489,10 @@ endfun
 
 fun! Write_Viminfo()
 	let g:TLOG=join(map(g:tlog,'v:val[0]."|".v:val[1]'),"\n")
-	let g:LAST_FILE=expand('%')
 	let g:HISTL=join(g:histL,"\n")
+	if has("gui_running")
+		let g:WINPOS='se co='.&co.' lines='.&lines.
+		\'|winp '.getwinposx().' '.getwinposy() | en
 	se viminfo=!,'20,<1000,s10,/50,:50
 	if !filereadable($VIMINFO_FILE) | wv
 	elseif !exists('g:USE_WV_WORKAROUND') || g:USE_WV_WORKAROUND!=$VIMINFO
@@ -480,18 +508,20 @@ fun! Write_Viminfo()
 		!cp ~/.viminfo $VIMINFO_FILE
 	en | se viminfo=
 endfun
-
-fun! SetInput(options)
-	let g:MYOPTIONS=a:options
-	if g:MYOPTIONS==?"THUMB"
+fun! SetOpt(options)
+	let g:INPUT_METH=a:options
+	if g:INPUT_METH==?"THUMB"
 		let op=["@",64,1]
 	el| let op=["\<Esc>",27,0] | en
-	let g:K_ESC=op[0]
-	let g:N_ESC=op[1]
-	try | exe (op[2]? ('no '.g:K_ESC.' <Esc>') : ('unm '.g:K_ESC))
-		exe (op[2]? ('no! '.g:K_ESC.' <Esc>') : ('unm! '.g:K_ESC))
-		exe (op[2]? ('cno '.g:K_ESC.' <C-C>') : ('cu '.g:K_ESC))
-		exe (op[2]? 'nn <silent> <leftmouse> <leftmouse>:call {OnTouch}()<CR>'
+	if exists(g:K_ESC)
+		exe 'unm '.g:K_ESC
+		exe 'unm! '.g:K_ESC
+		exe 'cu '.g:K_ESC | en
+	let g:K_ESC=op[0] | let g:N_ESC=op[1]
+	exe 'no '.g:K_ESC.' <Esc>'
+   	exe 'no! '.g:K_ESC.' <Esc>'
+   	exe 'cno '.g:K_ESC.' <C-C>'
+	try|exe (op[2]? 'nn <silent> <leftmouse> <leftmouse>:call {OnTouch}()<CR>'
 			\:'nun <leftmouse>')
 		exe (op[2]? 'nn <silent> <leftrelease> <leftmouse>:call OnRelease()<CR>'
 			\:'nun <leftrelease>')
@@ -526,7 +556,9 @@ fun! SetInput(options)
 \50:":call Edit(g:histL[2])\<CR>",51:":call Edit(g:histL[3])\<CR>",
 \42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
-\111:":call SetInput(\<C-R>=(g:MYOPTIONS==?'thumb'? 'key':'thumb')\<CR>)\<CR>",
+\113:":ec 'Quotes=?'\|redr\|ec IniQuote(nr2char(getchar()))\<CR>",
+\111:":call SetOpt(\<C-R>=g:INPUT_METH==?'thumb'? \"'key'\" : \"'thumb'\"\<CR>)\<CR>
+\:ec 'Current input is '.g:INPUT_METH\<CR>",
 \'help':'b[12] [e]d [g]:h [l]og [n]ohl t[o]gglekbd [p]nt l[s] [r]mswp [w]a e[X]e s/[*#]',
 \'msg':"line('.').'.'.col('.').'/'.line('$').' '
 \.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
@@ -547,39 +579,52 @@ fun! SetInput(options)
 \'msg':"line('.').'.'.col('.').'/'.line('$').' '
 \.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
 endfun
+fun! FirstRunSetup()
+	if has('win16') || has('win32') || has('win64') | let os='WIN'
+	elseif exists('$VIMINFO_FILE') | let os='AND'
+	el| let os='UX' | en
+	let g:WORKING_DIR=input("Files are relative to WORKING_DIR:",
+		\exists('g:DEFWD_'.os)? eval('g:DEFWD_'.os):expand('$HOME'),'file')
+	exe 'let g:DEFWD_'.os.'=g:WORKING_DIR'
+	let g:INPUT_METH=input("INPUT_METH? (thumb/keyboard):",
+		\exists('g:DEFIM_'.os)? eval('g:DEFIM_'.os):'thumb','file')
+	exe 'let g:DEFIM_'.os.'=g:INPUT_METH'
+	exe 'cd '.g:WORKING_DIR
+	call SetOpt(g:INPUT_METH)
+endfun
 
 if !exists('do_once') | let do_once=1
-se viminfo=!,'20,<1000,s10,/50,:50
-	if filereadable($VIMINFO_FILE) | rv $VIMINFO_FILE
-	el| let g:viminfo_file_invalid=1 | rv | en
-se viminfo=
-au VimLeavePre * call Write_Viminfo()
-au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
-se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
-se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
-se wildmode=list:longest,full display=lastline modeline t_Co=256
-se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-tlog[-1][0])}
-se guifont=Envy\ Code\ R:h10:cANSI guioptions-=T
-if has("gui_running") | colorscheme slate | el | syntax off | en
-hi ColorColumn guibg=#222222 ctermbg=237
-hi ErrorMsg ctermbg=9 ctermfg=15
-hi Search ctermfg=9 ctermbg=none
-hi MatchParen ctermfg=9 ctermbg=none
-hi StatusLine cterm=underline ctermfg=244 ctermbg=236
-hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
-hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
-if !exists('MAIN_DIRECTORY') || !isdirectory(MAIN_DIRECTORY)
-	echoerr 'Set MAIN_DIRECTORY!'
-el| exe 'so '.MAIN_DIRECTORY.'/abbrev'
-	if !argc()
-		exe 'cd '.MAIN_DIRECTORY
- 		if exists("LAST_FILE")
-			au VimEnter * call Edit(LAST_FILE)
+	se viminfo=!,'20,<1000,s10,/50,:50
+		if filereadable($VIMINFO_FILE) | rv $VIMINFO_FILE
+		el| let g:viminfo_file_invalid=1 | rv | en
+	se viminfo=
+	au VimLeavePre * call Write_Viminfo()
+	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
+	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
+	se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
+	se wildmode=list:longest,full display=lastline modeline t_Co=256
+	se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
+	se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-tlog[-1][0])}
+	se guifont=Envy\ Code\ R:h10:cANSI guioptions-=T
+	if has("gui_running")
+		colorscheme slate
+		if exists("WINPOS") | exe WINPOS | en
+	el | syntax off | en
+	hi ColorColumn guibg=#222222 ctermbg=237
+	hi ErrorMsg ctermbg=9 ctermfg=15
+	hi Search ctermfg=9 ctermbg=none
+	hi MatchParen ctermfg=9 ctermbg=none
+	hi StatusLine cterm=underline ctermfg=244 ctermbg=236
+	hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
+	hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
+	let cmdMode='cmdD'
+	if !exists('TLOG') | let tlog=[[localtime(),'0000']]
+	el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
+	let histL=exists('HISTL') ? split(HISTL,"\n") : [] | call InitHist()
+	if !exists('g:WORKING_DIR') || !isdirectory(g:WORKING_DIR)
+		au VimEnter * call FirstRunSetup()
+	en | call SetOpt(INPUT_METH) | exe 'so '.g:WORKING_DIR.'/abbrev'
+	if !argc() | exe 'cd '.g:WORKING_DIR
+		if len(histL)>1 | au VimEnter * call Edit(histL[0])
+	if !exists('QLXP') | call IniQuote("'") | en
 en|en|en
-call SetInput(exists("MYOPTIONS")? MYOPTIONS : "THUMB")
-let cmdMode='cmdD'
-if !exists('TLOG') | let tlog=[[localtime(),'0000']]
-el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
-let histL=exists('HISTL') ? split(HISTL,"\n") : [] | call InitHist()
-endif
