@@ -1,16 +1,38 @@
-
-nnoremap <expr> gp '`['.strpart(getregtype(), 0, 1).'`]'
-
 redir => g:StartupErr
 
-map k <up>
-map j <down>
-map h <left>
-map l <right>
-map! k <up>
-map! j <down>
-map! h <left>
-map! l <right>
+if !exists("g:EscChar") | let g:EscChar="\e" | let g:EscAsc=27
+el|let g:EscAsc=char2nr(g:EscChar) |en
+if g:EscChar!="\e"
+	exe 'no <F2> '.g:EscChar
+	exe 'no '.g:EscChar.' <Esc>'
+   	exe 'no! '.g:EscChar.' <Esc>'
+   	exe 'cno '.g:EscChar.' <C-C>'
+en
+
+function! SafeSearchCommand(line1, line2, theCommand)
+  let search = @/
+  execute a:line1 . "," . a:line2 . a:theCommand
+  let @/ = search
+endfunction
+com! -range -nargs=+ SS call SafeSearchCommand(<line1>, <line2>, <q-args>)
+com! -range -nargs=* S call SafeSearchCommand(<line1>, <line2>, 's' . <q-args>)
+
+nn j gj
+nn k gk
+let gnmapD={112:":exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'\<cr>",
+\106:'j',107:'k',
+\36:"G:call search('^.*\\S.*$','Wb')\<cr>"}
+let gvmapD={85:":S/\\<\\(\\w\\)\\(\\w*\\)\\>/\\u\\1\\L\\2/g\<cr>"}
+vn <expr> g MyGvmap()
+nn <expr> g MyGnmap()
+fun! MyGvmap()
+	let c=getchar()	
+	return get(g:gvmapD,c,'g'.nr2char(c))
+endfun
+fun! MyGnmap()
+	let c=getchar()	
+	return get(g:gnmapD,c,'g'.nr2char(c))
+endfun
 
 for mark in map(range(97,122)+range(65,90),'nr2char(v:val)')
 	exe 'sign define bkmrk'.mark.' texthl=Visual text='.mark.'-'
@@ -62,7 +84,17 @@ if !exists('Cur_RunAs')
 	let Cur_RunAs=''
 en
 if Cur_Device=='cygwin'
-	se timeout ttimeout timeoutlen=100 ttimeoutlen=-1
+	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
+
+	map k <up>
+	map j <down>
+	map h <left>
+	map l <right>
+	map! k <up>
+	map! j <down>
+	map! h <left>
+	map! l <right>
+
 	vno <c-c> "*y
 	vno <c-v> "*p
 	ino <c-_> <c-w>
@@ -104,37 +136,55 @@ fun! SoftCapsLock()
 	endwhile
 endfun
 
-fun! MLT()
-    if search('\C\V'.nr2char(getchar()),'bW')
+let lastft='f'
+let lastftchar=32
+fun! MLT(char)
+	let g:lastftchar=a:char
+    if search('\C\V'.nr2char(a:char),'bW')
         norm! l
     endif
+	return 'T'
 endfun
-fun! MLF()
-    call search('\C\V'.nr2char(getchar()),'bW')
+fun! MLF(char)
+	let g:lastftchar=a:char
+    call search('\C\V'.nr2char(a:char),'bW')
+	return 'F'
 endfun
-fun! MLf()
-    if search('\C\V'.nr2char(getchar()),'W')
+fun! MLf(char)
+	let g:lastftchar=a:char
+    if search('\C\V'.nr2char(a:char),'W')
         norm! l
     endif
+	return 'f'
 endfun
-fun! MLt()
-    call search('\C\V'.nr2char(getchar()),'W')
+fun! MLt(char)
+	let g:lastftchar=a:char
+    call search('\C\V'.nr2char(a:char),'W')
+	return 't'
 endfun
-fun! MLnT()
-    if search('\C\V'.nr2char(getchar()),'bW')
+fun! MLnT(char)
+	let g:lastftchar=a:char
+    if search('\C\V'.nr2char(a:char),'bW')
         norm! l
     endif
+	return 'T'
 endfun
-fun! MLnF()
-    call search('\C\V'.nr2char(getchar()),'bW')
+fun! MLnF(char)
+	let g:lastftchar=a:char
+    call search('\C\V'.nr2char(a:char),'bW')
+	return 'F'
 endfun
-fun! MLnt()
-    if search('\C\V'.nr2char(getchar()),'W')
+fun! MLnt(char)
+	let g:lastftchar=a:char
+    if search('\C\V'.nr2char(a:char),'W')
         norm! h
     endif
+	return 't'
 endfun
-fun! MLnf()
-    call search('\C\V'.nr2char(getchar()),'W')
+fun! MLnf(char)
+	let g:lastftchar=a:char
+    call search('\C\V'.nr2char(a:char),'W')
+	return 'f'
 endfun
 
 if !exists('Cur_Device')
@@ -184,16 +234,8 @@ if Cur_Device=="Droid4"
 	nn <c-r> <nop>
 en
 
-nn j gj
-nn k gk
-nn gj j
-nn gk k
-
 com! -nargs=+ -complete=var Editlist call New('NestedList',<args>).show()
 com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
-
-
-
 
 fun! Writeroom(margin)
 	echom a:margin
@@ -350,8 +392,7 @@ endfun
 fun! CSChooser(...)
 	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
 	if a:0==0
-		let [fg,bg]=has_key(g:cs_current,g:CSgrp)? (g:cs_current[g:CSgrp]) : g:CShst[-1]
-		"let [fg,bg]=get(g:cs_current,g:CSgrp,g:CShst[-1])
+		let [fg,bg]=get(g:cs_current,g:CSgrp,g:CShst[-1])
 	elseif a:0==2
 		let [fg,bg]=[a:1,a:2]
 		call add(g:CShst,[fg,bg])
@@ -367,10 +408,7 @@ fun! CSChooser(...)
 	let c=getchar()
 	let continue=1
 	while 1
-		if has_key(g:CSChooserD,c)
-			exe g:CSChooserD[c]
-		el| let msg="[*]rand [fb]swatches [g]roup [hl]fg [i]nvert [jk]bg
-			\ [np]history fgbg[rR]and [s]ave [S]avescheme [L]oadscheme" |en
+		exe get(g:CSChooserD,c,'let msg="[*]rand [fb]swatches [g]roup [hl]fg [i]nvert [jk]bg [np]history fgbg[rR]and [s]ave [S]avescheme [L]oadscheme"')
 		if continue
 			if g:CShix<=len(g:CShst)-1
 				let g:CShst[g:CShix]=[fg,bg]
@@ -526,7 +564,7 @@ endfun
 
 let invertD={(EscAsc):'',
 \119:'se invwrap',
-\104:'se invhs',
+\104:'se invhls',
 \108:'se invlist',
 \116:'let &showtabline=!&showtabline',
 \115:'let &ls=&ls>1? 0:2',
@@ -534,20 +572,34 @@ let invertD={(EscAsc):'',
 \87:'if winwidth(0)==&columns | silent call Writeroom(exists(''g:OPT_WRITEROOMWIDTH'')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en',
 \98:'call ToggleBookmarks()',
 \83:'let &spell=!&spell'}
-fun! InvertSetting(choice)
-	exe get(g:invertD,a:choice,"redr!|ec '[b]ookmarks [h]lsearch [l]ist [n]umber [s]tatusl [S]pell [t]abl [W]riteroom' | call InvertSetting(getchar())")
-	return
+fun! InvertSetting()
+	redr!|ec '[b]ookmarks [h]lsearch [l]ist [n]umber [s]tatusl [S]pell [t]abl [W]riteroom'
+		let choice=get(g:invertD,getchar(),'')
+	while empty(choice)
+		let choice=get(g:invertD,getchar(),'')
+	endwhile
+	exe choice
 endfun
 
-fun! TMenu(cmd,...)
-	let ec=a:0==0? eval(a:cmd.msg) : a:cmd[a:1]
-	if 1+len(ec)/&columns >= &cmdheight
-		let save=&cmdheight | exe 'se cmdheight='.(1+len(ec)/&columns)
-			ec ec | let key=getchar() | redr!
-		let &cmdheight=save
-	el| ec ec
-		let key=getchar()|redr! | en
-	retu has_key(a:cmd,key)? a:cmd[key] : TMenu(a:cmd,'help')
+fun! TMenu(cmd)
+	let ec=eval(a:cmd.msg)
+	while 1
+		if 1+len(ec)/&columns >= &cmdheight
+			let save=&cmdheight
+			let &cmdheight=1+len(ec)/&columns
+			ec ec
+			let key=getchar()|redr!
+			let &cmdheight=save
+		else
+			ec ec
+			let key=getchar()|redr!
+		en
+		if has_key(a:cmd,key)
+			return a:cmd[key]
+		else
+			let ec=a:cmd.help
+		en
+	endw
 endfun!
 exe "nno <expr> ".opt_TmenuKey." TMenu(g:normD)"
 exe "ino <expr> ".opt_TmenuKey." TMenu(g:insD)"
@@ -612,6 +664,23 @@ fun! InitCap(capnl)
 	nm <buffer> <silent> C C^<Left><C-R>=CapHere()<CR>
 endfun
 
+let ftfuncD={"f":function("MLf"),
+\"t":function("MLt"),
+\"F":function("MLF"),
+\"T":function("MLT"),
+\"nf":function("MLnf"),
+\"nt":function("MLnt"),
+\"nF":function("MLnF"),
+\"nT":function("MLnT")}
+let invftD={"f":"F",
+\"F":"f",
+\"t":"T",
+\"T":"t",
+\"nf":"nF",
+\"nt":"nT",
+\"nF":"nf",
+\"nT":"nt"}
+
 fun! CheckFormatted()
 	let options=getline(1)
 	if &fdm!='manual'
@@ -626,14 +695,18 @@ fun! CheckFormatted()
 		iab <buffer> im I'm
 		iab <buffer> Im I'm
 
-		onoremap <silent> F :call MLF()<CR>
-		onoremap <silent> T :call MLT()<CR>
-		onoremap <silent> f :call MLf()<CR>
-		onoremap <silent> t :call MLt()<CR>
-		nnoremap <silent> F :call MLnF()<CR>
-		nnoremap <silent> T :call MLnT()<CR>
-		nnoremap <silent> f :call MLnf()<CR>
-		nnoremap <silent> t :call MLnt()<CR>
+		onoremap <buffer> <silent> F :let g:lastft=MLF(getchar())<cr>
+		onoremap <buffer> <silent> T :let g:lastft=MLT(getchar())<cr>
+		onoremap <buffer> <silent> f :let g:lastft=MLf(getchar())<cr>
+		onoremap <buffer> <silent> t :let g:lastft=MLt(getchar())<cr>
+		nnoremap <buffer> <silent> F :let g:lastft=MLnF(getchar())<cr>
+		nnoremap <buffer> <silent> T :let g:lastft=MLnT(getchar())<cr>
+		nnoremap <buffer> <silent> f :let g:lastft=MLnf(getchar())<cr>
+		nnoremap <buffer> <silent> t :let g:lastft=MLnt(getchar())<cr>
+		nnoremap <buffer> <silent> ; :let g:lastft=g:ftfuncD["n".g:lastft](g:lastftchar)<cr>
+		nnoremap <buffer> <silent> , :let g:lastft=g:invftD[g:ftfuncD[g:invftD["n".g:lastft]](g:lastftchar)]<cr>
+		onoremap <buffer> <silent> ; :let g:lastft=g:ftfuncD[g:lastft](g:lastftchar)<cr>
+		onoremap <buffer> <silent> , :let g:lastft=g:invftD[g:ftfuncD[g:invftD[g:lastft]](g:lastftchar)]<cr>
 	en
 	if &fo=~#'a'
 		nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
@@ -680,13 +753,6 @@ fun! WriteVimState()
 endfun
 
 if !exists('do_once') | let do_once=1 | el|finish|en
-if !exists("g:EscChar") | let g:EscChar="\e" | let g:EscAsc=27
-el|let g:EscAsc=char2nr(g:EscChar) |en
-if g:EscChar!="\e"
-	exe 'no <F2> '.g:EscChar
-	exe 'no '.g:EscChar.' <Esc>'
-   	exe 'no! '.g:EscChar.' <Esc>'
-   	exe 'cno '.g:EscChar.' <C-C>' | en
 if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
 	cal Ec('Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME)
 	let Working_Dir=$HOME |en
@@ -727,10 +793,8 @@ if !exists('SWATCHES') | let SWATCHES={} |en
 if !exists('SCHEMES') | let SCHEMES={'lastscheme':''} | en
 if exists('opt_colorscheme')
 	call CSLoad(SCHEMES[opt_colorscheme])
-elseif has_key(SCHEMES,SCHEMES.lastscheme)
-	call CSLoad(SCHEMES[SCHEMES.lastscheme])
-el
-	call CSLoad({})
+else
+	call CSLoad(get(SCHEMES,SCHEMES.lastscheme,{}))
 en
 au BufWinEnter * call RemHist(expand('%')) | call CheckFormatted()
 au BufHidden * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
@@ -765,7 +829,7 @@ let normD=extend(normD,{
 \80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
 \107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invhl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
 \101:":call EdMRU()\<cr>",
-\116:":call InvertSetting(getchar())\<cr>",
+\116:":call InvertSetting()\<cr>",
 \49:":tabn1\<cr>",
 \50:":tabn2\<cr>",
 \51:":tabn3\<cr>",
@@ -775,18 +839,19 @@ let normD=extend(normD,{
 \55:":tabn7\<cr>",
 \56:":tabn8\<cr>",
 \57:":tabn9\<cr>",
-\112:":tabp\<cr>",
-\110:":tabn\<cr>",
+\"\<f1>":":tabp\<cr>",
+\"\<f2>":":tabn\<cr>",
 \42:":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \35:":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>",
-\'help':'<>:Font 123:buff c/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap z:wa *#:sub ^w/riteroom',
+\'help':'<>:Font 123:buff c/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap X/ecPara z:wa *#:sub ^w/riteroom',
 \'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]",
 \111:":call LOGDIC.111(1)\<cr>",
-\115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>"})
+\115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>",
+\88:"vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>" })
 
 let insD={(EscAsc):"\<c-o>\<esc>",(opt_TmenuAsc):opt_TmenuKey}
-let insD=extend(insD,{105:":call InvertSetting(getchar())\<cr>",
+let insD=extend(insD,{105:":call InvertSetting()\<cr>",
 \97:"\<c-o>:call SoftCapsLock()\<cr>",
 \103:"\<c-r>=getchar()\<cr>",
 \113:"\<c-o>\<esc>",111:"\<c-r>=input('`o','','customlist,CmpMRU')\<cr>",
@@ -800,14 +865,13 @@ let insD=extend(insD,{105:":call InvertSetting(getchar())\<cr>",
 let visD={(g:EscAsc):"",(g:opt_TmenuAsc):g:opt_TmenuKey}
 let g:visD=extend(visD,{42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
-\99:":ce\<cr>",
 \120:"y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",
 \103:"y:\<c-r>\"",
 \'help':'*:sub c/enter e/dit g/et2cmd u/nformat x/ec',
 \101:"y:e \<c-r>\"\<cr>",117:":s/ \\n/ /\<cr>",
 \67:"\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>",
-\'msg':"expand('%:t').' '.line('.')
-\.'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"})
+\'msg':"expand('%:t').' '.line('.').'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")",
+\99:":\<c-w>call ChangeCase()\<cr>"})
 
 let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 \|exe 'hi '.g:CSgrp.' ctermfg='.(g:cs_current[g:CSgrp][0]).' ctermbg='.(g:cs_current[g:CSgrp][1]) |en",
@@ -840,112 +904,3 @@ let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 \if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en',
 \83:'let name=input("Save scheme as: ",g:SCHEMES.lastscheme,"customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=g:cs_current | let g:SCHEMES.lastscheme=name | en | let continue=0',
 \76:'let schemek=keys(g:SCHEMES) | let [in,cmd]=QSel(schemek,"scheme: ")|if in!=-1 && cmd!=g:EscAsc | let g:cs_current=g:SCHEMES[schemek[in]] | call CSLoad(g:cs_current) | let g:SCHEMES.lastscheme=schemek[in] | en | let continue=0'}
-
-"Added changelog
-"Added shortcuts to log functions in normD command
-"Fixed menu history bug in pager
-"Added gliding touch scrolling
-"Added y emulation to cmdnorm
-"Changed cmdnorm to exit on Esc rather than Q
-"Fixed scrolling in folded texts via winline()
-"Removed Center function: already implemented as :ce
-"Explore no longer interacts with history
-"remap center as `k, add line feed
-"fixed c-r / s-r confusion
-"longpress to toggle fold
-"seamless way to deal with end of document scrolling
-"have logappend calculate offset (for normal mode appends)
-"invisible horizontal scrollbar on bottom
-"no autocap on elipse
-"yank for nested
-"reading mode: remember offset
-"long press to go to link
-"Reformat folding, remove reading mode autocommands
-"longpresses are activated on timeout
-"fixed wacky log time display
-"fixed cmdnorm cursor sticking around
-"single esc to get out of autocap, use uppercase to avoid transformation
-"synergize autocap and tmenu
-"no new line autocap if option not set
-"change log visualizations to pagers
-"add T/op function to all pagers
-"pager constructor can now set cursor / offset
-"add option to hide numbers on pager (default)
-"changed folding to marker (from expr)
-"fully swap g, gj, k, gk
-"backspace / esc bug for autocap
-"synergize mouse scrolling and statusline / split dragging
-"changed fold to display line number
-"editmru now edits input if no match was found
-"log histogram accounts for current task
-"combined histogram & printlog
-"shownum, default statusline for pager
-"separate histogram mode and chart mode
-"shortcut for se invwrap
-"included day of week in date display
-"fixed viminfo bug (&vi was being reset to default)
-"changed seach hl quick command to toggle
-"changed foldtext to display custom marks
-"cleared args before mksession to prevent unnecessary file loading
-"curdevice for device specific settings
-"changed tmenu trigger to _
-"changed autocap cursor to ^
-"added option to [S]ave and [L]oad color schemes
-"last scheme name default entry for load color scheme
-"change color chooser from C to c
-"use /f to automcomplete {{{
-"added () to distinguish folds, removed fold centering
-"variable maxQselsize for Qsel list length
-"added cygwin customizations (must define Cyg_Working_Dir... confusing as hell)
-"Writeroom(margin) function for wide screens
-"Mapped normal c-n c-p to search for folds
-"opt_DisableAutocap added
-"Changed Writeroom to take percentage
-"Autoexit after saving a color scheme
-"added ^W to activate writeroom in normD
-"moved device-dependent settings to main vimrc file
-"Cygwin: added ^C and ^V (clipboard) visual mode bindings
-"added u/nformat to visD
-"autoexit after loading a color scheme
-"Cygwin: Cursor changes shape based on mode
-"Cygwin: innoremap escape to escape-escape to prevent delay
-"set nocompatible to avoid absurd errors
-"notepad mode (set Cur_RunAs='notepad') with ^W ^S nmaps
-"added option to set colorscheme (set opt_colorscheme), eliminated unnecessary persistent vars
-"`il `iw for invlist, invwrap in normal / insert mode
-"mutline fFtT for prose
-"Eliminate longpress to expand folds for Cygwin by setting opt_LongPressTimeout
-"Mouse now continues scrolling even for low timeouts if there is no fold or no jump under cursor
-"mintty: `< anc `> to adjust font size
-"no Mscroll for cygwin
-"added `C to visD to copy and unwrap lines
-"CheckFormatted: set wrap and autoformat options to execute after loading modelines, simplifying detection
-"streamlined opt_TenuKey to change keymenu  
-"cygwin: set timeoutlen=1 to avoid delay when exiting insert mode
-"software caps lock for insert mode via `a
-"TD: Command to jump to previous cursor position?
-"Middle click to close split or tab
-"added `it `is to toggle tab bar and status line
-"updated visual `x to work on all lines
-"added <space> and <bs> as pgdown / pgup
-"`tb to tggle bookmark visibility
-"remapped `1 ... `9 to switch tabs
-"remapped arrow keys to alt-hjkl
-"removed `< and `>, duplicates ctrl++ and ctrl+-
-"altered checkformatted to check for fo=aw versus fo=a
-"fixed A or I at beginning or end of line bug for checkformatted
-"Used dictionary with InvertSetting()
-
-"TD: optimize: replace has_key() with get()
-"TD: help message for invert
-"TD: Smart heading jumps: expand + / -
-"TD: `Tab and shift-tab (!) for scrolling through buffers
-"TD: scrollbars; scrollbars with visible marks!!! and fold handling....
-"TD: title case (for visual) http://vim.wikia.com/wiki/Switching_case_of_characters/
-"TD: auto link jumps in vim??
-"TD: context sensitive shift-click; open / close folds
-"TD: CYCLE through spelling choices with right-click / shift right-click!!! 
-"TD: gui interface / circle menus for vim? maybe via split?????
-"TD: bug: gp to reselect pasted text
-"TD: remap gj, gk in those situations to jump by 'paragraph'? Or remap +/- to other functions?
-"TD: mouse shortcut to check spelling, eg, right-click
