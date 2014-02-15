@@ -60,20 +60,14 @@ en
 
 nno Q q
 vno Q q
-if !exists('Qnrm') | let [Qnrm,Qnhelp]=[{},{}] | en
-if !exists('Qvis') | let [Qvis,Qvhelp]=[{},{}] | en
-let [Qnrm.81,Qnhelp.Q]=["Q","Ex mode"]
-let [Qvis.81,Qvhelp.Q]=["Q","Ex mode"]
+let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
+let [Qnrm.81,Qnhelp.Q,Qvis.81,Qvhelp.Q]=["Q","Ex mode","Q","Ex mode"]
 fun! Qmenu(cmd)
 	exe a:cmd.msg
 	return get(a:cmd, getchar(), a:cmd.default)
 endfun
 nno <expr> q Qmenu(g:Qnrm)
 vno <expr> q Qmenu(g:Qvis)
-try | let Qnrm.msg="ec printf('%-23.23s %'.string(&columns-26).'s',eval(strftime('printf(\" %%d%%s%%d %%d:%M %%s%%.2f\",%m,\"SMTWRFA\"[%w],%d,%I,g:logdic.L[-1][1],(localtime()-g:logdic.L[-1][0])/3600.0)',localtime())),expand('%').' ('.join(getpos('.')[1:2],',').') $'.line('$'))"
-cat | let Qnrm.msg="ec line('.').','.col('.').'/'.line('$')"
-endtry
-let Qvis.msg=Qnrm.msg
 
 let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
@@ -653,8 +647,8 @@ fun! CheckFormatted()
 endfun
 
 fun! RestoreSavedVars()
-	sil exe "norm! :let g:SAVED_\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
-	if len(v)>8
+	exe "norm! :let v=g:SAVED_\<c-a>'\<c-b>\<right>\<right>\<right>\<right>\<right>\<right>'\<cr>"
+	if exists('v') && len(v)>8
 		for var in split(v)
 			unlet! {'g:'.var[8:]}
 			let {'g:'.var[8:]}=eval({var})	
@@ -673,8 +667,10 @@ fun! RestoreSavedVars()
 	if exists('g:opt_colorscheme') && has_key(g:SCHEMES,g:opt_colorscheme)
 		call CSLoad(g:SCHEMES[g:opt_colorscheme])
 	el| call CSLoad(g:SCHEMES.current) | en
-	au BufWinEnter * call mruf.restorepos(expand('%')) 
-	au BufLeave * call mruf.insert(expand('<afile>'),line('.'),col('.'),line('w0'))
+	let g:Qnrm.msg="ec printf('%-23.23s %'.(&columns-26).'s',eval(strftime('printf(\" %%d%%s%%d %%d:%M %%s%%.2f\",%m,\"smtwrfa\"[%w],%d,%I,g:logdic.L[-1][1],(localtime()-g:logdic.L[-1][0])/3600.0)',localtime())),(expand('%').' ('.join(getpos('.')[1:2],',').') $'.line('$'))[-&columns+26:])"
+	try | silent exe g:Qnrm.msg
+	catch | let g:Qnrm.msg="ec line('.').','.col('.').'/'.line('$')" | endtry
+	let g:Qvis.msg=g:Qnrm.msg
 endfun
 fun! WriteVimState(file) "empty file means, execute exit routine
 	echoh ErrorMsg
@@ -721,17 +717,8 @@ let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\
 let [Qnrm.101,Qnhelp.e]=[":noh\<cr>","No highlight search"]
 let [Qnrm.78,Qnhelp.N]=[":se invnumber\<cr>","Line number toggle"]
 let [Qnrm.104,Qnhelp.h]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>","Help word under cursor"]
-let Qnrm.49=":tabn1\<cr>"
-let Qnrm.50=":tabn2\<cr>"
-let Qnrm.51=":tabn3\<cr>"
-let Qnrm.52=":tabn4\<cr>"
-let Qnrm.53=":tabn5\<cr>"
-let Qnrm.54=":tabn6\<cr>"
-let Qnrm.55=":tabn7\<cr>"
-let Qnrm.56=":tabn8\<cr>"
-let Qnrm.57=":tabn9\<cr>"
-let Qnrm.112=":tabp\<cr>"
-let Qnrm.110=":tabn\<cr>"
+let [Qnrm.49,Qnrm.50,Qnrm.51,Qnrm.52,Qnrm.53,Qnrm.54,Qnrm.55,Qnrm.56,Qnrm.57]=map(range(1,9),'":tabn".v:val."\<cr>"')
+let [Qnrm.112,Qnrm.110]=[":tabp\<cr>",":tabn\<cr>"]
 	let Qnhelp['1..9']="Switch tabs"
 	let Qnhelp.np="Next/prev tab"
 let Qnrm.42=":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>"
@@ -760,11 +747,14 @@ if !exists('firstrun')
 		if opt_device=~?'cygwin'
 			exe 'cd '.Cyg_Working_Dir
 		el| exe 'cd '.Working_Dir | en | en
-	exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
 	if !exists('g:Viminfo_File')
 		cal Ec("Error: g:Viminfo_File undefined, falling back to default")
-	el| exe "rv ".g:Viminfo_File | en
-	au VimEnter * call RestoreSavedVars()
+	el
+		exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
+	en
+	au VimEnter * call RestoreSavedVars() 
+	au VimEnter * au BufWinEnter * call mruf.restorepos(expand('%')) 
+	au VimEnter * au BufLeave * call mruf.insert(expand('<afile>'),line('.'),col('.'),line('w0'))
 	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
 	se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
 	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
