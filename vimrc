@@ -5,13 +5,13 @@ fun! CenterLine()
 	call setline(line('.'),g:Pad[:(&columns-strdisplaywidth(line))/2].line)
 endfun
 
-fun! Permanent(name)
-	let g:PermanentD[a:name]=toupper(a:name)
+fun! Save(name)
+	let g:SaveD[a:name]=toupper(a:name)
 endfun
-fun! DeletePerm(name)
+fun! Unsave(name)
 	exe 'unlet g:'.toupper(a:name)
 	exe 'unlet g:'.a:name
-	unlet g:PermanentD[a:name]
+	unlet g:SaveD[a:name]
 endfun
 
 fun! PrintTime(s,...) "%e crashes Windows!
@@ -220,7 +220,7 @@ fun! OnWinEnter()
 	endfor
 endfun
 fun! OnNewBuf()
-	if g:FORMAT_NEW_FILES
+	if g:FormatNewFiles
   		call setline(1,localtime()." vim: set nowrap ts=4 tw=78 fo=aw: "
    		\.strftime('%H:%M %m/%d/%y'))
    		setlocal nowrap ts=4 tw=62 fo=aw
@@ -271,7 +271,7 @@ fun! CapWait(prev)
 	if next=~'[.?!\r\n[:blank:]]'
 		exe 'norm! i' . next . "\<Right>"
 		return CapWait(next)
-	elseif next=='' || next==g:K_ESC
+	elseif next=='' || next==g:EscChar
 		return "\<del>"
 	elseif a:prev=~'[\r\n[:blank:]]'
 		return toupper(next) . "\<del>"
@@ -304,223 +304,23 @@ fun! InitCap()
 	nm <buffer> <silent> C C_<Left><C-R>=CapHere()<CR>
 endfun
 
-let g:Dashes=repeat('-',200)|let g:Pad=repeat(' ',200)
-let g:OnTouch='IniScroll'
-se wiw=1
-fun! IniScroll()
-	let s:vesave=&ve
-	se ve=all
-	let s:pP=[winnr(),winline(),0]
-	call getchar()
-	let s:pP[2]=v:mouse_col
-	let g:OnTouch='ScrollR'
-endfun
-fun! ScrollR()
-	let s:cP=[winnr(),winline(),wincol()]
-	if s:cP[0]!=s:pP[0]
-    	let g:OnTouch='OnResize'
-		call OnResize()
-		retu
-	en
-	if s:cP[2]-s:pP[2]>5 || s:pP[2]-s:cP[2]>5
-		let g:OnTouch='ScrollRC'
-		retu
-	en
-	exe 'norm! '.(s:cP[1]>s:pP[1]? (s:cP[1]-s:pP[1])."\<C-Y>" : s:pP[1]>s:cP[1]? (s:pP[1]-s:cP[1])."\<C-E>" : 'z')
-	let s:pP=s:cP
-endfun
-fun! ScrollRC()
-	let s:cP=[winnr(),winline(),wincol()]
-	if s:cP[0]!=s:pP[0]
-		let g:OnTouch='OnResize'
-		call OnResize()
-		retu
-	en
-	exe 'norm! '.(s:cP[2]>s:pP[2]? (s:cP[2]-s:pP[2])."zh" : s:pP[2]>s:cP[2]? (s:pP[2]-s:cP[2])."zl" : '').(s:cP[1]>s:pP[1]? (s:cP[1]-s:pP[1])."\<C-Y>" : s:pP[1]>s:cP[1]? (s:pP[1]-s:cP[1])."\<C-E>" : 'g')
-	let s:pP=s:cP
-endfun
-fun! OnVisual()
-	let cdiff=virtcol("'v")-wincol()
-	let rdiff=line("'v")-line(".")
-	echo rdiff.(g:Pad[1:(cdiff>0? wincol():virtcol("'v"))]
-	\.g:Dashes[1:abs(cdiff)])[len(rdiff):]
-	if line('.')==line('w$')
-		exe "norm! \<C-E>"
-	elseif line('.')==line('w0')
-		exe "norm! \<C-Y>"
-	endif
-endfun
-let s:dirs=['k','j','l','h'] |let s:opp =['j','k','h','l']
-fun! GetResDir()
-	for i in (s:cP[0]>s:pP[0]? [1,2]:[0,3])
-		exe s:cP[0].'winc w|winc '.s:opp[i]
-		if winnr()==s:pP[0]
-			return s:dirs[i]
-		endif
-	endfor
-	return 'U'
-endfun
-fun! ResizeWinU(winnr,L)
-endfun
-fun! ResizeWinX(winnr,L)
-endfun
-fun! WinPushK(winnr,L)
-	exe a:winnr.'winc w|winc k'
-	let moved=0
-	let iwin=a:winnr
-	let todo=[]
-	while iwin!=winnr() && a:L>moved
-		let iwin=winnr()
-		let curL=winheight(0)-1
-		let moved+=insert(todo,[iwin,(curL>a:L-moved ? 
-		\ a:L-moved : (curL>0)*curL)])[0][1]
-		winc k
-	endwhile
-	let sum=0
-	for i in todo
-		let sum+=i[1]
-		exe i[0].'winc w|res -'.sum
-	endfor
-endfun
-fun! WinPullK(winnr,L)
-	exe a:winnr.'winc w|winc k'
-   	exe 'res +'.(winnr()!=a:winnr? min([winheight(a:winnr)-1,a:L]):0)
-endfun
-fun! WinPushH(winnr,L)
-	exe a:winnr.'winc w|winc h'
-	let moved=0
-	let iwin=a:winnr
-	let todo=[]
-	while iwin!=winnr() && a:L>moved
-		let iwin=winnr()
-		let curL=winwidth(0)-1
-		let moved+=insert(todo,[iwin,(curL>a:L-moved ?
-		\ a:L-moved : (curL>0)*curL)])[0][1]
-		winc h
-	endwhile
-	let sum=0
-	for i in todo
-		let sum+=i[1]
-		exe i[0].'winc w|vert res -'.sum
-	endfor
-endfun
-fun! WinPullH(winnr,L)
-	exe a:winnr.'winc w|winc h'
-	exe 'vert res +'.(winnr()!=a:winnr? min([winwidth(a:winnr)-1,a:L]):0)
-endfun
-fun! WinPushJ(winnr,L)
-	exe a:winnr.'winc w|winc j'
-	let moved=0
-	let curwin=a:winnr
-	while moved<a:L && winnr()!=curwin
-		let moved+=winheight(0)-1
-		let curwin=winnr()
-		winc j
-	endwhile
-	exe a:winnr.'winc w|res +'.min([a:L,moved])
-endfun
-fun! WinPullJ(winnr,L)
-	exe a:winnr.'winc w|winc j'
-   	if winnr()!=a:winnr
-		exe a:winnr.'winc w|res -'.min([winheight(a:winnr)-1,a:L])
-   	endif
-endfun
-fun! WinPushL(winnr,L)
-	exe a:winnr.'winc w|winc l'
-	let moved=0
-	let curwin=a:winnr
-	while moved<a:L && winnr()!=curwin
-		let moved+=winwidth(0)-1
-		let curwin=winnr()
-		winc l
-	endwhile
-	exe a:winnr.'winc w|vert res +'.min([a:L,moved])
-endfun
-fun! WinPullL(winnr,L)
-	exe a:winnr.'winc w|winc l'
-   	if winnr()!=a:winnr
-		exe a:winnr.'winc w|vert res -'.min([winwidth(a:winnr)-1,a:L])
-   	endif
-endfun
-fun! OnResize()
-	let s:cP=[winnr(),winline(),wincol()]
-	if s:pP[0]!=s:cP[0]
-		let s:dir=GetResDir()
-		if s:dir=='k'
-			call WinPushK(s:pP[0],winheight(s:cP[0])-s:cP[1]+1)
-			let s:pP[1]=1
-		elseif s:dir=='j'
-			call WinPushJ(s:pP[0],s:cP[1])
-			let s:pP[1]=winheight(s:pP[0])
-		elseif s:dir=='h'
-			call WinPushH(s:pP[0],winwidth(s:cP[0])-s:cP[2]+1)
-			let s:pP[2]=1
-		elseif s:dir=='l'
-			call WinPushL(s:pP[0],s:cP[2])
-			let s:pP[2]=winwidth(s:pP[0])
-		endif
-	elseif s:pP!=s:cP
-		if s:dir=='j'
-			call WinPullJ(s:pP[0],winheight(s:cP[0])-s:cP[1])
-			let s:pP[1]=winheight(s:pP[0])
-		elseif s:dir=='k'
-			call WinPullK(s:pP[0],s:cP[1]-1)
-			let s:pP[1]=1
-		elseif s:dir=='l'
-			call WinPullL(s:pP[0],winwidth(s:cP[0])-s:cP[2])
-			let s:pP[2]=winwidth(s:pP[0])
-		elseif s:dir=='h'
-			call WinPullH(s:pP[0],s:cP[2]-1)
-			let s:pP[2]=1
-		endif
-	endif
-endfun
-fun! Paint()
-	exe 'norm! R'.g:brush
-endfun
-fun! IniPaint()
-	ec ' Brush? (Backspace to turn off)' | let g:brush=getchar()
-	if g:brush!="\<BS>"
-		let g:brush=nr2char(g:brush)
-		let s:vesave=&ve | se ve=all
-		let g:OnTouch='Paint'
-		redr|ec g:brush
-	el| redr|ec ' Brush Off'
-		exe 'se ve='.s:vesave
-       	let g:OnTouch='IniScroll' |en
-endfun
-fun! OnRelease() " Must move before release
-	if g:OnTouch=='OnVisual'
-		norm! v`v
-		let g:OnTouch='IniScroll'
-	elseif g:OnTouch!='Paint'
-		exe 'se ve='.s:vesave
-		let g:OnTouch='IniScroll'
-	endif
-endfun
-
 fun! SetOpt(...)
-	let g:INPUT_METH=a:0? a:1 : 'thumb'
-	if g:INPUT_METH==?"THUMB"
+	let g:Input_Meth=a:0? a:1 : 'thumb'
+	if g:Input_Meth==?"THUMB"
 		let op=["@",64,1]
 	el| let op=["\e",27,0] | en
-	let [g:K_ESC,g:N_ESC]=op[:1]
-	if exists(g:K_ESC)
-		exe 'unm '.g:K_ESC
-		exe 'unm! '.g:K_ESC
-		exe 'cu '.g:K_ESC | en
-	if g:K_ESC!=?"\e"
-		exe 'no <F2> '.g:K_ESC
-		exe 'no '.g:K_ESC.' <Esc>'
-   		exe 'no! '.g:K_ESC.' <Esc>'
-   		exe 'cno '.g:K_ESC.' <C-C>' | en
-	try|exe (op[2]? 'nn <silent> <leftmouse> <leftmouse>:call {OnTouch}()<CR>'
-			\:'nun <leftmouse>')
-		exe (op[2]? 'nn <silent> <leftrelease> <leftmouse>:call OnRelease()<CR>'
-			\:'nun <leftrelease>')
-		exe (op[2]? "vn <silent> <leftmouse> <Esc>mv<leftmouse>
-			\:let OnTouch='OnVisual'<CR>'":'vu <leftmouse>')
-		exe (op[2]? 'map <C-J> <C-M>' : 'unm <C-J>')
+	if !exists("g:EscChar") | let g:EscChar=op[0] |en
+	if !exists("g:EscAsc") | let g:EscAsc=op[0] |en
+	if exists(g:EscChar)
+		exe 'unm '.g:EscChar
+		exe 'unm! '.g:EscChar
+		exe 'cu '.g:EscChar | en
+	if g:EscChar!=?"\e"
+		exe 'no <F2> '.g:EscChar
+		exe 'no '.g:EscChar.' <Esc>'
+   		exe 'no! '.g:EscChar.' <Esc>'
+   		exe 'cno '.g:EscChar.' <C-C>' | en
+	try|exe (op[2]? 'map <C-J> <C-M>' : 'unm <C-J>')
 		exe (op[2]? 'map! <C-J> <C-M>' : 'unm! <C-J>')
 		exe (op[2]? 'no OQ @' :'unm OQ')
 		exe (op[2]? 'no! OQ @' :'unm! OQ')
@@ -533,12 +333,12 @@ fun! SetOpt(...)
 		exe (op[2]? 'nn <F9> <C-O>' : 'nun <F9>')
 		exe (op[2]? 'nn <F10> <C-I>' : 'nun <F10>')
 	catch | endtry
-	let g:normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',122:":wa\<CR>",
+	let g:normD={110:":noh\<CR>",(g:EscAsc):"\<Esc>",96:'`',122:":wa\<CR>",
+	\99:":call Cabinet.show()\<CR>",
 	\114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
 	\80:":call IniPaint()\<CR>",108:":call g:LogDic.show()\<CR>",
-	\99:":call CenterLine()\<CR>",
+	\101:":call CenterLine()\<CR>",
 	\103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",
-	\88:"vip:\<C-U>call Nexe()\<CR>",119:"\<C-W>\<C-W>",
 	\115:":let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
 	\49:":exe 'e '.g:histL[0][0]\<CR>",50:":exe 'e '.g:histL[1][0]\<CR>",
 	\113:"\<Esc>",51:":exe 'e '.g:histL[2][0]\<CR>",
@@ -546,12 +346,12 @@ fun! SetOpt(...)
 	\42:":,$s/\<C-R>=expand('<cword>')\<CR>//gc|1,''-&&\<left>\<left>
 	\\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 	\35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
-	\'help':'b[123] [g]:h [l]og [n]ohl [P]nt [r]mswp l[s] :[m]es [p]utvar
-	\ C-[w]C-w e[X]e [z]:wa s/[*#]',
+	\'help':':b[123] [c]abinet c[e]nter [g]:h [l]og [n]ohl [P]nt [r]mswp l[s]
+	\ :[m]es [p]utvar C-[w]C-w e[X]e [z]:wa s/[*#]',
 	\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '
 	\.line('.').'.'.col('.').'/'.line('$').' '
 	\.PrintTime(localtime()-g:LastTime)"}
-	let g:insD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):"\<Esc>a",96:'`',
+	let g:insD={103:"\<C-R>=getchar()\<CR>",(g:EscAsc):"\<Esc>a",96:'`',
 	\115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
 	\49:"\<Esc>:exe 'e '.g:histL[0][0]\<CR>",
 	\50:"\<Esc>:exe 'e '.g:histL[1][0]\<CR>",
@@ -561,7 +361,7 @@ fun! SetOpt(...)
 	\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '
 	\.line('.').'.'.col('.').'/'.line('$').' '
 	\.PrintTime(localtime()-g:LastTime)"}
-	let g:visD={(g:N_ESC):"",103:"y:call GetVar(@\")\<CR>",
+	let g:visD={(g:EscAsc):"",103:"y:call GetVar(@\")\<CR>",
 	\120:"y:@\"\<CR>",99:"y:\<C-R>\"",'help':'[g]etvar e[x]e 2[c]md:',
 	\'msg':"expand('%:t').' '.line('.').'.'.col('.').'/'.line('$').' '
 	\.PrintTime(localtime()-g:LastTime)"}
@@ -570,79 +370,45 @@ fun! Write_Viminfo()
 	if match(g:StartupErr,'\cerror')!=-1
 		let in=input("Startup errors were encountered, write viminfo anyways?")
 		if in!=?'y' && in!='ye' && in!='yes' |retu|en |en
-	if exists('g:PermanentD')
-		for i in keys(g:PermanentD)
-			exe 'let g:'.g:PermanentD[i].'=string(g:'.i.')'
+	if exists('g:SaveD')
+		for i in keys(g:SaveD)
+			exe 'let g:'.g:SaveD[i].'=string(g:'.i.')'
 		endfor |en
 	if has("gui_running")
 		let g:S_GUIFONT=&guifont
 		let g:WINPOS='se co='.&co.' lines='.&lines.
 		\'|winp '.getwinposx().' '.getwinposy() |en
 	se viminfo=!,'20,<1000,s10,/50,:50
-	if g:VIMINFO_FILE==''| wviminfo
-	el| if filereadable(g:VIMINFO_FILE.'.bak')
-		silent exe '!rm '.g:VIMINFO_FILE.'.bak' |en
-		silent exe '!mv '.g:VIMINFO_FILE.' '.g:VIMINFO_FILE.'.bak'
-		silent exe 'wv! '.g:VIMINFO_FILE |en
+	if !exists("g:Viminfo_File") | wviminfo
+	el| silent exe '!rm '.g:Viminfo_File.'.bak'
+		silent exe '!mv '.g:Viminfo_File.' '.g:Viminfo_File.'.bak'
+		silent exe 'wv! '.g:Viminfo_File |en
 	se viminfo=
 endfun
 
 if !exists('do_once') | let do_once=1 | el|finish|en
-se viminfo=!,'20,<1000,s10,/50,:150
-if !exists('VIMINFO_FILE')
-	call Ec('VIMINFO_FILE not defined in .vimrc!')
-	call Ec('...falling back to default')
-	let VIMINFO_FILE=''
-	if argc()==0
-		rviminfo
-	el| try | rv | catch | endtry |en
-el| exe 'rv '.VIMINFO_FILE |en
-se viminfo=
-if !exists('WORKING_DIR') || !isdirectory(glob(WORKING_DIR))
-	call Ec('WORKING_DIR invalid or not defined')
-	if argc()==0| let WORKING_DIR=input('Working directory:',$HOME,'file')
-	el| let WORKING_DIR=$HOME |en |en
-if !exists('INPUT_METH')
-	call Ec('INPUT_METH invalid or not defined!')
-	if argc()==0| let INPUT_METH=input('Input method:','keyboard')
-	el| let INPUT_METH='keyboard' |en |en
-call SetOpt(g:INPUT_METH)
+if !exists('Input_Meth')
+	call Ec('Input_Meth invalid or not defined in .vimrc!')
+	call Ec('...falling back to keyboard')
+	let Input_Meth='keyboard' |en
+call SetOpt(g:Input_Meth)
+if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
+	call Ec('Working_Dir='.Working_Dir.' invalid or not defined in .vimrc!')
+	call Ec('...falling back to $HOME')
+	let Working_Dir=$HOME |en
 let sources=['abbrev','cmdnorm','pager']
 for file in sources
-	if filereadable(WORKING_DIR.'/'.file)| exe 'so '.WORKING_DIR.'/'.file
-	el| call Ec(file.' unreadable')|en
+	if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
+	el| call Ec(Working_Dir.'/'.file.' unreadable')|en
 endfor
-if has("gui_running")
-	colorscheme slate
-	if exists("WINPOS") | exe WINPOS |en
-	if !exists('S_GUIFONT')
-		"se guifont=Envy\ Code\ R\ 10 
-		se guifont=Envy_Code_R:h10 
-		let S_GUIFONT=&guifont
-	el| exe 'se guifont='.S_GUIFONT |en |en
-if exists('PERMANENTD')
-	let PermanentD=eval(PERMANENTD)
-	for key in keys(PermanentD)
-		exe 'let '.key.'='.eval(PermanentD[key])
-	endfor
-el| let PermanentD={} |en
-if !exists('*InitLog')
-	leg g:LastTime=localtime()
-elseif !exists('LogDic')
-	let LogDic=New('Log')
-el| let g:LastTime=LogDic.L[-1][0] |en
-if !exists('histL') | let histL=[] |en
-call InitHist()
 if !argc()
-	let g:FORMAT_NEW_FILES=1
-	if isdirectory(WORKING_DIR)
-		exe 'cd '.WORKING_DIR |en
-	if len(histL)>0
-		silent exe 'e '.g:histL[0][0]
-		call CheckFormatted() | call OnWinEnter() |en
-el| let g:FORMAT_NEW_FILES=0 |en
-if glob(g:WORKING_DIR)=='/home/q335/Desktop/Dropbox/q335writings'
+	let g:FormatNewFiles=1
+	if isdirectory(Working_Dir)
+		exe 'cd '.Working_Dir |en
+el| let g:FormatNewFiles=0 |en
+if glob(g:Working_Dir)=='/home/q335/Desktop/Dropbox/q335writings'
 \ && !has("gui_running")
+	syntax off
 	map OA <Up>
 	map OB <Down>
 	map OD <Left>
@@ -652,11 +418,41 @@ if glob(g:WORKING_DIR)=='/home/q335/Desktop/Dropbox/q335writings'
 	map! OD <Left>
 	map! OC <Right>
 en
-call Permanent('histL')
-call Permanent('LogDic')
-call Permanent('PermanentD')
+se viminfo=!,'20,<1000,s10,/50,:150
+	if !exists('Viminfo_File')
+		call Ec('Viminfo_File not defined in .vimrc!')
+		call Ec('...falling back to default')
+		rviminfo
+	el| exe 'rv '.Viminfo_File |en
+se viminfo=
+if has("gui_running")
+	colorscheme slate
+	if exists("WINPOS") | exe WINPOS |en
+	if !exists('S_GUIFONT')
+		"se guifont=Envy\ Code\ R\ 10 
+		se guifont=Envy_Code_R:h10 
+		let S_GUIFONT=&guifont
+	el| exe 'se guifont='.S_GUIFONT |en |en
+if exists('PERMANENTD')
+	let SaveD=eval(PERMANENTD)
+	for key in keys(SaveD)
+		exe 'let '.key.'='.eval(SaveD[key])
+	endfor
+el| let SaveD={} |en
+if !exists('*InitLog')
+	let g:LastTime=localtime()
+elseif !exists('LogDic')
+	let LogDic=New('Log')
+el| let g:LastTime=LogDic.L[-1][0] |en
+if !exists('histL') | let histL=[] |en
+call InitHist()
+call Save('histL')
+call Save('LogDic')
+call Save('SaveD')
+if len(histL)>0
+	silent exe 'e '.g:histL[0][0]
+	call CheckFormatted() | call OnWinEnter() |en
 
-nohl
 au BufWinEnter * call OnWinEnter()
 au BufRead * call CheckFormatted()
 au BufNewFile * call OnNewBuf()
@@ -675,15 +471,20 @@ hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
 hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
 se noshowmode ai guioptions-=T
 se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
-se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
+se tabstop=4 history=150 mouse=a ttymouse=xterm2 hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-LastTime)}
 redir END
+nohl
 
-"cmdmenu - echo prepend, long lines
-"glob() for all history entries?
-"log-cmdmenu interaction bug
-"hi normal + highlight lines for quick scheme changes
-"connectbot bug
-	"restore position at end of OnReSize
+"merge history & Pager
+	"glob() for all history entries not in Working_Dir
+	"Separate history lists (for help, outside files) --perfect for nested array
+	"undo list?
+"cmdnorm R and <CR>, multiline cmdmenu, echoing tabs
+	"cmdmenu - echo prepend, long lines
+	"log-cmdmenu interaction bug
+"connectbot
+	"background color bug report?
+	"hi normal + highlight lines for quick scheme changes
