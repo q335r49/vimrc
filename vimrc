@@ -1,4 +1,5 @@
-se nocompatible
+
+nnoremap <expr> gp '`['.strpart(getregtype(), 0, 1).'`]'
 
 redir => g:StartupErr
 
@@ -61,7 +62,7 @@ if !exists('Cur_RunAs')
 	let Cur_RunAs=''
 en
 if Cur_Device=='cygwin'
-	se timeoutlen=1
+	se timeout ttimeout timeoutlen=100 ttimeoutlen=-1
 	vno <c-c> "*y
 	vno <c-v> "*p
 	ino <c-_> <c-w>
@@ -136,28 +137,6 @@ fun! MLnf()
     call search('\C\V'.nr2char(getchar()),'W')
 endfun
 
-fun! InvertSetting(choice)
-	if a:choice==119
-		se invwrap
-	elseif a:choice==104
-		se invhls
-	elseif a:choice==108
-		se invlist
-	elseif a:choice==116
-		let &showtabline=!&showtabline
-	elseif a:choice==115
-		let &ls=&ls>1? 0:2
-	elseif a:choice==110
-		se invnumber
-	elseif a:choice==87
-		if winwidth(0)==&columns	
-			silent call Writeroom(exists('OPT_WRITEROOMWIDTH')? OPT_WRITEROOMWIDTH : 25)
-		else | only | en
-	elseif a:choice==98
-		call ToggleBookmarks()
-	en
-endfun
-
 if !exists('Cur_Device')
 	echom "Warning: Cur_Device is undefined, device specific settings may not be loaded."
 	let Cur_Device=''
@@ -209,11 +188,12 @@ nn j gj
 nn k gk
 nn gj j
 nn gk k
-ino <c-z> <Space>
-nn <expr> gp '`['.getregtype().'`]'
 
 com! -nargs=+ -complete=var Editlist call New('NestedList',<args>).show()
 com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
+
+
+
 
 fun! Writeroom(margin)
 	echom a:margin
@@ -371,6 +351,7 @@ fun! CSChooser(...)
 	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
 	if a:0==0
 		let [fg,bg]=has_key(g:cs_current,g:CSgrp)? (g:cs_current[g:CSgrp]) : g:CShst[-1]
+		"let [fg,bg]=get(g:cs_current,g:CSgrp,g:CShst[-1])
 	elseif a:0==2
 		let [fg,bg]=[a:1,a:2]
 		call add(g:CShst,[fg,bg])
@@ -543,6 +524,21 @@ fun! RemHist(file)
 	en
 endfun
 
+let invertD={(EscAsc):'',
+\119:'se invwrap',
+\104:'se invhs',
+\108:'se invlist',
+\116:'let &showtabline=!&showtabline',
+\115:'let &ls=&ls>1? 0:2',
+\110:'se invnumber',
+\87:'if winwidth(0)==&columns | silent call Writeroom(exists(''g:OPT_WRITEROOMWIDTH'')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en',
+\98:'call ToggleBookmarks()',
+\83:'let &spell=!&spell'}
+fun! InvertSetting(choice)
+	exe get(g:invertD,a:choice,"redr!|ec '[b]ookmarks [h]lsearch [l]ist [n]umber [s]tatusl [S]pell [t]abl [W]riteroom' | call InvertSetting(getchar())")
+	return
+endfun
+
 fun! TMenu(cmd,...)
 	let ec=a:0==0? eval(a:cmd.msg) : a:cmd[a:1]
 	if 1+len(ec)/&columns >= &cmdheight
@@ -639,13 +635,18 @@ fun! CheckFormatted()
 		nnoremap <silent> f :call MLnf()<CR>
 		nnoremap <silent> t :call MLnt()<CR>
 	en
-	if &fo=~'a'
-		nn <buffer> <silent> { :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
-		nn <buffer> <silent> } :if !search('\S\n\\|\s\n\s*\n','W')\|exe'norm!G$'\|en<CR>
-		nm <buffer> A }a
-		nm <buffer> I {i
+	if &fo=~#'a'
 		nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
 		nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
+		if &fo=~#'w'	
+			nn <buffer> <silent> { :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
+			nn <buffer> <silent> } :if !search('\S\n\\|\s\n\s*\n','W')\|exe'norm!G$'\|en<CR>
+			nn <buffer> <silent> I :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbec')\|exe'norm!gg^'\|en<CR>i
+			nn <buffer> <silent> A :if !search('\S\n\\|\s\n\s*\n','Wc')\|exe'norm!G$'\|en<CR>a
+		else
+			nn <buffer> <silent> I :if !search('^\s*\n\s*\S','Wbec')\|exe'norm!gg^'\|en<CR>I
+			nn <buffer> <silent> A :if !search('\S\s*\n\s*\n','Wc')\|exe'norm!G$'\|en<CR>A
+		en
 	en
 endfun
 nn gf :e <cWORD><cr>
@@ -731,8 +732,7 @@ elseif has_key(SCHEMES,SCHEMES.lastscheme)
 el
 	call CSLoad({})
 en
-au BufWinEnter * call RemHist(expand('%'))
-au BufWinEnter * call CheckFormatted()
+au BufWinEnter * call RemHist(expand('%')) | call CheckFormatted()
 au BufHidden * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
 au VimLeavePre * call WriteVimState()
 se wrap linebreak sidescroll=1 ignorecase smartcase incsearch
@@ -757,17 +757,8 @@ if !argc() && filereadable('.lastsession')
 	so .lastsession
 en
 
-fun! AdjustFontSize(k)
-	let cmd=a:k
-	while cmd==60 || cmd==62
-		silent exe "!echo -e \"\\e]7770;".(cmd==60? "-":"+")."1\\a\" &" | redraw!
-		let cmd=getchar()
-	endwhile
-endfun
-
 let normD={(EscAsc):"\<esc>",(opt_TmenuAsc):opt_TmenuKey}
-let normD=extend(normD,{62:":silent call AdjustFontSize(62)\<cr>",
-\60:":silent call AdjustFontSize(60)\<cr>",
+let normD=extend(normD,{
 \122:":wa\<cr>",32:":call TODO.show()\<cr>",
 \82:"R",99:":call CSChooser()\<cr>",
 \114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
@@ -938,4 +929,23 @@ let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 "updated visual `x to work on all lines
 "added <space> and <bs> as pgdown / pgup
 "`tb to tggle bookmark visibility
+"remapped `1 ... `9 to switch tabs
 "remapped arrow keys to alt-hjkl
+"removed `< and `>, duplicates ctrl++ and ctrl+-
+"altered checkformatted to check for fo=aw versus fo=a
+"fixed A or I at beginning or end of line bug for checkformatted
+"Used dictionary with InvertSetting()
+
+"TD: optimize: replace has_key() with get()
+"TD: help message for invert
+"TD: Smart heading jumps: expand + / -
+"TD: `Tab and shift-tab (!) for scrolling through buffers
+"TD: scrollbars; scrollbars with visible marks!!! and fold handling....
+"TD: title case (for visual) http://vim.wikia.com/wiki/Switching_case_of_characters/
+"TD: auto link jumps in vim??
+"TD: context sensitive shift-click; open / close folds
+"TD: CYCLE through spelling choices with right-click / shift right-click!!! 
+"TD: gui interface / circle menus for vim? maybe via split?????
+"TD: bug: gp to reselect pasted text
+"TD: remap gj, gk in those situations to jump by 'paragraph'? Or remap +/- to other functions?
+"TD: mouse shortcut to check spelling, eg, right-click
