@@ -1,6 +1,8 @@
 fun! GetVar(str)
-	exe 'let g:'.input('Store as:','','var')
+	let varname=input('Store as:','','var') | if varnamei!=''
+		exe 'let g:'.varname
 	\.'=Ec(map(split(a:str,"\n"),''v:val=~"^\\[.*]$"? eval(v:val):(v:val)''))'
+	en
 endfun
 
 fun! PrevHeading()
@@ -693,6 +695,7 @@ if !exists('do_once') | let do_once=1
 	au BufNewFile * call OnNewBuf()
 	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'),line('w0'))
 	au VimLeavePre * call Write_Viminfo()
+	se noshowmode
 	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
 	se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
 	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
@@ -724,3 +727,21 @@ if !exists('do_once') | let do_once=1
 en
 "palette, generalized color scheme, pastel palette though! 'relational' colors!
 "complement, eg! balance customizability & uniformity
+"Use higlight line and normal to change it for *most* cases
+"have a *base scheme*: black and white??????
+"Quickly check spelling!
+"ve bug
+"scroll and edit timelogs
+"time log bookmark
+"automatically change file names, '!mv' wrapper?
+"generalized delvable 2d array editor with formatted columns?
+"minewriter? file systems????
+"custom modes
+"make recently used files lowercase
+"redo text as wider: 79? no 78
+"silent ><
+"replace _ with something else (*?) to prevent ambiguity
+"changelog todo *history*, indexed source code????
+"change +/- behavior to *skip* to next indentation, and, to take arguments
+" (2 = skip to next double indent)
+"shopping list quick check!
