@@ -1,7 +1,17 @@
 redir => g:StartupErr
 
+fun! CenterLine()
+	let line=matchstr(getline('.'),'^\s*\zs.*\S\ze\s*$')
+	call setline(line('.'),g:Pad[:(&columns-strdisplaywidth(line))/2].line)
+endfun
+
 fun! Permanent(name)
 	let g:PermanentD[a:name]=toupper(a:name)
+endfun
+fun! DeletePerm(name)
+	exe 'unlet g:'.toupper(a:name)
+	exe 'unlet g:'.a:name
+	unlet g:PermanentD[a:name]
 endfun
 
 fun! PrintTime(s,...) "%e crashes Windows!
@@ -526,20 +536,21 @@ fun! SetOpt(...)
 	let g:normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',122:":wa\<CR>",
 	\114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
 	\80:":call IniPaint()\<CR>",108:":call g:LogDic.show()\<CR>",
+	\99:":call CenterLine()\<CR>",
 	\103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",
 	\88:"vip:\<C-U>call Nexe()\<CR>",119:"\<C-W>\<C-W>",
 	\115:":let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
-	\113:"\<Esc>",99:":call QuoteChange(nr2char(getchar()))\<CR>",
 	\49:":exe 'e '.g:histL[0][0]\<CR>",50:":exe 'e '.g:histL[1][0]\<CR>",
-	\51:":exe 'e '.g:histL[2][0]\<CR>",
+	\113:"\<Esc>",51:":exe 'e '.g:histL[2][0]\<CR>",
 	\112:"i\<C-R>=eval(input('Put: ','','var'))\<CR>",109:":mes\<CR>",
-	\42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
+	\42:":,$s/\<C-R>=expand('<cword>')\<CR>//gc|1,''-&&\<left>\<left>
+	\\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 	\35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
-	\'help':'b[123] [c]hg" [g]:h [l]og [n]ohl [P]nt [r]mswp l[s] :[m]es [p]utvar
+	\'help':'b[123] [g]:h [l]og [n]ohl [P]nt [r]mswp l[s] :[m]es [p]utvar
 	\ C-[w]C-w e[X]e [z]:wa s/[*#]',
 	\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '
 	\.line('.').'.'.col('.').'/'.line('$').' '
-	\.PrintTime(localtime()-g:LogDic.L[-1][0])"}
+	\.PrintTime(localtime()-g:LastTime)"}
 	let g:insD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):"\<Esc>a",96:'`',
 	\115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
 	\49:"\<Esc>:exe 'e '.g:histL[0][0]\<CR>",
@@ -549,36 +560,30 @@ fun! SetOpt(...)
 	\113:"\<Esc>a",'help':'b[123] [f]ilename [g]etchar l[s]:',
 	\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '
 	\.line('.').'.'.col('.').'/'.line('$').' '
-	\.PrintTime(localtime()-g:LogDic.L[-1][0])"}
+	\.PrintTime(localtime()-g:LastTime)"}
 	let g:visD={(g:N_ESC):"",103:"y:call GetVar(@\")\<CR>",
 	\120:"y:@\"\<CR>",99:"y:\<C-R>\"",'help':'[g]etvar e[x]e 2[c]md:',
 	\'msg':"expand('%:t').' '.line('.').'.'.col('.').'/'.line('$').' '
-	\.PrintTime(localtime()-g:LogDic.L[-1][0])"}
+	\.PrintTime(localtime()-g:LastTime)"}
 endfun
 fun! Write_Viminfo()
 	if match(g:StartupErr,'\cerror')!=-1
 		let in=input("Startup errors were encountered, write viminfo anyways?")
-		if in!=?'y' && in!='ye' && in!='yes' |retu|en
-		en
-	call Permanent('histL')
-	call Permanent('LogDic')
-	call Permanent('PermanentD')
+		if in!=?'y' && in!='ye' && in!='yes' |retu|en |en
 	if exists('g:PermanentD')
 		for i in keys(g:PermanentD)
 			exe 'let g:'.g:PermanentD[i].'=string(g:'.i.')'
-		endfor
-	en
+		endfor |en
 	if has("gui_running")
 		let g:S_GUIFONT=&guifont
 		let g:WINPOS='se co='.&co.' lines='.&lines.
-		\'|winp '.getwinposx().' '.getwinposy() | en
+		\'|winp '.getwinposx().' '.getwinposy() |en
 	se viminfo=!,'20,<1000,s10,/50,:50
 	if g:VIMINFO_FILE==''| wviminfo
 	el| if filereadable(g:VIMINFO_FILE.'.bak')
-		exe	'!rm '.g:VIMINFO_FILE.'.bak' |en
-		exe '!mv '.g:VIMINFO_FILE.' '.g:VIMINFO_FILE.'.bak'
-		exe 'wv! '.g:VIMINFO_FILE
-	en
+		silent exe '!rm '.g:VIMINFO_FILE.'.bak' |en
+		silent exe '!mv '.g:VIMINFO_FILE.' '.g:VIMINFO_FILE.'.bak'
+		silent exe 'wv! '.g:VIMINFO_FILE |en
 	se viminfo=
 endfun
 
@@ -596,72 +601,67 @@ se viminfo=
 if !exists('WORKING_DIR') || !isdirectory(glob(WORKING_DIR))
 	call Ec('WORKING_DIR invalid or not defined')
 	if argc()==0| let WORKING_DIR=input('Working directory:',$HOME,'file')
-	el| let WORKING_DIR=$HOME |en
-en
-let sources=['WORKING_DIR/abbrev','WORKING_DIR/cmdnorm','WORKING_DIR/pager']
-for file in sources
-	if filereadable(file)| exe 'so '.file
-	el| call Ec(file.' unreadable')|en
-endfor
+	el| let WORKING_DIR=$HOME |en |en
 if !exists('INPUT_METH')
 	call Ec('INPUT_METH invalid or not defined!')
 	if argc()==0| let INPUT_METH=input('Input method:','keyboard')
-	el| let INPUT_METH='keyboard' |en	
-en
+	el| let INPUT_METH='keyboard' |en |en
 call SetOpt(g:INPUT_METH)
+let sources=['abbrev','cmdnorm','pager']
+for file in sources
+	if filereadable(WORKING_DIR.'/'.file)| exe 'so '.WORKING_DIR.'/'.file
+	el| call Ec(file.' unreadable')|en
+endfor
 if has("gui_running")
 	colorscheme slate
-	if exists("WINPOS") | exe WINPOS | en
+	if exists("WINPOS") | exe WINPOS |en
 	if !exists('S_GUIFONT')
 		"se guifont=Envy\ Code\ R\ 10 
 		se guifont=Envy_Code_R:h10 
 		let S_GUIFONT=&guifont
-	el| exe 'se guifont='.S_GUIFONT | en
-en
+	el| exe 'se guifont='.S_GUIFONT |en |en
 if exists('PERMANENTD')
 	let PermanentD=eval(PERMANENTD)
 	for key in keys(PermanentD)
 		exe 'let '.key.'='.eval(PermanentD[key])
 	endfor
 el| let PermanentD={} |en
-if !exists('*InitLog') 
-	let LogDic={'L':[[localtime(),'Logging disabled']]}
+if !exists('*InitLog')
+	leg g:LastTime=localtime()
 elseif !exists('LogDic')
 	let LogDic=New('Log')
-en
-if !exists('histL') | let histL=[] | en
+el| let g:LastTime=LogDic.L[-1][0] |en
+if !exists('histL') | let histL=[] |en
 call InitHist()
 if !argc()
 	let g:FORMAT_NEW_FILES=1
 	if isdirectory(WORKING_DIR)
 		exe 'cd '.WORKING_DIR |en
 	if len(histL)>0
-		exe 'e '.g:histL[0][0] | call CheckFormatted() | call OnWinEnter()
-	en
-el| let g:FORMAT_NEW_FILES=0 | en
+		silent exe 'e '.g:histL[0][0]
+		call CheckFormatted() | call OnWinEnter() |en
+el| let g:FORMAT_NEW_FILES=0 |en
 if glob(g:WORKING_DIR)=='/home/q335/Desktop/Dropbox/q335writings'
 \ && !has("gui_running")
 	map OA <Up>
 	map OB <Down>
-	map OD <Left3b[?>
+	map OD <Left>
 	map OC <Right>
 	map! OA <Up>
 	map! OB <Down>
 	map! OD <Left>
 	map! OC <Right>
 en
+call Permanent('histL')
+call Permanent('LogDic')
+call Permanent('PermanentD')
 
+nohl
 au BufWinEnter * call OnWinEnter()
 au BufRead * call CheckFormatted()
 au BufNewFile * call OnNewBuf()
 au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'),line('w0'))
 au VimLeavePre * call Write_Viminfo()
-se noshowmode ai guioptions-=T
-se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
-se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
-se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
-se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-LogDic.L[-1][0])}
 hi ColorColumn guibg=#222222 ctermbg=237
 hi Pmenu ctermbg=26 ctermfg=81
 hi PmenuSel ctermbg=21 ctermfg=81
@@ -673,16 +673,17 @@ hi MatchParen ctermfg=9 ctermbg=none
 hi StatusLine cterm=underline ctermfg=244 ctermbg=236
 hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
 hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
+se noshowmode ai guioptions-=T
+se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
+se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
+se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
+se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
+se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-LastTime)}
 redir END
-nohl
 
-"fix `*
-"Permanet
+"cmdmenu - echo prepend, long lines
+"glob() for all history entries?
+"log-cmdmenu interaction bug
+"hi normal + highlight lines for quick scheme changes
 "connectbot bug
 	"restore position at end of OnReSize
-"out-of-box: viminfo prompt
-"Centering ('c)
-"cmdmenu
-	"have a variable like 'msg'
-	"deal with long lines
-"hi normal + highlight lines for quick scheme changes
