@@ -1,3 +1,5 @@
+se noloadplugins
+
 let opt_autocap=0
 if !exists('opt_device')
 	echom "Warning: opt_device is undefined."
@@ -64,18 +66,16 @@ if has("gui_running")
 en
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 
-let [Qnrm.112,Qnhelp.p]=["\<f10>","nav-mode hotkey"]
-
-nno <silent> G :<c-u>exe v:count? v:count : search('\S\s*\n\n\n\n\n\n','W')? '' : 99999<cr>zz
-nno <silent> gg :<c-u>exe v:count? v:count : search('\S\s*\n\n\n\n\n\n','Wb')? '' : 1<cr>zz
-
-fun! DeleteHiddenBuffers()
-	let tpbl=[]
-	call map(range(1, tabpagenr('$')), 'extend(tpbl, tabpagebuflist(v:val))')
-	for buf in filter(range(1, bufnr('$')), 'bufexists(v:val) && index(tpbl, v:val)==-1')
-		silent execute 'bwipeout' buf
-	endfor
+fun! NormG(count)
+	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')+1,1)+search('\S\s*\n\n\n\n\n\n','W')? line('.') : line('$')]
+	return (mode=='no'? "\<esc>0".v:operator : mode==?'v'? "\<esc>".mode : "\<esc>").line.'G'.(mode=='v'? '$' : '')
 endfun
+fun! Normgg(count)
+	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')-1,1)+search('\S\s*\n\n\n\n\n\n','Wb')? line('.') : 1]
+	return (mode=='no'? "\<esc>$".v:operator :  mode==?'v'? "\<esc>".mode : "\<esc>").line.'G'.(mode=='v'? '0' : '')
+endfun
+no <expr> G NormG(v:count) 
+no <expr> gg Normgg(v:count) 
 
 fun! Writeroom(...)
 	let margin=a:0? a:1 : input("margin: ", &tw? max([(&columns-&tw-3)/2,10]) : 25)
@@ -87,10 +87,12 @@ fun! Writeroom(...)
 endfun
 com! Write call Writeroom()
 
+let g:debug_on=1
 fun! PRINT(vars)
 	redr
-	return "exe eval('\"'.input(join(map(split('".a:vars."',','),'v:val.\":\".eval(v:val)'),' '),'').'\"')"
+	return g:debug_on? "exe eval('\"'.input(join(map(split('".a:vars."','|'),'v:val.\":\".eval(v:val)'),' '),'').'\"')" : '""'
 endfun
+let [Qnrm["\<f5>"],Qnhelp['<f5>']]=[":let g:debug_on=!g:debug_on|ec g:debug_on? 'DEBUG ON' : 'DEBUG OFF'\<cr>","Toggle PRINT()"]
 
 let [pvft,pvftc]=[1,32]
 fun! Multift(x,c,i)
@@ -110,69 +112,63 @@ om a/ :<c-u>norm F/vt/<cr>
 ino <f1> <c-o>zh
 nn <f1> zh
 
-let ujx_pvXpos=[0,0,0,0]
-let ujx_eolnotreached=1
+let s:ujx_pvXpos=[0,0,0,0]
+let s:ujx_eolnotreached=1
 fun! Undojx(cmd)
-	if getpos('.')==g:ujx_pvXpos
+	if getpos('.')==s:ujx_pvXpos
 		try
 			undoj
 		catch *
 			let @x=''
-			let g:ujx_eolnotreached=1
+			let s:ujx_eolnotreached=1
 		endtry
 	else
 		let @x=''
-		let g:ujx_eolnotreached=1
+		let s:ujx_eolnotreached=1
 	en
 	exe 'norm! '.v:count1.a:cmd
 	let newpos=getpos('.')
-	if newpos[2]==g:ujx_pvXpos[2]
+	if newpos[2]==s:ujx_pvXpos[2]
 		let @x.=@"
-	elseif a:cmd==#'x' && g:ujx_eolnotreached && !empty(@x)
+	elseif a:cmd==#'x' && s:ujx_eolnotreached && !empty(@x)
 		let @x.=@"
-		let g:ujx_eolnotreached=0
+		let s:ujx_eolnotreached=0
 	el
 		let @x=@".@x
 	en
 	echo strtrans(@x)[-&columns+1:]
-	let g:ujx_pvXpos=newpos
+	let s:ujx_pvXpos=newpos
 endfun
 nno <silent> x :<c-u>call Undojx('x')<cr>
 nno <silent> X :<c-u>call Undojx('X')<cr>
 
 nmap <expr> q Qmenu(g:Qnrm)
 vmap <expr> q Qmenu(g:Qvis)
-nno <c-r> q
-vno <c-r> q
+nno Q q
+vno Q q
 se stl=%f\ %l/%L\ %c%V
 fun! Qmenu(menu,...)
 	let [view,stal]=[winsaveview(),&stal]
 	let [view.topline,&stal,cuc,&cuc,&ls,ls]=[view.topline+!stal,1,&cuc,1,2,&ls]
-	echohl StatusLineNC
 	echo strftime('%c').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
-	echohl None
 	call winrestview(view)
 	redr
-	let c=getchar()
-	let [view.topline,&stal,&cuc,&ls]=[view.topline-!stal,stal,cuc,ls]
+	let [c,view.topline,&stal,&cuc,&ls]=[getchar(),view.topline-!stal,stal,cuc,ls]
 	call winrestview(view)
 	return get(a:menu,c,a:menu.default)
 endfun
 let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
-let [Qnrm.81,Qnhelp.Q,Qvis.81,Qvhelp.Q]=["Q","Ex mode","Q","Ex mode"]
-let [Qnrm[102],Qnhelp.f]=[":ec search('^\\S*\\ '.expand('<cword>').'(')\<cr>","Go to function"]
+let [Qnrm[102],Qnhelp.f]=[":ec search('^\\S*\\ \\S*'.expand('<cword>').'(')\<cr>","Go to function"]
 let Qnrm["\<leftmouse>"]="\<leftmouse>"
 let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
-let [Qnrm.70,Qnhelp.F]=[":let [&ls,&stal]=&ls>=1? [0,0]:[1,1]\<cr>","Fullscreen"]
 let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
 let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
 let [Qnrm.114,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
 let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
 let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
 let [Qnrm.113,Qnhelp.q]=[":noh\<cr>","No highlight search"]
-let [Qnrm.78,Qnhelp.N]=[":se invnumber\<cr>","Line number toggle"]
-let [Qnrm.104,Qnhelp.h]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>","Help word under cursor"]
+let [Qnrm["\<f1>"],Qnhelp["<f1>"]]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>","Help word under cursor"]
 let [Qnrm.49,Qnrm.50,Qnrm.51,Qnrm.52,Qnrm.53,Qnrm.54,Qnrm.55,Qnrm.56,Qnrm.57]=map(range(1,9),'":tabn".v:val."\<cr>"')
 	let Qnhelp['1..9']="Switch tabs"
 let [Qnrm.9,Qnrm.32,Qnhelp['<tab,space']]=[":call QmenuCycle('tabp')\<cr>",":call QmenuCycle('tabn')\<cr>","Tabs <>"]
@@ -180,7 +176,6 @@ let [Qnrm.100,Qnrm.115,Qnhelp.sd]=[":call QmenuCycle('wincmd w')\<cr>",":call Qm
 let [Qnrm.119,Qnrm.101,Qnhelp.we]=[":call QmenuCycle('norm! g;zz')\<cr>",":call QmenuCycle('norm! g,zz')\<cr>","Changes <>"]
 let [Qnrm.23,Qnhelp['^W']]=[":call QmenuCycle('tabc')\<cr>","tabc"]
 let [Qnrm.77,Qnrm.109,Qnhelp['<>']]=[":call QmenuCycle('tabm -1')\<cr>",":call QmenuCycle('tabm +1')\<cr>","tabm <>"]
-let [Qnrm.62,Qnrm.60,Qnhelp['<>']]=[":call QmenuCycle('3wincmd >')\<cr>",":call QmenuCycle('3wincmd <')\<cr>","resize split"]
 fun! QmenuCycle(cmd)
 	let cmd=a:cmd
 	while !empty(cmd)
@@ -196,10 +191,10 @@ let [Qnrm.120,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","So
 let [Qvis.120,Qvhelp.x]=["y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source selection"]
 let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy to clipboard"]
 let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
-let [Qnrm.108,Qnhelp.Ll]=[":cal g:logdic.show()\<cr>","Show log files"]
-let Qnrm.76=":cal g:logdic.show()\<cr>"
-let [Qnrm.72,Qnhelp.H]=[":call mruf.show()\<cr>","Show recent files"]
-let [Qnrm.86,Qnhelp['V']]=[":call WriteViminfo(input('Name of file to write: ',Viminfo_File,'file'))\n","Write viminfo"]
+let [Qnrm.116,Qnhelp.Tt]=[":cal g:logdic.show()\<cr>","Show log files"]
+let Qnrm.84=":cal g:logdic.show()\<cr>"
+let [Qnrm.70,Qnhelp.F]=[":call mruf.show()\<cr>","Show recent files"]
+
 nn R <c-r>
 let [Qnrm.73,Qnhelp.I]=["R","Replace mode"]
 
@@ -239,7 +234,7 @@ fun! AsciiUI()
 		redr | echon char ' --> ' strtrans(@")
 	en
 endfun
-let [Qnrm.103,Qnhelp.g]=[":call AsciiUI()\<cr>","Show Ascii"]
+let [Qnrm.97,Qnhelp.a]=[":call AsciiUI()\<cr>","Show Ascii"]
 
 if !exists("g:EscChar") | let g:EscChar="\e" | let g:EscAsc=27
 el | let g:EscAsc=char2nr(g:EscChar) |en
@@ -262,7 +257,7 @@ nn k gk
 nn gp :exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'<cr>
 nn gA :let @_=!search('\S\s*\n\s*\n','W') && !search('\%$','W') \|startinsert!<cr>
 
-let sur_pairs={'(':')','{':'}','<':'>','[':']'}
+let s:sur_pairs={'(':')','{':'}','<':'>','[':']'}
 fun! VisTrimWhitespace()
 	norm! `<
 	call search('\S','c')
@@ -273,7 +268,7 @@ endfun
 fun! VisSurround(brace)
 	call VisTrimWhitespace()
 	let @t=nr2char(a:brace)
-	let @u=get(g:sur_pairs,@t,@t)
+	let @u=get(s:sur_pairs,@t,@t)
 	norm! `>"up`<"tP
 endfun
 vn S :<c-u>call VisSurround(getchar())<cr>
@@ -314,7 +309,7 @@ en
 let CS_attr=['NONE','bold','underline','undercurl','reverse','italic','standout']
 let CS_attrIx={'NONE':0,'bold':1,'underline':2,'undercurl':3,'reverse':4,'italic':5,'standout':6}
 let CS_histL=[[0,7,'NONE']]
-let [CS_histi,SwchIx]=[0,0]
+let CS_histi=0
 let CS_grp='Normal'
 fun! CS_hi(group,list)
 	exe a:list[0] is 'LINK-->'? 'hi! link '.a:group.' '.a:list[1] : 'hi '.a:group.' ctermfg='.a:list[0].' ctermbg='.a:list[1].' cterm='.a:list[2]
@@ -478,7 +473,6 @@ cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 
 let g:charL=[]
-let g:opt_disable_syntax_while_panning=1
 fun! CapWait(prev)
 	call add(g:charL,a:prev)
 	redr | let next=nr2char(getchar())
@@ -534,12 +528,8 @@ fun! LoadFormatting()
 			nn <buffer> <silent> A 0:exe 'norm! '.(search('\S\s*\n\s*\n','Wc')? 'g' : '$')<CR>a
 		en|en
 	if options=~?'prose'
-		if !exists('g:opt_disable_syntax_while_panningfiles ')
-			syntax region Bold matchgroup=Normal start=+\(\W\|^\)\zs\*\ze\w+ end=+\w\zs\*+ concealends
-			syntax region Underline matchgroup=Normal start=+\(\W\|^\)\zs\/\ze\w+ end=+\w\zs\/+ concealends
-		else
-			syntax clear
-		en
+		syntax region Bold matchgroup=Normal start=+\(\W\|^\)\zs\*\ze\w+ end=+\w\zs\*+ concealends
+		syntax region Underline matchgroup=Normal start=+\(\W\|^\)\zs\/\ze\w+ end=+\w\zs\/+ concealends
 		setl noai
 		ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
 		if options=~#'Prose' && g:opt_autocap
@@ -594,8 +584,8 @@ fun! LoadViminfoData()
 	cal CSLoad(g:CS_NAME)
 	echom "Something wrong? Use :RestoreSettings viminfo.bak to load previous states."
 endfun
-fun! WriteViminfo(file)
-	if v:version<703 || v:version==703 && !has("patch30")
+fun! WriteViminfo(file,...)
+	if v:version<703 || v:version==703 && !has("patch30") || a:0>=1 && !empty(a:1)
 		sil exe "norm! :unlet! g:SAVED_\<c-a>\<cr>"
 		sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
 		for name in split(v)  
@@ -618,6 +608,13 @@ fun! WriteViminfo(file)
 	el| exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".a:file
 		wv! |en
 endfun
+
+let [Qnrm.112,Qnhelp.p]=["\<f10>","nav-mode hotkey"]
+for i in keys(TXB_GetKeyDict())
+	if !has_key(Qnrm,i)
+		let Qnrm[i]=":exe exists('t:txb')? 'call TXBcmd(".i.")' : 'ec \"Plane not yet loaded!\"'\<cr>"
+	en
+endfor
 
 if !exists('firstrun')
 	let firstrun=0
@@ -663,4 +660,5 @@ if !exists('firstrun')
 	au VimLeavePre * call WriteViminfo('exit')
 	if !argc() && filereadable('.lastsession')
 	 	so .lastsession | en
+	unlet i conflicts file latest_date setViExpr viminfotime
 en
