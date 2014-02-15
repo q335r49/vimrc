@@ -6,7 +6,6 @@ if opt_device=~?'windows'
 	let Working_Dir='C:\Users\q335r49\Desktop\Dropbox\q335writings'
 	let Viminfo_File='C:\Users\q335r49\Desktop\Dropbox\q335writings\viminfo' | en
 if opt_device=~?'cygwin'
-	let opt_mousepan=1
 	cno <c-h> <left>
 	cno <c-j> <down>
 	cno <c-k> <up>
@@ -48,7 +47,6 @@ if opt_device=~?'droid4'
 	let EscChar='@'
 	let opt_autocap=1
 	ino <c-b> <c-w>
-	let opt_mousepan=1
 	nn <c-r> <nop> 
 	en
 if has("gui_running")
@@ -106,42 +104,6 @@ let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
 
 nn R <c-r>
 let [Qnrm.73,Qnhelp.I]=["R","Replace mode"]
-
-fun! BreakLines(str,w)
-	let [seg,spc]=[[0],repeat(' ',len(&brk))]
-	while seg[-1]<len(a:str)-a:w
-		let ix=(a:w+strridx(tr(a:str[seg[-1]:seg[-1]+a:w-1],&brk,spc),' '))%a:w
-		call extend(seg,[seg[-1]+ix-(a:str[seg[-1]+ix=~'\s']),seg[-1]+ix+1])
-	endw
-	call add(seg,-1)
-	return map(range(len(seg)/2),'a:str[seg[2*v:val]:seg[2*v:val+1]]')
-endfun
-fun! Dialog(...)
-	let [A,B,col,mg,off]=map(['Amadeus','Theophilus',50,5,10],"v:key<a:0? a:{v:key+1} : v:val")
-	let Aparx='let pg[0]="'.printf(mg>1? '%-'.(mg-1).'.'.(mg-1).'s ':'%-'.mg.'.'.mg.'s',A).'".pg[0]['.mg.':]'
-	let Bparx='let pg[0]=pg[0]."'.printf(mg>1? ' %-'.(mg-1).'.'.(mg-1).'s':'%-'.mg.'.'.mg.'s',B).'"'
-	let Amapx='"'.repeat(' ',mg).'".v:val'
-	let Bmapx='printf("%'.(col+off).'.'.(col+off).'s",v:val)'
-	echohl Question
-	let [AB,input]=['A',input(A.': ')]
-	while input!='.'
-		if !empty(input)
-			let pg=map(BreakLines(input,col),{AB}mapx)
-			exe {AB}parx
-			call append(line('.'),pg)
-			exe line('.')+len(pg)
-			redr
-		el| let AB="AB"[AB=='A'] | en
-		let input=input({AB}.': ')
-	endw | echohl None
-endfun
-fun! BlockText(text,...)
-	let [width,col,line]=map([30,0,line('.')],"v:key<a:0? a:{v:key+1} : v:val")
-	let lines=BreakLines(a:text,width)
-	let mainTxt=getline(line,line+len(lines)-1)
-	let col=col? col : max(map(range(len(lines)),'len(mainTxt[v:val])'))
-	call setline(line,map(mainTxt,'printf("%-".col.".".col."s %s",v:val,lines[v:key])'))
-endfun
 
 fun! PrintDic(dict,width)
 	let [L,cols,keys]=[len(a:dict),min([(&columns-1)/a:width,18]),sort(keys(a:dict))]
@@ -201,6 +163,7 @@ let Qvis[EscAsc]=""
 
 nno <space> <c-e>
 nno <backspace> <c-y>
+nno <c-i> <c-y>
 nno <f1> <c-y>
 
 if has('signs')
@@ -325,49 +288,17 @@ fun! Writeroom(margin)
 endfun
 let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | silent call Writeroom(exists('g:OPT_WRITEROOMWIDTH')? g:OPT_WRITEROOMWIDTH : 25) | redr|echo 'Writeroom on' | else | only | redr|echo 'Writeroom Off' | en\<cr>","Writeroom mode"]
 
-if exists('opt_mousepan') && opt_mousepan
-	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (MousePan()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
-	let MpanRedr=opt_device==?'droid4'? 'redr!' : 'redr'
-	let glidestep=[99999999]+map(range(11),'11*(11-v:val)*(11-v:val)')
-	fun! MousePan()
-		if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1) || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) || v:mouse_lnum==line('$')
-			if line('$')==line('w0') | exe "keepj norm! \<c-y>" |en
-			return 1 | en
-		exe "norm! \<leftmouse>"
-		let [veon,fr,tl,v]=[&ve==?'all',-1,repeat([[reltime(),0,0]],4),winsaveview()]
-		let [v.col,v.coladd,redrexpr]=[0,v:mouse_col-1,(g:opt_device==?'droid4' && veon)? 'redr!':'redr']
-		while getchar()=="\<leftdrag>"
-			let [dV,dH,fr]=[min([v:mouse_lnum-v.lnum,v.topline-1]), veon? min([v:mouse_col-v.coladd-1,v.leftcol]):0,(fr+1)%4]
-			let [v.topline,v.leftcol,v.lnum,v.coladd,tl[fr]]=[v.topline-dV,v.leftcol-dH,v:mouse_lnum-dV,v:mouse_col-1-dH,[reltime(),dV,dH]]
-			call winrestview(v)
-			exe redrexpr
-		endwhile
-		if str2float(reltimestr(reltime(tl[(fr+1)%4][0])))<0.2
-			let [glv,glh,vc,hc]=[tl[0][1]+tl[1][1]+tl[2][1]+tl[3][1],tl[0][2]+tl[1][2]+tl[2][2]+tl[3][2],0,0]
-			let [tlx,lnx,glv,lcx,cax,glh]=(glv>3? ['y*v.topline>1','y*v.lnum>1',glv*glv] : glv<-3? ['-(y*v.topline<'.line('$').')','-(y*v.lnum<'.line('$').')',glv*glv] : [0,0,0])+(glh>3? ['x*v.leftcol>0','x*v.coladd>0',glh*glh] : glh<-3? ['-x','-x',glh*glh] : [0,0,0])
-			while !getchar(1) && glv+glh
-				let [y,x,vc,hc]=[vc>get(g:glidestep,glv,1),hc>get(g:glidestep,glh,1),vc+1,hc+1]
-				if y||x
-					let [v.topline,v.lnum,v.leftcol,v.coladd,glv,vc,glh,hc]-=[eval(tlx),eval(lnx),eval(lcx),eval(cax),y,y*vc,x,x*hc]
-					call winrestview(v)
-					exe redrexpr
-				en
-			endw
-		en
-	endfun
-en
-
 let CShst=[[0,7]]
 let [CShix,SwchIx]=[0,0]
 let CSgrp='Normal'
-fun! CSLoad(scheme,...)
-	if a:0>0
-		let g:CS_NAME=a:1
+fun! CSLoad(scheme)
+	if has_key(g:SCHEMES,a:scheme)
+		for k in keys(g:SCHEMES[a:scheme])
+			exe 'hi' k 'ctermfg='.g:SCHEMES[a:scheme][k][0].' ctermbg='.g:SCHEMES[a:scheme][k][1]
+		endfor
+	else
+    	let g:SCHEMES[a:scheme]={}
 	en
-	let g:SCHEMES.current=deepcopy(a:scheme)
-	for k in keys(g:SCHEMES.current)
-		exe 'hi' k 'ctermfg='.g:SCHEMES.current[k][0].' ctermbg='.g:SCHEMES.current[k][1]
-	endfor
 endfun
 fun! CompleteSwatches(Arglead,CmdLine,CurPos)
 	return filter(keys(g:SCHEMES.swatches),'v:val=~a:Arglead')
@@ -375,33 +306,29 @@ endfun
 fun! CompleteSchemes(Arglead,CmdLine,CurPos)
 	return filter(keys(g:SCHEMES),'v:val=~a:Arglead')
 endfun
-fun! CSChooser(...)
+hi CS_LightOnDark ctermfg=15 ctermbg=0
+fun! CSChooser()
+    cno <expr> = (g:CS_MODE=='group'? "\<cr>" : "=") 
+    cno <expr> <bs> (g:CS_MODE=='group' && getcmdline()==''? "CS_EXIT\<cr>" : "\<c-u>") 
+    cno . <cr>
 	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
-	if a:0==0
-		let [fg,bg]=get(g:SCHEMES.current,g:CSgrp,g:CShst[-1])
-	elseif a:0==2
-		let [fg,bg]=[a:1,a:2]
-		call add(g:CShst,[fg,bg])
-	elseif a:0==1 && type(a:1)==1 && has_key(g:SCHEMES.swatches,a:1)
-		let [fg,bg]=g:SCHEMES.swatches[a:1]
-		call add(gName:CShst,[fg,bg])
-	el|retu|en
+	let [fg,bg]=get(g:SCHEMES[g:CS_NAME],g:CSgrp,g:CShst[-1])
 	let swatchlist=keys(g:SCHEMES.swatches)
 	exe 'hi' g:CSgrp 'ctermfg='.fg 'ctermbg='.bg | redr
 	let msg=g:CSgrp
 	exe "echoh" g:CSgrp
-	ec msg fg bg
 	let continue=1
-	let c=char2nr('g')
-	exe get(g:colorD,c,'ec PrintDic(g:colorDh,20)|call getchar()')
+	let g:CS_MODE=''
 	while continue
 		if g:CShix<=len(g:CShst)-1
 			let g:CShst[g:CShix]=[fg,bg]
 		el| call add(g:CShst,[fg,bg])
 			let g:CShix=len(g:CShst)-1 |en
 		exe 'hi' g:CSgrp 'ctermfg='.fg 'ctermbg='.bg |redr
+		echohl CS_LightOnDark
+		echon '> let SCHEMES.' g:CS_NAME '.' msg ' = [' fg ',' bg ']    '
 		exe "echoh" g:CSgrp
-		ec msg fg bg
+		echon '  group/scheme:<bs> history:[bf] increment/decrement:[hjkl] swatches:[np] [e]dit [i]nvert [*rR]andom save/load-swatch:[SL] delete:[^X]'
 		let msg=g:CSgrp
 		let c=getchar()
 		exe get(g:colorD,c,'ec PrintDic(g:colorDh,20)|call getchar()')
@@ -410,54 +337,76 @@ fun! CSChooser(...)
 		let CShst=g:CShix<25? (g:CShst[:50]) : g:CShix>75? (g:CShst[50:])
 		\: g:CShst[g:CShix-25:g:CShix+25] |en
 	echoh None
+	redr | ec ''
+	cunmap =
+	cunmap <bs>
+	cunmap .
 endfun
-let colorD={}
-let colorDh={}
-let [colorD.113,colorDh['q/esc']]=["let continue=0\n
-\if has_key(g:SCHEMES.current,g:CSgrp)\n
-\    exe 'hi' g:CSgrp 'ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1])|en","Quit"]
+let [colorD,colorDh]=[{},{}]
+let [colorD.113,colorDh['q/esc']]=["let continue=0 | if has_key(g:SCHEMES[g:CS_NAME],g:CSgrp) | exe 'hi' g:CSgrp 'ctermfg='.g:SCHEMES[g:CS_NAME][g:CSgrp][0].' ctermbg='.g:SCHEMES[g:CS_NAME][g:CSgrp][1] | en","Quit"]
 let colorD[EscAsc]=colorD.113
-let colorD.10="let continue=0 | exe 'hi' g:CSgrp 'ctermfg='.fg.' ctermbg='.bg
-\|let g:SCHEMES.current[g:CSgrp]=[fg,bg]"
+let colorD.10="let continue=0 | exe 'hi' g:CSgrp 'ctermfg='.fg.' ctermbg='.bg | let g:SCHEMES[g:CS_NAME][g:CSgrp]=[fg,bg]"
 let colorD.13=colorD.10
-let [colorD.101,colorDh['e']]=["let [fg,bg]=eval(input('[fg,bg]=',\"[,]\<home>\<right>\"))",'enter color']
+let [colorD.101,colorDh['e']]=["redr | echohl CS_LightOnDark | let [fg,bg]=eval(input('> let SCHEMES.'.g:CS_NAME.'.'.g:CSgrp.'=',\"[,]\<home>\<right>\"))",'enter color']
 let colorD.104='let [fg,g:CShix]=[fg is "NONE"? 255 : fg is 0? "NONE" : fg-1, g:CShix+1]'
 let colorD.108='let [fg,g:CShix]=[fg is "NONE"? 0 : fg is 255? "NONE" : fg+1,g:CShix+1]'
 let colorDh.hl="cycle fg"
 let colorD.106='let [bg,g:CShix]=[bg is "NONE"? 255 : bg is 0? "NONE" : bg-1,g:CShix+1]'
 let colorD.107='let [bg,g:CShix]=[bg is "NONE"? 0 : bg is 255? "NONE" : bg+1,g:CShix+1]'
 let colorDh.jk="cycle bg"
-let colorD.98='let [g:SwchIx,g:CShix]=[(g:SwchIx+len(swatchlist)-1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]'
-let colorD.102='let [g:SwchIx,g:CShix]=[(g:SwchIx+1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]'
-let colorDh.bf="cycle swatches"
-let colorD.112='if g:CShix > 0 | let g:CShix-=1 | let [fg,bg]=g:CShst[g:CShix] | en'
-let colorD.110='if g:CShix<len(g:CShst)-1|let g:CShix+=1|let [fg,bg]=g:CShst[g:CShix]|en'
-let colorDh.np="nav history"
-let colorD.42='let [fg,0bg,g:CShix]=[reltime()[1]%256,reltime()[1]%256,g:CShix+1]'
+let colorD.112='let [g:SwchIx,g:CShix]=[(g:SwchIx+len(swatchlist)-1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" = SCHEMES.swatches.".swatchlist[g:SwchIx]'
+let colorD.110='let [g:SwchIx,g:CShix]=[(g:SwchIx+1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" = SCHEMES.swatches.".swatchlist[g:SwchIx]'
+let colorDh.bf="nav history"
+let colorD.98='if g:CShix > 0 | let g:CShix-=1 | let [fg,bg]=g:CShst[g:CShix] | en'
+let colorD.102='if g:CShix<len(g:CShst)-1|let g:CShix+=1|let [fg,bg]=g:CShst[g:CShix]|en'
+let colorDh.np="nav swatches"
+let colorD.42='let [fg,bg,g:CShix]=[reltime()[1]%256,reltime()[1]%256,g:CShix+1]'
 let colorD.114='let [fg,g:CShix]=[reltime()[1]%256,g:CShix+1]'
 let colorD.82='let [bg,g:CShix]=[reltime()[1]%256,g:CShix+1]'
 let colorDh['rR*']="Random"
+let colorD.24="echohl CS_LightOnDark\n
+\if input('Really delete '.g:CSgrp.' (y/n)? (Highlight group will remain until vim reload)','')==?'y' && has_key(g:SCHEMES[g:CS_NAME],g:CSgrp)\n
+\       unlet g:SCHEMES[g:CS_NAME][g:CSgrp]\n
+\en"
+let colorDh['^X']="Delete group"
 let [colorD.105,colorDh.i]=['let [fg,bg]=[bg,fg]',"invert"]
-let [colorD.103,colorDh.g]=["let in=input('Group: ','','highlight')\n
-\if !empty(in)\n
-\if has_key(g:SCHEMES.current,in)\n
-\     let [fg,bg]=g:SCHEMES.current[in]\n
+let [colorD["\<backspace>"],colorD["<bs>, <c-u>"]]=["if has_key(g:SCHEMES[g:CS_NAME],g:CSgrp)\n
+\    exe 'hi' g:CSgrp 'ctermfg='.g:SCHEMES[g:CS_NAME][g:CSgrp][0].' ctermbg='.g:SCHEMES[g:CS_NAME][g:CSgrp][1]\n
 \en\n
-\if has_key(g:SCHEMES.current,g:CSgrp)\n
-\    exe 'hi' g:CSgrp 'ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1])\n
-\en\n
-\let g:CSgrp=in\n
-\let msg=g:CSgrp | en","hl group"]
-let [colorD.115,colorDh.s]=['let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
-\if !empty(name) | let g:SCHEMES.swatches[name]=[fg,bg] |en','Save swatch']
-let [colorD.83,colorDh.S]=['let name=input("Save scheme as: ",exists("g:CS_NAME")? g:CS_NAME : "","customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=deepcopy(g:SCHEMES.current) | en | let continue=0','Save Scheme']
-let [colorD.76,colorDh.L]=["let name=input('Load scheme: ',exists('g:CS_NAME')? g:CS_NAME : '','customlist,CompleteSchemes')\n
-\unlet! in|let in=get(g:SCHEMES,name,{})\n
-\if !empty(in)\n
-\    call CSLoad(in,name)\n
-\el | echo 'Invalid colorscheme'\n
-\en\n
-\let continue=0",'Load scheme']
+\redr\n
+\echoh None\n
+\let g:CS_MODE='group'\n
+\echohl CS_LightOnDark\n
+\let in=input('> let SCHEMES.'.g:CS_NAME.'.',c==21? '':g:CSgrp,'highlight')\n
+\let g:CS_MODE=''\n
+\if in=='CS_EXIT'\n
+\   let g:CS_MODE='scheme'\n
+\   echohl CS_LightOnDark\n
+\   let name=input('> let SCHEMES.',g:CS_NAME,'customlist,CompleteSchemes')\n    
+\   let g:CS_MODE=''\n
+\   if !empty(name)\n
+\      let g:CS_NAME=name\n
+\      call CSLoad(name)\n
+\      let c=21\n
+\      exe g:colorD[\"\<bs>\"]\n
+\   else\n
+\      let continue=0\n
+\   en\n
+\elseif !empty(in)\n
+\   if has_key(g:SCHEMES[g:CS_NAME],in)\n
+\      let [fg,bg]=g:SCHEMES[g:CS_NAME][in]\n
+\   en\n
+\   if has_key(g:SCHEMES[g:CS_NAME],g:CSgrp)\n
+\       exe 'hi' g:CSgrp 'ctermfg='.(g:SCHEMES[g:CS_NAME][g:CSgrp][0]).' ctermbg='.(g:SCHEMES[g:CS_NAME][g:CSgrp][1])\n
+\   en\n
+\   let g:CSgrp=in\n
+\   let msg=g:CSgrp\n
+\el\n
+\   let continue=0\n
+\en", "Select Group"]
+let colorD[21]=colorD["\<backspace>"]
+let [colorD.83,colorDh.S]=['echohl CS_LightOnDark | let name=input("  save as: SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) | let g:SCHEMES.swatches[name]=[fg,bg] |en','Save swatch']
+let [colorD.76,colorDh.L]=['echohl CS_LightOnDark | let name=input("> let SCHEMES.".g:CS_NAME.".".g:CSgrp." = SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) && has_key(g:SCHEMES.swatches,name) | let g:CShix=g:CShix+1 | let [fg,bg]=g:SCHEMES.swatches[name] | let msg.=" = SCHEMES.swatches.".name | else | echo "  **Swatch not found**" | sleep 1 | en','Load swatch']
 let [Qnrm.67,Qnhelp.C]=[":call CSChooser()\<cr>","Customize colors"]
 let [Qnrm.7,Qnhelp['^G']]=[":ec 'hi<' . synIDattr(synID(line('.'),col('.'),1),'name') . '> trans<'
 \ . synIDattr(synID(line('.'),col('.'),0),'name') . '> lo<'
@@ -591,8 +540,12 @@ fun! LoadFormatting()
 			nn <buffer> <silent> A :call search('\S\s*\n\s*\n\\|\%$','Wc')<CR>a
 		en|en
 	if options=~?'prose'
-		syntax region Bold start=+\(\s\|^\)\*\zs\S+ end=+\S\ze\*+
-		syntax region Italics start=+\(\s\|^\)\/\zs\S+ end=+\S\ze\/+
+		if !exists('g:opt_disable_syntax_while_panningfiles ')
+			syntax region Bold start=+\(\s\|^\)\*\zs\S+ end=+\S\ze\*+
+			syntax region Italics start=+\(\s\|^\)\/\zs\S+ end=+\S\ze\/+
+		else
+			syntax clear
+		en
 		setl noai
 		ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
 		if options=~#'Prose' && g:opt_autocap
@@ -652,15 +605,24 @@ fun! LoadViminfoData()
 	if !exists('g:MRUF') | let g:MRUF={} | en
 	let g:mruf=New('FileList',g:MRUF)	
 	call g:mruf.prune(60)
-	if !exists('g:SCHEMES') | let g:SCHEMES={'swatches':{},'current':{}} | en
+	if !exists('g:SCHEMES') | let g:SCHEMES={'swatches':{},'default':{}} | en
 	if !has_key(g:SCHEMES,'swatches')
 		let g:SCHEMES.swatches={} |en
 	hi clear tabline
 	if exists('g:opt_colorscheme') && has_key(g:SCHEMES,g:opt_colorscheme)
-		call CSLoad(g:SCHEMES[g:opt_colorscheme],g:opt_colorscheme)
-	el| call CSLoad(g:SCHEMES.current) | en
+		call CSLoad(g:opt_colorscheme)
+		let g:CS_NAME=g:opt_colorscheme
+	elseif exists('g:CS_NAME')
+		call CSLoad(g:CS_NAME)
+	elseif has_key(g:SCHEMES,'default')
+		call CSLoad('default')
+   		let g:CS_NAME='default' 
+	else
+		let g:SCHEME.default={}
+   		let g:CS_NAME='default' 
+	en
 	"windows doesn't support %s
-	let g:Qnrm.msg="ec printf('%-17.17s %'.(&columns-19).'s',eval(strftime('%m.\"smtwrfa\"[%w].%d.\" \".%I.\":%M \".g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60')),(expand('% ').' '.line('.').'-'.col('.').'/'.line('$'))[-&columns+19:])"
+	let g:Qnrm.msg="ec printf('%-17.17s %'.(&columns-19).'s',eval(strftime('%m.\"smtwrfa\"[%w].%d.\" \".%I.\":%M \".g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60')),(expand('% ').' '.line('.').':'.col('.').'/'.line('$'))[-&columns+19:])"
 	try | silent exe g:Qnrm.msg
 	catch | let g:Qnrm.msg="ec line('.').','.col('.').'/'.line('$')" | endtry
 	let g:Qvis.msg=g:Qnrm.msg
@@ -691,15 +653,15 @@ fun! WriteViminfo(file)
 		wv! |en
 endfun
 
-let [Qnrm.71,Qnhelp.G]=[":echo search('\\S\\s*\\n\\n\\n\\n\\n\\n','W')? '':search('\\S\\zs\\s*\\n\\n\\n\\n\\n\\n','Wb')\<cr>", "Goto Section End"]
+let [Qnrm.109,Qnhelp.m]=[":call ToggleMousePanMode()\<cr>","Mouse pan Toggle"]
+let [Qnrm.71,Qnhelp.G]=[":echo search('\\S\\s*\\n\\n\\n\\n\\n\\n','W')? '':search('\\S\\zs\\s*\\n\\n\\n\\n\\n\\n','Wb')\<cr>", "Goto section End"]
 let [Qnrm.102,Qnhelp['f']]=["g;","foward edit"]
 let [Qnrm.98,Qnhelp['b']]=["g;","back edit"]
 let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
-let [Qnrm.116,Qnhelp.t]=[":let &showtabline=!&showtabline\<cr>","Tabline toggle"]
+let [Qnrm.70,Qnhelp.F]=[":let [&ls,&stal]=&ls>1? [0,0]:[2,2]\<cr>","Fullscreen"]
 let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
 let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
 let [Qnrm.76,Qnhelp.L]=[":exe colorD.76\<cr>","Load Colorscheme"]
-let [Qnrm.115,Qnhelp.s]=[":let &ls=&ls>1? 0:2\<cr>","Status line toggle"]
 let [Qnrm.119,Qnhelp.w]=[":wincmd w\<cr>","Next Window"]
 let [Qnrm.87,Qnhelp.W]=[":wincmd W\<cr>", "Prev Window"]
 let [Qnrm.114,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
@@ -730,7 +692,7 @@ if !exists('firstrun')
 	if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
 		ec 'Warning: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME
 		let Working_Dir=$HOME |en
-	for file in ['abbrev','pager']
+	for file in ['abbrev','pager','nav.vim']
 		if !empty(glob(Working_Dir.'/'.file)) | exe 'so '.Working_Dir.'/'.file
 		el| ec 'Warning:' Working_Dir.'/'.file 'doesn't exist'
 		en
@@ -749,9 +711,9 @@ if !exists('firstrun')
 		el| exe setViExpr.g:Viminfo_File | en
 	en
 	au VimEnter * call LoadViminfoData() 
-	au VimEnter * au BufWinEnter * call mruf.restorepos(expand('%')) 
+	au VimEnter * au BufRead * call mruf.restorepos(expand('%')) 
 	au VimEnter * au BufLeave * call mruf.insert(expand('<afile>'),line('.'),col('.'),line('w0'))
-	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
+	se linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
 	se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
 	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 	se whichwrap+=b,s,h,l,,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
@@ -765,7 +727,7 @@ if !exists('firstrun')
 		let &t_EI.="\e[2 q"
 		let &t_te.="\e[0 q"
 	se noshowmode | en
-	au BufWinEnter * call LoadFormatting()
+	au BufRead * call LoadFormatting()
 	augroup WriteViminfo
 		au VimLeavePre * call WriteViminfo('exit')
 	augroup end
