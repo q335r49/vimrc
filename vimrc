@@ -6,7 +6,6 @@ if opt_device=~?'windows'
 	let Working_Dir='C:\Users\q335r49\Desktop\Dropbox\q335writings'
 	let Viminfo_File='C:\Users\q335r49\Desktop\Dropbox\q335writings\viminfo' | en
 if opt_device=~?'cygwin'
-	let g:txpHotkey='`'
 	no! <c-h> <left>
 	no! <c-j> <down>
 	no! <c-k> <up>
@@ -62,6 +61,23 @@ if has("gui_running")
 	hi Vertsplit guifg=grey15 guibg=grey15
 	se guioptions-=T
 en
+let g:txpHotkey='Q'
+let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
+
+fun! Writeroom(...)
+	let margin=a:0? a:1 : input("margin: ",empty(&tw)? 25 : (&columns-&tw-3)/2)
+	if margin
+		only
+		exe 'topleft'.margin.'vsp blank'
+		wincmd l
+	en
+endfun
+let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | call Writeroom() | redr|echo 'Writeroom on' | else | only | redr|echo 'Writeroom Off' | en\<cr>","Writeroom mode"]
+
+fun! PRINT(str,...)
+	redr
+	return "exe eval(input(join(map(split('".a:str."',','),'v:val.\":\".eval(v:val)'),' '),'\"\"'))"
+endfun
 
 let [pvft,pvftc]=[1,32]
 fun! Multift(x,c,i)
@@ -113,8 +129,8 @@ nno <silent> X :<c-u>call Undojx('X')<cr>
 
 nno <expr> q Qmenu(g:Qnrm)
 vno <expr> q Qmenu(g:Qvis)
-nno Q q
-vno Q q
+nno <c-r> q
+vno <c-r> q
 hi qbold ctermfg=112 ctermbg=115 cterm=NONE
 hi qnorm ctermfg=105 ctermbg=115 cterm=NONE
 fun! Qmenu(menu)
@@ -146,13 +162,13 @@ fun! Qmenu(menu)
 			let chsav=&ch
 			let &ch=2
 		en
-		echoh qnorm  | echon '    '
+		echoh qnorm  | echon '  <  '
 		let tl=map(tabpagebuflist(),'fnamemodify(bufname(v:val),":t")')
 		let active=winnr()
 		if active==1
 			echoh qbold | echon tl[0]
 			echoh qnorm  | echon '''' join(tl[1:],'''')
-		elseif active==tabpagenr('$')
+		elseif active==winnr('$')
 			echoh qnorm  | echon join(tl[:-2],'\') ''''
 			echoh qbold | echon tl[-1]
 		else
@@ -180,7 +196,6 @@ fun! Qmenu(menu)
 	en
 	redr| ech "" | return get(a:menu, c, a:menu.default)
 endfun
-let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
 let [Qnrm.81,Qnhelp.Q,Qvis.81,Qvhelp.Q]=["Q","Ex mode","Q","Ex mode"]
@@ -191,9 +206,9 @@ let Qnrm.112="\<c-w>h"
 let [Qnrm.119,Qnhelp.we]=["g;","Changes <>"]
 let Qnrm.101="g,"
 let [Qnrm.109,Qnhelp.m]=[":call TogglePanMode()\<cr>","Mouse pan Toggle"]
-let [Qnrm.71,Qnhelp.G]=[":ec search('\\S\\s*\\n\\n\\n\\n\\n\\n')\<cr>", "Goto section End"]
+let [Qnrm.71,Qnhelp.G]=[":ec search('\\S\\s*\\n\\n\\n\\n\\n\\n','W')? line('.') : search('\\S\\s*\\n\\n\\n\\n\\n\\n','b')\<cr>", "Goto section End"]
 let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
-let [Qnrm.70,Qnhelp.F]=[":let [&ls,&stal]=&ls>=1? [0,0]:[2,2]\<cr>","Fullscreen"]
+let [Qnrm.70,Qnhelp.F]=[":let [&ls,&stal]=&ls>=1? [0,0]:[1,1]\<cr>","Fullscreen"]
 let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
 let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
 let [Qnrm.87,Qnhelp.W]=[":wincmd W\<cr>", "Prev Window"]
@@ -215,7 +230,8 @@ let [Qnrm.120,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","So
 let [Qvis.120,Qvhelp.x]=["y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source selection"]
 let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy to clipboard"]
 let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
-let [Qnrm.108,Qnhelp.l]=[":cal g:logdic.show()\<cr>","Show log files"]
+let [Qnrm.108,Qnhelp.Ll]=[":cal g:logdic.show()\<cr>","Show log files"]
+let Qnrm.76=":cal g:logdic.show()\<cr>"
 let [Qnrm.72,Qnhelp.H]=[":call mruf.show()\<cr>","Show recent files"]
 let [Qnrm.86,Qnhelp['V']]=[":call WriteViminfo(input('Name of file to write: ',Viminfo_File,'file'))\n","Write viminfo"]
 
@@ -526,8 +542,8 @@ fun! LoadFormatting()
 		en|en
 	if options=~?'prose'
 		if !exists('g:opt_disable_syntax_while_panningfiles ')
-			syntax region Bold matchgroup=Normal start=+\(\s\|^\)\zs\*\ze\S+ end=+\S\zs\*+ concealends
-			syntax region Underline matchgroup=Normal start=+\(\s\|^\)\zs\/\ze\S+ end=+\S\zs\/+ concealends
+			syntax region Bold matchgroup=Normal start=+\(\W\|^\)\zs\*\ze\w+ end=+\w\zs\*+ concealends
+			syntax region Underline matchgroup=Normal start=+\(\W\|^\)\zs\/\ze\w+ end=+\w\zs\/+ concealends
 		else
 			syntax clear
 		en
