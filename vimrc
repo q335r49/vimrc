@@ -1,22 +1,21 @@
-fun! InList(list,element)
-	for i in range(len(a:list))
-		if a:list[i][0]==#a:element | return i | en
-	endfor
-	return -1
-endfun
-
-fun! NextHeading(...)
-	norm! ^
+fun! PrevHeading()
 	let indent=virtcol('.')-1
 	norm! 0
-	call search('^'.repeat('\t',indent/&ts).repeat(' ',indent%&ts)
-	\.'[^[:space:]]'.(indent==0? '':'\|'.repeat(' ',indent)),a:0? 'Wb':'W')
+	if indent
+		call search('^'.g:Tabs[1:indent/&ts].g:Pad[1:indent%&ts].'\S\|^'.g:Pad[1:indent].'\S','Wb')
+	el| call search('^\S','Wb') | en
 endfun
-nn + :call NextHeading()<CR>
-nn - :call NextHeading('b')<CR>
+fun! NextHeading()
+	let indent=virtcol('.')-1
+	if indent
+		call search('^'.g:Tabs[1:indent/&ts].g:Pad[1:indent%&ts].'\S\|'.g:Pad[1:indent].'\S','W')
+	el| call search('^\S','W') | en
+endfun
+nn <silent> + ^:call NextHeading()<CR>
+nn <silent> - ^:call PrevHeading()<CR>
 
-fun! Ec(x,...)
-	echom '<'.(a:0? a:1.a:x : a:x).'>' | return a:x
+fun! Ec(x)
+	echoh LineNr | echom string(a:x) | echoh None | return a:x
 endfun
 
 let Qpairs={'(':')','{':'}','[':']','<':'>'}
@@ -63,7 +62,7 @@ fun! QuoteChange(mark)
 	endif
 endfun
 nn <silent> [ :<C-U>exe Quote(v:count,0)<CR>
-"n <silent> ] :<C-U>exe Quote(v:count,1)<CR>
+nn <silent> ] :<C-U>exe Quote(v:count,1)<CR>
 nn <C-F> :<C-U>let gg=Quote(v:count,0)<CR>:ec gg<CR>
 nn <C-G> :<C-U>ec Quote(v:count,1)<CR>
 
@@ -158,7 +157,7 @@ fun! FmtList(list, ...)
 		if endX+padN[endX%tabW]+len(e)>=&columns-1	
 			let ecstr.="\n".e | let endX=len(e)
 		else
-			let ecstr.=s:Pad[1:padN[endX%tabW]].e
+			let ecstr.=g:Pad[1:padN[endX%tabW]].e
 			let endX+=padN[endX%tabW]+len(e)
 		en
 	endfor
@@ -173,35 +172,39 @@ fun! HistMenu()
 	redr|retu g:HLb2fIx[g:Asc2HLb[sel]]
 endfun
 fun! OnWinEnter()
-	let ix=InList(g:histL,expand('%'))
-	if ix>=0
-		let j=g:histL[ix][1]-g:histL[ix][3]
-		exe "norm! ".g:histL[ix][3]."z\<CR>".(j>0? j.'j':'').g:histL[ix][2].'|'
-	en
-	call RmHist(ix)
+	let file=expand('%')
+	for i in range(len(g:histL))
+		if g:histL[i][0]==#file
+			let j=g:histL[i][1]-g:histL[i][3]
+			exe "norm! ".g:histL[i][3]."z\<CR>".(j>0? j.'j':'').g:histL[i][2].'|'
+			call RmHist(i)
+			break|en
+	endfor
 endfun
 fun! OnNewBuf()
-  	call setline(1,localtime()." vim: set nowrap ts=4 tw=62 fo=aw: "
-   	\.strftime('%H:%M %m/%d/%y'))
-   	setlocal nowrap ts=4 tw=62 fo=aw
-  	call CheckFormatted()
+	if g:FORMAT_NEW_FILES
+  		call setline(1,localtime()." vim: set nowrap ts=4 tw=62 fo=aw: "
+   		\.strftime('%H:%M %m/%d/%y'))
+   		setlocal nowrap ts=4 tw=62 fo=aw
+  		call CheckFormatted()
+	en
 endfun
 
 fun! CheckFormatted()
-	if getline(1)=~'fo=aw'
-		call InitCap()
-		iab <buffer> i I
-		iab <buffer> Id I'd
-		iab <buffer> id I'd
-		iab <buffer> im I'm
-		iab <buffer> Im I'm
-		nn <buffer> <silent> { :call search('[^ ]\n\s*.\\|\n\n\s*.','Wbe')<CR>
-		nn <buffer> <silent> } :call search('[^ ]$','W')<CR>
-		nm <buffer> A }a
-		nm <buffer> I {i
-		nn <buffer> > :se ai<CR>mt>apgqap't:se noai<CR>
-		nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
-	redr|ec 'Formatting Options Loaded: '.expand('%') |en
+	if getline(1)!~'fo=aw' | retu|en
+   	call InitCap()
+   	iab <buffer> i I
+   	iab <buffer> Id I'd
+   	iab <buffer> id I'd
+   	iab <buffer> im I'm
+   	iab <buffer> Im I'm
+   	nn <buffer> <silent> { :if !search('[^ ]\n\s*.\\|\n\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
+   	nn <buffer> <silent> } :if !search('[^ ]$','W')\|exe'norm!G$'\|en<CR>
+   	nm <buffer> A }a
+   	nm <buffer> I {i
+   	nn <buffer> > :se ai<CR>mt>apgqap't:se noai<CR>
+   	nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
+	redr|ec 'Formatting Options Loaded: '.expand('%')
 endfun
 nn gf :e <cword><CR>
 
@@ -337,7 +340,8 @@ fun! InitCap()
 	nm <buffer> <silent> C C_<Left><C-R>=CapHere()<CR>
 endfun
 
-let s:Dashes=repeat('-',200)|let s:Pad=repeat(' ',200)
+let g:Dashes=repeat('-',200)|let g:Pad=repeat(' ',200)
+let g:Tabs=repeat("\t",50)
 let g:OnTouch='IniScroll'
 se wiw=1
 fun! IniScroll()
@@ -375,8 +379,8 @@ endfun
 fun! OnVisual()
 	let cdiff=virtcol("'v")-wincol()
 	let rdiff=line("'v")-line(".")
-	echo rdiff.(s:Pad[1:(cdiff>0? wincol():virtcol("'v"))]
-	\.s:Dashes[1:abs(cdiff)])[len(rdiff):]
+	echo rdiff.(g:Pad[1:(cdiff>0? wincol():virtcol("'v"))]
+	\.g:Dashes[1:abs(cdiff)])[len(rdiff):]
 	if line('.')==line('w$')
 		exe "norm! \<C-E>"
 	elseif line('.')==line('w0')
@@ -642,10 +646,13 @@ fun! OnVimEnter()
 	if !exists('g:WORKING_DIR') || !isdirectory(glob(g:WORKING_DIR))
 		call WelcomeMsg() | en
 	call SetOpt(g:INPUT_METH) |  exe 'so '.g:WORKING_DIR.'/abbrev'
-	if !argc() | exe 'cd '.g:WORKING_DIR
+	if !argc()
+		let g:FORMAT_NEW_FILES=1
+		exe 'cd '.g:WORKING_DIR
 		if len(g:histL)>0
 			exe 'e '.g:histL[0][0] | call CheckFormatted() | call OnWinEnter()
-	en | en
+		en
+	el| let g:FORMAT_NEW_FILES=0 | en
 	if glob(g:WORKING_DIR)=='/home/q335/Desktop/Dropbox/q335writings'
 	\ && !has("gui_running")
 		map OA <Up>
@@ -691,9 +698,6 @@ if !exists('do_once') | let do_once=1
 	el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
 	let g:histL=map(split(g:HISTL,"\n"),'split((v:val),"\\$")')
 	call InitHist()
-	call IniQuote("@")
+	call IniQuote("*")
 	nohl
 en
-"Nextheading for formatted paragraphs
-"settings for text or non text new buffer, such as when argc()!=0
-"modify Ec to handle lists
