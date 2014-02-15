@@ -8,7 +8,7 @@ if opt_device=~?'windows'
 	let Working_Dir='C:\Users\q335r49\Desktop\Dropbox\q335writings'
 	let Viminfo_File='C:\Users\q335r49\Desktop\Dropbox\q335writings\viminfo' | en
 if opt_device=~?'cygwin'
-	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
+	"se timeout ttimeout timeoutlen=100 ttimeoutlen=100
 	cno <c-h> <left>
 	cno <c-j> <down>
 	cno <c-k> <up>
@@ -18,7 +18,6 @@ if opt_device=~?'cygwin'
 	vno <c-v> "*p
 	no! <c-_> <c-w>
 	nno <c-_> db
-	let opt_LongPressTimeout=[99999,99999]
 	nno <MiddleMouse> <LeftMouse>:q<cr>
 	let Viminfo_File= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings/viminfo'
 	let Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings' | en
@@ -52,13 +51,12 @@ if opt_device=~?'droid4'
 	let EscChar='@'
 	let opt_autocap=1
 	ino <c-b> <c-w>
-	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
-	nn <silent> <leftmouse> <leftmouse>:call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
+	let opt_mousescroll=1
 	nn <c-r> <nop> 
-	let opt_LongPressTimeout=[0,500000] | en
+	en
 if empty(opt_device)
-	nn <silent> <leftmouse> <leftmouse>:call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
-	let opt_LongPressTimeout=[0,500000] | en
+	let opt_mousescroll=1
+	en
 if has("gui_running")
 	se guifont=Envy_Code_R:h11:cANSI
 	colorscheme solarized
@@ -264,21 +262,7 @@ vn j gj
 vn k gk
 nn j gj
 nn k gk
-let gnmap=map(range(256),'"g".nr2char(v:val)')
-let gvmap=copy(gnmap)
-let gnmap[char2nr('p')]=":exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'\<cr>"
-let gnmap[char2nr('j')]='j'
-let gnmap[char2nr('k')]='k'
-let gvmap[char2nr('j')]='j'
-let gvmap[char2nr('k')]='k'
-let gnmap[char2nr('$')]="G:call search('^.*\\S.*$','Wcb')\<cr>"
-let gnmap[char2nr('A')]="A"
-let gnmap[char2nr('{')]="{"
-let gnmap[char2nr('}')]="}"
-let gvmap[char2nr('U')]=":S/\\<\\(\\w\\)\\(\\w*\\)\\>/\\u\\1\\L\\2/g\<cr>"
-let gvmap[char2nr('p')]="\<esc>:call search('\\S\\n\\s*.\\|\\n\\s*\\n\\s*.\\|\\%^','Wbe')\<cr>m<:call search('\\S\\n\\|\\s\\n\\s*\\n\\|\\%$','W')\<cr>m>gv"
-nn <expr> g gnmap[getchar()]
-vn <expr> g gvmap[getchar()]
+nn gp :exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'<cr>
 
 fun! SoftCapsLock()
 	norm! i^
@@ -317,83 +301,87 @@ let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | silent call Writeroom(e
 fun! ReltimeLT(t1,t2)
 	return a:t1[0]<a:t2[0] || a:t1[0]==a:t2[0] && a:t1[1]<a:t2[1]
 endfun
-fun! Getcharuntil(t)
-	let [g:gcwait,t0,c]=[[0,0],reltime(),getchar(0)]
-	while c==#'0' && (g:gcwait[0]<a:t[0] || g:gcwait[0]==a:t[0] && g:gcwait[1]<a:t[1])
-		let [c,g:gcwait]=[getchar(0),reltime(t0)]
-	endw
-	return c
-endfun
 let g:prevglide=0
+let g:prevglideh=0
+if !exists('opt_hzscroll') | let g:opt_hzscroll=0 | en
+if exists('opt_mousescroll') && opt_mousescroll
+	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
+en
 fun! Mscroll()
-	exe v:mouse_win.'wincmd w'
-	if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1)
-	\ || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) 
-	\ || v:mouse_lnum==line('$')
+	let hzscr=g:opt_hzscroll && !&wrap
+	if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1) || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) || v:mouse_lnum==line('$')
 		if line('$')==line('w0') | exe "keepj norm! \<c-y>" |en
-		return 1 |en	
-	exe 'keepj norm! '.v:mouse_lnum.'G'.v:mouse_col.'|'
-	if !&wrap && v:mouse_lnum>=line('w$')-(winheight(0)>19)-(winheight(0)>35)
-		let pos=v:mouse_col
-		while getchar()=="\<leftdrag>"
-			let diff=v:mouse_col-pos
-			let pos+=diff
-			if diff && -9<diff && diff<9
-				exe 'keepj norm! '.(diff>0? "zh" :"zl")
-				redr|en
-		endw
-	el| let pos=winline()
-		if pos==1 | exe "keepj norm! \<c-y>" |en
-		while 1 "continue scrolling if no fold or jumps are detected
-	  	let [timeL,diffL]=[[],[]]
-		while Getcharuntil(g:opt_LongPressTimeout) is "\<leftdrag>"
-			exe 'keepj norm! '.v:mouse_lnum.'G'
-			let diff=winline()+(v:mouse_col-1)/&columns-pos
-			call add(timeL,g:gcwait)
-			call add(diffL,diff)
-			if diff
-				let pos+=diff
-				exe 'keepj norm! '.(diff>0? diff."\<c-y>":-diff."\<c-e>")
-				redr|ec line('w0') '/' line('$')|en
-		endwhile
-		let action_executed=1
-		if ReltimeLT(g:opt_LongPressTimeout,g:gcwait)
-			try | keepj norm! za
-			catch *
-				try | exe "keepj norm! \<c-]>"
-				catch *
-					let action_executed=0
-				endtry
-			endtry
-		elseif ReltimeLT(g:gcwait,[0,100000])
-			let s=len(diffL)>4? -4 : 0
-			let [max,min,elaps]=[max(diffL[s :]),min(diffL[s :]),
-			\ eval(join(map(timeL[s :],'v:val[0].("00000".v:val[1])[-6:]'),'+').'+0')]
-			if elaps<160000 && len(diffL)>1 && max*min>=0 && (max || min)
+		return 1
+	en
+	let ves=&ve | se ve=all
+	exe "norm! \<leftmouse>"
+	let [timeL,diffL,diffLz]=[[],[],[]]
+	let lasttime=reltime()
+	while getchar()=="\<leftdrag>"
+		let [dV,dH]=[v:mouse_lnum-line('.'),v:mouse_col-virtcol('.')]
+		exe "norm! \<leftmouse>"
+   		let [timeL,diffL,diffLz]+=[[reltime(lasttime)],[dV],[dH]]
+   		let lasttime=reltime()
+		if dV || (hzscr && dH)
+	   	    exe 'keepj norm! '.(dV>0? dV."\<c-y>".dV.'gk' : dV<0? -dV."\<c-e>".-dV.'gj' : '').(!hzscr? '' : dH>0? dH.'zh'.dH.'h' : dH<0? -dH.'zl'.-dH.'l' : '')
+	   	   	redr|en 
+	endwhile
+	return
+	let g:Smp=timeL
+	let g:dh=diffLz
+	if len(timeL)>1 && ReltimeLT(timeL[-1],[0,100000])
+		let s=len(diffL)>4? -4 : 0
+		let [max,min,elaps]=[max(diffL[s :]),min(diffL[s :]),eval(join(map(timeL[s :],'v:val[0].("00000".v:val[1])[-6:]'),'+').'+0')]
+		let [maxh,minh]=[max(diffLz[s :]),min(diffLz[s :])]
+		let g:el=elaps
+		if elaps<160000
+			let [cmd,cmdh]=['','']
+			let [delay,delayh]=[9999999,9999999]
+			let [glide,glideh]=[0,0]
+		   	if max*min>=0 && (max || min)
 				if abs(max)>abs(min)
-					let glide=max+(g:prevglide>0)*g:prevglide
+					let glide=abs(max)+(g:prevglide>0)*g:prevglide
 					let cmd="keepj norm! \<C-Y>"
-				el| let glide=min+(g:prevglide<0)*g:prevglide
+				el| let glide=abs(min)+(g:prevglide<0)*g:prevglide
 					let cmd="keepj norm! \<C-E>" |en
-				let delay=1080/glide/glide
-				let counter=delay
-				while !getchar(1) && delay<2000
-					let counter-=1
-					if !counter
-						let delay=delay*11/10
-						let counter=delay
+				let delay=600/glide
+			en
+		   	if maxh*minh>=0 && (maxh || minh)
+				if abs(maxh)>abs(minh)
+					let glideh=abs(maxh)+(g:prevglideh>0)*g:prevglideh
+					let cmdh="keepj norm! zh"
+				el| let glideh=abs(minh)+(g:prevglideh<0)*g:prevglideh
+					let cmdh="keepj norm! zl" |en
+				let delayh=600/glideh
+			en
+			let delayh=hzscr? delayh : 99999999
+			let g:delay=[delay,delayh,glideh]
+			if !empty(cmd) || !empty(cmdh)
+				let counter=1
+				while !getchar(1) && counter<80000
+					let counter+=1
+					if !(counter%delayh)
+						exe cmdh
+						redr|ec line('.') '/' line('$')
+					endif
+					if !(counter%delay)
 						exe cmd
-						redr|ec line('w0') '/' line('$')
+						redr|ec line('.') '/' line('$')
 					endif
 				endwhile
-				let g:prevglide=(2200-delay)*glide/4200
-			el| let g:prevglide=0 |en
+				let g:prevglide=0
+				let g:prevglideh=0
+			else
+				let g:prevglide=0
+				let g:prevglideh=0
+			en
+		el
+			let g:prevglide=0
+			let g:prevglideh=0
 		en
-		if action_executed
-			break
-		en
-		endwhile
 	en
+	let &ve=ves
+	redr | echo 'fin'
 endfun
 
 let CShst=[[0,7]]
