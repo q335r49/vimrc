@@ -243,15 +243,15 @@ nn j gj
 nn k gk
 let gnmap=map(range(256),'"g".nr2char(v:val)')
 let gvmap=copy(gnmap)
-let gnmap[112]=":exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'\<cr>"
-let gnmap[106]='j'
-let gnmap[107]='k'
-let gnmap[36]="G:call search('^.*\\S.*$','Wcb')\<cr>"
-let gnmap[65]="A"
-let gnmap[123]="{"
-let gnmap[125]="}"
-let gvmap[85]=":S/\\<\\(\\w\\)\\(\\w*\\)\\>/\\u\\1\\L\\2/g\<cr>"
-let gvmap[112]="\<esc>:call search('\\S\\n\\s*.\\|\\n\\s*\\n\\s*.\\|\\%^','Wbe')\<cr>m<:call search('\\S\\n\\|\\s\\n\\s*\\n\\|\\%$','W')\<cr>m>gv"
+let gnmap[char2nr('v')]=":exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'\<cr>"
+let gnmap[char2nr('j')]='j'
+let gnmap[char2nr('k')]='k'
+let gnmap[char2nr('$')]="G:call search('^.*\\S.*$','Wcb')\<cr>"
+let gnmap[char2nr('A')]="A"
+let gnmap[char2nr('{')]="{"
+let gnmap[char2nr('}')]="}"
+let gvmap[char2nr('U')]=":S/\\<\\(\\w\\)\\(\\w*\\)\\>/\\u\\1\\L\\2/g\<cr>"
+let gvmap[char2nr('p')]="\<esc>:call search('\\S\\n\\s*.\\|\\n\\s*\\n\\s*.\\|\\%^','Wbe')\<cr>m<:call search('\\S\\n\\|\\s\\n\\s*\\n\\|\\%$','W')\<cr>m>gv"
 nn <expr> g gnmap[getchar()]
 vn <expr> g gvmap[getchar()]
 
@@ -270,32 +270,21 @@ endfun
 let [Qnrm.99,Qnhelp.c]=[":call SoftCapsLock()\<cr>","Caps lock"]
 
 let Pad=repeat(' ',200)
-exe "ab /f {{{\<cr>\<cr>\<cr>\}}}\<esc>3k$a\<c-o>"
 fun! FoldTextPara()
 	let l=getline(v:foldstart)
-	return ' -- '.l[:match(l,'[?!\.-]\s')]
+	return l[0]==#l[1]? l[:match(l,'[?!\.]\s\|\zs -')] : ' - '.l[:match(l,'[?!\.]\s\|\zs -')]
 endfun
 fun! FoldText()
 	let l=getline(v:foldstart)
 	let p=stridx(l,'{{{')
 	return g:Pad[v:foldlevel].'('.(p==0? l[3:20].' ...' : l[:p-1]).')'
 endfun
-fun! GoPrevFold()
-	call search('{{{','bW')	
-endfun
-fun! GoNextFold()
-	call search('{{{','W')	
-endfun
-let [Qnrm.102,Qnhelp.f]=[":call GoNextFold()\<cr>","Next Fold"]
-let [Qnrm.70,Qnhelp.F]=[":call GoPrevFold()\<cr>","Prev Fold"]
 
 com! -nargs=+ -complete=var Editlist call New('NestedList',<args>).show()
 com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
 
 fun! Writeroom(margin)
-	echom a:margin
-	wa
-	only
+	wa | only
 	exe 'botright '.(a:margin*&columns/100).' vsp blankR'
 	exe 'topleft '.(a:margin*&columns/100).' vsp blank'
 	wincmd l
@@ -456,13 +445,13 @@ let colorDh.hl="cycle fg"
 let colorD.106='let [bg,g:CShix]=[(bg+255)%256,g:CShix+1]'
 let colorD.107='let [bg,g:CShix]=[(bg+1)%256,g:CShix+1]'
 let colorDh.jk="cycle bg"
-let colorD.98='let [g:SwchIx,g:CShix]=[(g:SwchIx+len(swatchlist)+1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]'
+let colorD.98='let [g:SwchIx,g:CShix]=[(g:SwchIx+len(swatchlist)-1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]'
 let colorD.102='let [g:SwchIx,g:CShix]=[(g:SwchIx+1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]'
 let colorDh.bf="cycle swatches"
 let colorD.112='if g:CShix > 0 | let g:CShix-=1 | let [fg,bg]=g:CShst[g:CShix] | en'
 let colorD.110='if g:CShix<len(g:CShst)-1|let g:CShix+=1|let [fg,bg]=g:CShst[g:CShix]|en'
 let colorDh.np="nav history"
-let colorD.42='let [fg,bg,g:CShix]=[reltime()[1]%256,reltime()[1]%256,g:CShix+1]'
+let colorD.42='let [fg,0bg,g:CShix]=[reltime()[1]%256,reltime()[1]%256,g:CShix+1]'
 let colorD.114='let [fg,g:CShix]=[reltime()[1]%256,g:CShix+1]'
 let colorD.82='let [bg,g:CShix]=[reltime()[1]%256,g:CShix+1]'
 let colorDh['rR*']="Random"
@@ -608,6 +597,7 @@ endfun
 fun! CheckFormatted()
 	let options=getline(1)
 	if options=~?'foldmark'
+		exe "ab <buffer> /f {{{\<cr>\<cr>\<cr>\}}}\<esc>3k$a\<c-o>"
 		nn <buffer>	<cr> za
 		nn <buffer> <rightmouse> <leftmouse>za
 		setl fdm=marker
@@ -620,10 +610,12 @@ fun! CheckFormatted()
 		setl fdt=FoldTextPara()
 	en
 	if options=~?'hardwrap'
-		setl nowrap
-		let number=matchstr(options,'autoformat\zs\d*') 
-		exe "setl tw=".(empty(number)? 80 : number)
-		setl fo=aw
+		setl nowrap fo=aw
+		let number=matchstr(options,'hardwrap\zs\d*') 
+		if !empty('number')
+			exe "setl tw=".number." wiw=".(number+2)
+		el| setl tw=70 wiw=72
+		en
 		nn <buffer>	<cr> za
 		nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
 		nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
@@ -635,6 +627,7 @@ fun! CheckFormatted()
 		el| nn <buffer> <silent> I :call search('^\s*\n\s*\S\\!\%^','Wbec')<CR>i
 			nn <buffer> <silent> A :call search('\S\s*\n\s*\n\\|\%$','Wc')<CR>a
 		en
+	elseif options=~?'prose' |  setl wrap
 	en
 	if options=~?'prose'
 		setl noai
@@ -719,11 +712,17 @@ fun! WriteVimState()
 		sil exe '!rm '.g:Viminfo_File |en
 endfun
 
+fun! NextWindow()
+	if &scb
+		exe "wincmd w".(&scb? "|norm! ".line(".")."G" : "")
+endfun
 let [Qnrm.116,Qnhelp.t]=[":let &showtabline=!&showtabline\<cr>","Tabline toggle"]
 let [Qnrm.118,Qnhelp.v]=[":if empty(&ve) | se ve=all | el | se ve= | en\<cr>","Virtual edit toggle"]
 let [Qnrm.108,Qnhelp.l]=[":se invlist\<cr>","List invisible chars"]
 let [Qnrm.115,Qnhelp.s]=[":let &ls=&ls>1? 0:2\<cr>","Status line toggle"]
-let [Qnrm.119,Qnhelp.w]=[":se invwrap\<cr>","Wrap toggle"]
+let [Qnrm.119,Qnhelp.w]=[":exe 'wincmd w'.(&scb? '|'.line('.') : '')\<cr>","Next Window"]
+let [Qnrm.87,Qnhelp.W]=[":exe 'wincmd W'.(&scb? '|'.line('.') : '')\<cr>","Prev Window"]
+let [Qnrm.114,Qnhelp.r]=[":se invwrap\<cr>","Wrap toggle"]
 let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
 let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
 let [Qnrm.101,Qnhelp.e]=[":noh\<cr>","No highlight search"]
