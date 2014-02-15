@@ -301,37 +301,57 @@ let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | silent call Writeroom(e
 fun! ReltimeLT(t1,t2)
 	return a:t1[0]<a:t2[0] || a:t1[0]==a:t2[0] && a:t1[1]<a:t2[1]
 endfun
-let g:prevglide=0
-let g:prevglideh=0
-if !exists('opt_hzscroll') | let g:opt_hzscroll=0 | en
 if exists('opt_mousescroll') && opt_mousescroll
 	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
 en
+let speed=[200,150,100,70,50,40,30,20,10,10,10,10,10,10,10,10,10,10]
 fun! Mscroll()
-	let hzscr=g:opt_hzscroll && !&wrap
 	if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1) || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) || v:mouse_lnum==line('$')
 		if line('$')==line('w0') | exe "keepj norm! \<c-y>" |en
-		return 1
-	en
+		return 1 | en
 	let ves=&ve | se ve=all
 	exe "norm! \<leftmouse>"
-	let [g:tL,g:dVL,g:dHL]=[[],[],[]]
-	let pt=reltime()
+	let frame=-1
+	let [tl,dvl,dhl]=[repeat([0],4),repeat([0],4),repeat([0],4)]
 	while getchar()=="\<leftdrag>"
-		let [ar,ac,br,bc]=[line('.'),virtcol('.'),v:mouse_lnum,v:mouse_col]
+		let [dV,dH]=[v:mouse_lnum-line('.'),v:mouse_col-virtcol('.')]
 		exe "norm! \<leftmouse>"
 		let v=winsaveview()
-		let [dV,dH]=[br-ar>v.topline-1? v.topline-1 : br-ar, bc-ac>v.leftcol? v.leftcol : bc-ac]
-		let [v.topline,v.leftcol,v.lnum,v.col,v.coladd]-=[dV,dH,dV,v.col,v.coladd-v.curswant+dH]
-   		let [g:tL,g:dVL,g:dHL]+=[[reltime(pt)],[dV],[dH]]
-   		let pt=reltime()
+		let [dV,dH]=[dV>v.topline-1? v.topline-1 : dV, dH>v.leftcol? v.leftcol : dH]
+		let [v.topline,v.leftcol,v.lnum,v.col,v.coladd,frame]-=[dV,dH,dV,v.col,v.coladd-v.curswant+dH,-1]
+		let [tl[frame%4],dvl[frame%4],dhl[frame%4]]=[reltime(),dV,dH]
 		call winrestview(v)
-	   	redr!
+		if !(frame%2) | redr! | en
 	endwhile
-	if len(g:tL)>4
-	
-    	                    "Todo
-
+	if frame>4
+		let elapsed=reltime(tl[(frame+1)%4])
+		if !elapsed[0] && elapsed[1]<150000
+			let [xv,nv,xh,nh]=[max(dvl),min(dvl),max(dhl),min(dhl)]
+			let vv=xv*nv>=0? dvl[0]+dvl[1]+dvl[2]+dvl[3] : 0
+			let vh=xh*nh>=0? dhl[0]+dhl[1]+dhl[2]+dhl[3] : 0
+			let cmdv=vv>0? "norm! \<c-y>" : "norm! \<c-e>"
+			let cmdh=vh>0? "norm! zh" : "norm! zl"
+			let vv=min([abs(vv),10])
+			let vh=min([abs(vh),10])
+			let s=0
+			let vc=0
+			let hc=0
+			while !getchar(1) & s<=1000
+				let [s,vc,hc]+=1
+				if vc>speed[vv]
+					let vv-=vv>1? 1 : 0
+					exe cmdv
+					redr
+					let vc=0
+				en
+				if hc>speed[vh]
+					let vh-=vh>1? 1 : 0
+					exe cmdh
+					redr
+					let hc=0
+				en
+			endw
+		en
 	en
 	let &ve=ves
 endfun
