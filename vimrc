@@ -151,13 +151,39 @@ endfun
 nno <silent> x :<c-u>call Undojx('x')<cr>
 nno <silent> X :<c-u>call Undojx('X')<cr>
 
-nmap <expr> q Qmenu(g:Qnrm)
-vmap <expr> q Qmenu(g:Qvis)
+nmap <silent> <plug>TxbZ :call TXBGetChar()<cr>
+nmap <silent> <plug>TxbY :call TXBGetChar()<cr>
+nmap <silent> <plug>TxbY2 <nop>
+fun! TXBGetChar()
+	exe getchar(1)? g:GetCharHandleKeyExe : feedkeys("\<plug>TxbY")[9]
+endfun
+
+nmap <expr> q Qmenu()
 nno Q q
 vno Q q
-se stl=%f\ %l/%L\ %c%V
-fun! Qmenu(menu)
-	let matchID=matchadd("CursorColumn",'\%#')
+fun! Qmenu()
+	let g:qmenuView=[winsaveview(),&stal,&ls]
+	let [g:qmenuView[0].topline,&stal,&ls]=[g:qmenuView[0].topline+!g:qmenuView[1],2,2]
+	echo strftime('%c').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
+	call winrestview(g:qmenuView[0])
+	redr
+	let g:qmenuView[0].topline=g:qmenuView[0].topline-!g:qmenuView[1]
+	let g:GetCharHandleKeyExe="call ProcessChar(getchar())"
+	nno <silent> <esc> :call ProcessChar(113)<cr>
+	return "\<plug>TxbZ"
+endfun
+fun! ProcessChar(c)
+	nunmap <esc>
+	while getchar(1)
+		call getchar()
+	endwhile
+	let [&stal,&ls]=g:qmenuView[1:]
+	call winrestview(g:qmenuView[0])
+	echo strftime('%c').' <'.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.'>'
+	call feedkeys(get(g:Qnrm,a:c,g:Qnrm.default),'n')
+endfun
+vmap <expr> q Qmenuv()
+fun! Qmenuv()
 	let [view,stal]=[winsaveview(),&stal]
 	let [view.topline,&stal,&ls,ls]=[view.topline+!stal,1,2,&ls]
 	echo strftime('%c').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
@@ -165,35 +191,31 @@ fun! Qmenu(menu)
 	redr
 	let [c,view.topline,&stal,&ls]=[getchar(),view.topline-!stal,stal,ls]
 	call winrestview(view)
-	call matchdelete(matchID)
-	return get(a:menu,c,a:menu.default)
+	redr
+	return get(g:Qvis,c,g:Qvis.default)
 endfun
-let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
+
+let Qnrm.default=":ec PrintDic(g:Qnhelp,28)\<cr>"
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
 let [Qnrm[102],Qnhelp.f]=[":ec search('^\\S*\\ \\S*'.expand('<cword>').'(')\<cr>","Go to function"]
-let Qnrm["\<leftmouse>"]="\<leftmouse>"
 let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
 let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
 let [Qnrm.87,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
 let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
 let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
-let [Qnrm.113,Qnhelp.q]=[":noh\<cr>","No highlight search"]
+let [Qnrm.3,Qnhelp.q]=["","exit"]
+let [Qnrm.113,Qnhelp.q]=["","exit"]
+let [Qvis.113,Qvhelp.q]=["","exit"]
+let [Qnrm.103,Qnhelp.g]=[":noh\<cr>","go away highlight"]
 let [Qnrm["\<f1>"],Qnhelp["<f1>"]]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>\<cr>","Help word under cursor"]
 let [Qnrm.49,Qnrm.50,Qnrm.51,Qnrm.52,Qnrm.53,Qnrm.54,Qnrm.55,Qnrm.56,Qnrm.57]=map(range(1,9),'":tabn".v:val."\<cr>"')
 	let Qnhelp['1..9']="Switch tabs"
-let [Qnrm.9,Qnrm.32,Qnhelp['<tab,space']]=[":call QmenuCycle('tabp')\<cr>",":call QmenuCycle('tabn')\<cr>","Tabs <>"]
-let [Qnrm.100,Qnrm.115,Qnhelp.sd]=[":call QmenuCycle('wincmd w')\<cr>",":call QmenuCycle('wincmd W')\<cr>","Columns <>"]
-let [Qnrm.119,Qnrm.101,Qnhelp.we]=[":call QmenuCycle('norm! g;zz')\<cr>",":call QmenuCycle('norm! g,zz')\<cr>","Changes <>"]
-let [Qnrm.23,Qnhelp['^W']]=[":call QmenuCycle('tabc')\<cr>","tabc"]
-let [Qnrm.77,Qnrm.109,Qnhelp['<>']]=[":call QmenuCycle('tabm -1')\<cr>",":call QmenuCycle('tabm +1')\<cr>","tabm <>"]
-fun! QmenuCycle(cmd)
-	let cmd=a:cmd
-	while !empty(cmd)
-		exe cmd
-		let cmd=matchstr(Qmenu(g:Qnrm),'QmenuCycle(''\zs[^'']*')
-	endw
-endfun
+let [Qnrm.9,Qnrm.32,Qnhelp['<tab,space']]=[":tabp|call feedkeys('q')\<cr>",":tabn|call feedkeys('q')\<cr>","Tabs <>"]
+let [Qnrm.100,Qnrm.115,Qnhelp.sd]=[":wincmd w|call feedkeys('q')\<cr>",":wincmd W|call feedkeys('q')\<cr>","Columns <>"]
+let [Qnrm.119,Qnrm.101,Qnhelp.we]=[":norm! g;zz\<cr>:call feedkeys('q')\<cr>",":norm! g,zz\<cr>:call feedkeys('q')\<cr>","Changes <>"]
+let [Qnrm.23,Qnhelp['^W']]=[":tabc|call feedkeys('q')\<cr>","tabc"]
+let [Qnrm.77,Qnrm.109,Qnhelp['<>']]=[":tabm -1|call feedkeys('q')\<cr>",":tabm +1|call feedkeys('q')\<cr>","tabm <>"]
 let Qnrm.42=":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>"
 let Qnrm.35=":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>"
 	let Qnhelp['*#']="Replace word"
@@ -654,6 +676,7 @@ if !exists('firstrun')
 	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 	se whichwrap+=b,s,h,l,,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 	se fcs=vert:\  showbreak=.\  
+	se stl=%f\ %l/%L\ %c%V
 	if opt_device!~?'windows'	
 		se term=screen-256color
 	en
