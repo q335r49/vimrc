@@ -1,72 +1,98 @@
 redir => g:StartupErr
 
-nno j gj
-nno k gk
+nn j gj
+nn k gk
+nn gj j
+nn gk k
+nn R <c-r>
+nn <c-r> <nop>
+ino <c-z> <Space>
+nn <expr> gp '`['.getregtype().'`]'
 
-com! -nargs=1 -complete=var Editlist call New('NestedList',<args>).show()
+com! -nargs=+ -complete=var Editlist call New('NestedList',<args>).show()
 com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
 
+let Pad=repeat(' ',200)
+fun! FoldText()
+	let l=matchstr(getline(v:foldstart),'^\s*\zs.*\S\ze.*{{{')
+	retu v:foldstart.g:Pad[len(v:foldstart):max([0,(&columns-strwidth(l))/2])].l
+endfun
+
+fun! ReltimeLT(t1,t2)
+	return a:t1[0]<a:t2[0] || a:t1[0]==a:t2[0] && a:t1[1]<a:t2[1]
+endfun
+fun! Getcharuntil(t)
+	let [g:gcwait,t0,c]=[[0,0],reltime(),getchar(0)]
+	while c==#'0' && (g:gcwait[0]<a:t[0] || g:gcwait[0]==a:t[0] && g:gcwait[1]<a:t[1])
+		let [c,g:gcwait]=[getchar(0),reltime(t0)]
+	endw
+	return c
+endfun
+
 let g:prevglide=0
-fun! Mscroll(pos)
-	let pos=a:pos
-	let t0=reltime()
-	let timeL=[]
-	let posL=[]
-	while getchar()=="\<leftdrag>"
-		let diff=v:mouse_lnum-line('w0')-pos
-		call add(timeL,eval(join(reltime(t0),'*1000000+')))
-		call add(posL,diff)
-		let t0=reltime()
-		if diff
+nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "norm! \<lt>leftmouse>":"")<cr>
+fun! Mscroll()
+	exe v:mouse_win.'wincmd w'
+	if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1)
+	\ || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) 
+	\ || v:mouse_lnum==line('$')
+		return 1 |en	
+	exe 'norm! '.v:mouse_lnum.'G'.v:mouse_col.'|'
+	if !&wrap && v:mouse_lnum>=line('w$')-(winheight(0)>19)-(winheight(0)>35)
+		let pos=v:mouse_col
+		while getchar()=="\<leftdrag>"
+			let diff=v:mouse_col-pos
 			let pos+=diff
-			exe 'norm! '.(diff>0? diff."\<C-Y>":-diff."\<C-E>")
-			redr|ec line('w0')|en
-	endwhile
-	let diff=v:mouse_lnum-line('w0')-pos
-	call add(timeL,eval(join(reltime(t0),'*1000000+')))
-	call add(posL,diff)
-	if len(timeL)>2
-		let timeL=timeL[(-min([4,len(timeL)])):]
-		let posL=posL[(-min([4,len(posL)])):]
-		let max=max(posL)
-		let min=min(posL)
-		let glide=max>1 || min>=0? max : min<-1 || max<=0? min : 0
-		if eval(join(timeL,'+'))>160000 || glide==0 
-			let g:prevglide=0
-			return
-		elseif g:prevglide>0 && glide>0
-			let glide+=g:prevglide
-			let g:prevglide=glide
-		elseif g:prevglide<0 && glide<0
-			let glide+=g:prevglide
-			let g:prevglide=glide
-		elseif g:prevglide==0
-			let g:prevglide=glide
-		else
-			let g:prevglide=0
-		en
-		let cmd=glide>0?  "norm! \<C-Y>" : "norm! \<C-E>"
-		let i=9999
-		let mult=12
-		let counter=mult*90/glide 
-		let glide=glide<0? -glide : glide
-		while 1
-			let counter-=1
-			if counter<0
-				let mult+=4
-				let counter=mult*90/glide/glide
-				exe cmd
-				redr|ec line('w0')
-			endif
-			if getchar(1)!=0 || mult>30*glide
-				let g:prevglide=i<8999? g:prevglide*(9999-i)/9999 : 1
-				break | en
+			if diff && -9<diff && diff<9
+				exe 'norm! '.(diff>0? "zh" :"zl")
+				redr|en
+		endw
+	el| let pos=winline()
+		if pos==1 | exe "norm! \<c-y>" |en
+	  	let [timeL,diffL]=[[],[]]
+		while Getcharuntil([0,500000]) is "\<leftdrag>"
+			exe 'norm! '.v:mouse_lnum.'G'
+			let diff=winline()+(v:mouse_col-1)/&columns-pos
+			call add(timeL,g:gcwait)
+			call add(diffL,diff)
+			if diff
+				let pos+=diff
+				exe 'norm! '.(diff>0? diff."\<c-y>":-diff."\<c-e>")
+				redr|ec line('w0') '/' line('$')|en
 		endwhile
+		if ReltimeLT([0,500000],g:gcwait)
+			try | norm! za
+			catch *
+				try | exe "norm! \<c-]>"
+				catch *
+				endtry
+			endtry
+		elseif ReltimeLT(g:gcwait,[0,100000])
+			let s=len(diffL)>4? -4 : 0
+			let [max,min,elaps]=[max(diffL[s :]),min(diffL[s :]),
+			\ eval(join(map(timeL[s :],'v:val[0].("00000".v:val[1])[-6:]'),'+').'+0')]
+			if elaps<160000 && len(diffL)>1 && max*min>=0 && (max || min)
+				if abs(max)>abs(min)
+					let glide=max+(g:prevglide>0)*g:prevglide
+					let cmd="norm! \<C-Y>"
+				el| let glide=min+(g:prevglide<0)*g:prevglide
+					let cmd="norm! \<C-E>" |en
+				let delay=1080/glide/glide
+				let counter=delay
+				while !getchar(1) && delay<2000
+					let counter-=1
+					if !counter
+						let delay=delay*11/10
+						let counter=delay
+						exe cmd
+						redr|ec line('w0') '/' line('$')
+					endif
+				endwhile
+				let g:prevglide=(2200-delay)*glide/4200
+			el| let g:prevglide=0 |en
+		en
 	en
 endfun
-nnoremap <silent> <leftMouse> <leftmouse>:call Mscroll(line(".")-line("w0"))<CR>
-
-finish
 
 fun! QSel(list,msg)
 	let [inp,c]=['','']
@@ -102,6 +128,7 @@ fun! QSel(list,msg)
 		let c=getchar()
 	endwhile
 	ec '' |redr
+	let g:Qselenter=inp
 	return [qual!=0? match : -1,c]
 endfun
 
@@ -157,16 +184,6 @@ fun! CSChooser(...)
 	endwhile
 endfun
 
-let Pad=repeat(' ',200)
-fun! CenterLine()
-	let line=matchstr(getline('.'),'^\s*\zs.*\ze\s*$')
-	if &tw==0
-		call setline(line('.'),g:Pad[1:(winwidth(0)-strdisplaywidth(line))/2].line)
-	elseif &tw > strdisplaywidth(line)
-		call setline(line('.'),g:Pad[1:(&tw-strdisplaywidth(line))/2].line)
-	en
-endfun
-
 fun! WriteVars(file)
 	sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
 	let list=[]
@@ -192,10 +209,9 @@ fun! OpenLastBackup()
 	ec 'Last backup '.strftime("%c",mostrecent)
 endfun
 
-fun! PrintTime(s,...) "%e crashes Windows!
-	retu strftime('%b%d %I:%M ',a:0>0? (a:1) : localtime())
-	\.(a:s>86399? (a:s/86400.'d'):'')
-	\.(a:s%86400>3599? (a:s%86400/3600.'h'):'').(a:s%3600/60.'m ')
+let g:DoWk='SMTWRFA'
+fun! PrintTime(e,t) "%e crashes Windows!
+	retu eval(strftime('printf("%%d%%s%%d %%d:%M %%d:%%02d ",%m,g:DoWk[%w],%d,%I,a:e/3600,a:e/60%%60)',a:t))
 endfun
 
 fun! GetCompletion()
@@ -210,8 +226,6 @@ fun! New(class,...)
 	exe 'call newclass.cons('.join(map(range(a:0),'"a:".(1+v:val)'),',').')'
 	return newclass
 endfun
-
-nnoremap <expr> gp '`[' . strpart(getregtype(), 0, 1) . '`]'
 
 let GHprevArg=[0,1]
 fun! GoHeading(indent,dir)
@@ -248,13 +262,14 @@ endfun
 
 fun! EdMRU()
 	let [sel,cmd]=QSel(g:MRUF,'Open: ')
-	if sel==-1 || cmd==g:EscAsc | retu|en
+	if sel==-1 || cmd==g:EscAsc
+		exe empty(g:Qselenter)? '': 'e '.g:Qselenter | retu|en
 	if cmd==22 "<c-v>
 		let ro=1
 		ec 'Read Only, split which direction? (CR,^L,^R,^T,^B)'
 		let cmd=getchar()
 	el| let ro=0 |en
-	while 1
+	while cmd!=g:EscAsc
 		if cmd==18 "<c-r>
 			exe 'botright vertical '.(ro? 'sv ':'sp ').escape(g:MRUF[sel],' ')
 		elseif cmd==12 "<c-l>
@@ -265,7 +280,9 @@ fun! EdMRU()
 			exe 'botright '.(ro? 'sv ':'sp ').escape(g:MRUF[sel],' ')
 		elseif cmd==10 || cmd==13
 			exe (ro? 'view ':'e ').escape(g:MRUF[sel],' ')
-		el| ec '^L:vspleft ^R:vspright ^T:sptop ^B:spbot ^V:readonly CR:edit'
+		elseif cmd==5
+			exe 'e '.g:Qselenter
+		el| ec '^E:Edit ^L:vspleft ^R:vspright ^T:sptop ^B:spbot ^V:readonly CR:edit'
 			let cmd=getchar()
 			continue | en
 		return
@@ -277,18 +294,21 @@ fun! GetLbl(file)
 	return len(name)>12 ? name[0:7]."~".name[-3:] : name
 endfun
 fun! InsHist(name,lnum,cnum,w0)
-	if g:NoMRUsav==1 || empty(a:name) || a:name=~escape($VIMRUNTIME,'\')
-		let g:NoMRUsav=0 | retu|en
-	cal insert(g:MRUF,a:name)
-	cal insert(g:MRUL,[a:lnum,a:cnum,a:w0])
+	if g:NoMRUsav==1 
+		let g:NoMRUsav=0
+	elseif !empty(a:name) && a:name!~escape($VIMRUNTIME,'\') && !isdirectory(a:name)
+		cal insert(g:MRUF,a:name)
+		cal insert(g:MRUL,[a:lnum,a:cnum,a:w0])
+	en
 endfun
 fun! RemHist(file)
 	let i=match(g:MRUF,'^'.a:file.'$')
-	if i==-1 | retu|en
-	exe "norm! ".g:MRUL[i][2]."z\<cr>".(g:MRUL[i][0]>g:MRUL[i][2]? 
-	\ (g:MRUL[i][0]-g:MRUL[i][2]).'j':'').g:MRUL[i][1].'|'
-	cal remove(g:MRUF,i)
-	cal remove(g:MRUL,i)
+	if i!=-1
+		exe "norm! ".g:MRUL[i][2]."z\<cr>".(g:MRUL[i][0]>g:MRUL[i][2]? 
+		\ (g:MRUL[i][0]-g:MRUL[i][2]).'j':'').g:MRUL[i][1].'|'
+		cal remove(g:MRUF,i)
+		cal remove(g:MRUL,i)
+	en
 endfun
 
 fun! TMenu(cmd,...)
@@ -310,38 +330,49 @@ cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
 cnorea <expr> bd! ((getcmdtype()==':' && getcmdpos()<5)? 'let NoMRUsav=1\|bd!':'bd!')
-cnorea <expr> wa ((getcmdtype()==':' && getcmdpos()<4)? "wa\|redr\|ec WriteVars('saveD')" :'wa')
+cnorea <expr> wa ((getcmdtype()==':' && getcmdpos()<4)? "wa\|redr\|ec WriteVars('saveD')==0? 'vars saved' : 'ERROR!'" :'wa')
 
-let g:CapStarters=".?!\<nl>\<cr>\<tab>\<space>"
-let g:CapSeparators="\<nl>\<cr>\<tab>\<space>"
+let g:charL=[]
 fun! CapWait(prev)
+	call add(g:charL,a:prev)
 	redr | let next=nr2char(getchar())
-	if empty(next) || next==g:EscChar
-		return "\<del>"
-	elseif stridx(g:CapStarters,next)!=-1
+	if next==g:EscChar || empty(next)
+		let g:charL=[]
+		return "\<del>".(next==g:EscChar? "\<esc>":"")
+	elseif stridx(b:CapStarters,next)!=-1
 		exe 'norm! i' . next . "\<right>"
-		return CapWait(next)
-	elseif stridx(g:CapSeparators,a:prev)!=-1
-		return toupper(next) . "\<del>"
-	el| return next . "\<del>"
+		if len(g:charL)>0 && next=='.' && g:charL[-1]=='.'
+			let g:charL=[]
+			return "\<del>"
+		el| return CapWait(next) |en
+	elseif next=='`'
+		return "\<del>".TMenu(g:insD)
+	elseif stridx(b:CapSeparators,a:prev)!=-1
+		let g:charL=[]
+		return (next=~#'[A-Z]'? tolower(next) : toupper(next)). "\<del>"
+	el| let g:charL=[] 
+		return next."\<del>"
 	endif
 endfun
 fun! CapHere()
 	let trunc = getline(".")[:col(".")-2] 
-	return col(".")==1 ? (g:AUTOCAPNL ? CapWait("\r") : "\<del>")
-	\ : trunc=~'[?!.]\s*$\|^\s*$' ? CapWait(trunc[-1:-1]) : "\<del>"
+	return col(".")==1 ? (b:CapSeparators!=' '? CapWait("\r") : "\<del>")
+	\ : (trunc=~'[?!.]\s*$\|^\s*$' && trunc!~'\.\.\s*$') ? (CapWait(trunc[-1:-1])) : "\<del>"
 endfun
 fun! InitCap(capnl)
 	ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
 	if a:capnl==1
+		let b:CapStarters=".?!\<nl>\<cr>\<tab>\<space>"
+		let b:CapSeparators="\<nl>\<cr>\<tab>\<space>"
 		nm <buffer> <silent> O O_<Left><C-R>=CapWait("\r")<CR>
 		nm <buffer> <silent> o o_<Left><C-R>=CapWait("\r")<CR>
 		nm <buffer> <silent> cc cc_<Left><C-R>=CapHere()<CR>
 		nm <buffer> <silent> I I_<Left><C-R>=CapHere()<CR>
 		im <buffer> <silent> <CR> <CR>_<Left><C-R>=CapWait("\r")<CR>
 		im <buffer> <silent> <NL> <NL>_<Left><C-R>=CapWait("\n")<CR>
-	en
-	im <buffer> <silent> . ._<Left><C-R>=CapWait('.')<CR>
+	el| let b:CapStarters=".?!\<space>"
+		let b:CapSeparators="\<space>" | en
+	im <buffer> <silent> . ._<Left><C-R>=CapHere()<CR>
 	im <buffer> <silent> ? ?_<Left><C-R>=CapWait('?')<CR>
 	im <buffer> <silent> ! !_<Left><C-R>=CapWait('!')<CR>
 	nm <buffer> <silent> a a_<Left><C-R>=CapHere()<CR>
@@ -349,7 +380,6 @@ fun! InitCap(capnl)
 	nm <buffer> <silent> i i_<Left><C-R>=CapHere()<CR>
 	nm <buffer> <silent> s s_<Left><C-R>=CapHere()<CR>
 	nm <buffer> <silent> cw cw_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> R R_<Left><C-R>=CapHere()<CR>
 	nm <buffer> <silent> C C_<Left><C-R>=CapHere()<CR>
 endfun
 
@@ -391,12 +421,8 @@ fun! WriteVimState()
 	"curdir is necessary to retain relative path
 	se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
 	mksession! .lastsession
-	se viminfo=!,'20,<1000,s10,/50,:150
-	if !exists("g:Viminfo_File") | wviminfo
-	el| if exists('g:RemoveBeforeWriteViminfo')
-			sil exe '!rm '.g:Viminfo_File |en
-		sil exe 'wv! '.g:Viminfo_File |en
-	se viminfo=
+	if exists('g:RemoveBeforeWriteViminfo')
+		sil exe '!rm '.g:Viminfo_File |en
 endfun
 
 if !exists('do_once') | let do_once=1 | el|finish|en
@@ -410,19 +436,16 @@ if g:EscChar!="\e"
 if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
 	cal Ec('Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME)
 	let Working_Dir=$HOME |en
-let sources=['abbrev','cmdnorm','pager','saveD']
-for file in sources
+for file in ['abbrev','cmdnorm','pager','saveD']
 	if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
 	el| call Ec('Error: '.Working_Dir.'/'.file.' unreadable')|en
 endfor
 if !argc() && isdirectory(Working_Dir)
 	exe 'cd '.Working_Dir |en
-se viminfo=!,'20,<1000,s10,/50,:150
-if !exists('Viminfo_File')
+se viminfo=!,'120,<100,s10,/50,:500,h
+if !exists('g:Viminfo_File')
 	cal Ec("Error: g:Viminfo_File undefined, falling back to default")
-	rviminfo
-el| exe 'rv '.Viminfo_File |en
-se viminfo=
+el| exe "se viminfo+=n".g:Viminfo_File |en
 if has("gui_running")
 	colorscheme slate
 	hi ColorColumn guibg=#222222 
@@ -443,55 +466,57 @@ if len(MRUF)>60
 let NoMRUsav=0
 if !exists('CURCS') | let CURCS={} | el | call CSLoad(CURCS) |en
 if !exists('SWATCHES') | let SWATCHES={} |en
-au BufWinEnter * call RemHist(expand('<afile>'))
+au BufWinEnter * call RemHist(expand('%'))
 au BufRead * call CheckFormatted()
-au BufWinLeave * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
+au BufHidden * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
 au VimLeavePre * call WriteVimState()
 se noshowmode wrap linebreak sidescroll=1 ignorecase smartcase incsearch
-se ai tabstop=4 history=150 mouse=a ttymouse=xterm2 hidden backspace=2
+se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
-se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:< showbreak=
-se stl=\ %l.%02c/%L\ %<%f%=\ }
-se fcs=vert:\ ,fold:\ 
-nohl
+se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
+se stl=\ %l.%02c/%L\ %<%f%=\ } fcs=vert:\  showbreak=·\ 
 redir END
-if !argc() && filereadable('.lastsession') | so .lastsession | en
+if !argc() && filereadable('.lastsession')
+	so .lastsession
+en
 
 let normD={110:":noh\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
-\67:":call CSChooser()\<cr>",9:":call TODO.show()\<cr>",
+\82:"R",67:":call CSChooser()\<cr>",9:":call TODO.show()\<cr>",
 \114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
-\80:":call IniPaint()\<cr>",108:":call g:LOGDIC.show()\<cr>",
-\99:":call CenterLine()\<cr>",119:"\<c-w>\<c-w>",
-\103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
-\101:":call EdMRU()\<cr>",
+\80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
+\107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:nohl\<cr>",
+\116:"\<c-w>\<c-w>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
+\101:":call EdMRU()\<cr>",119:":se invwrap\<cr>",
 \49:":exe 'e '.escape(g:MRUF[0],' ')\<cr>",50:":exe 'e '.escape(g:MRUF[1],' ')\<cr>",
 \113:"\<esc>",51:":exe 'e '.escape(g:MRUF[2],' ')\<cr>",
 \112:"i\<c-r>=eval(input('Put: ','','var'))\<cr>",109:":mes\<cr>",
 \42:":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \35:":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>",
-\'help':'123:buff c/enter C/olor e/dit(^R^L^T^B) g/ethelp l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till w/ind z:wa *#:sub',
-\'msg':"expand('%:t').' '.join(map(g:MRUF[:2],'GetLbl(v:val)'),' ').' '
-\.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0]).g:LOGDIC.L[-1][1]",
+\'help':'123:buff C/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap z:wa *#:sub',
+\'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
+\.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]",
+\48:"@",
 \111:":call LOGDIC.111(1)\<cr>",
-\115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0]).g:LOGDIC.L[-1][1]\<cr>"}
+\115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>"}
 
 let insD={103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",96:'`',
 \113:"\<c-o>\<esc>",111:"\<c-r>=input('`o','','customlist,CmpMRU')\<cr>",
 \49:"\<esc>:exe 'e '.g:MRUF[0]\<cr>",50:"\<esc>:exe 'e '.g:MRUF[1]\<cr>",
+\107:"\<esc>:s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:nohl\<cr>",
+\48:"@",
 \51:"\<esc>:exe 'e '.g:MRUF[2]\<cr>",110:"\<c-o>:noh\<cr>",
 \102:"\<c-r>=escape(expand('%'),' ')\<cr>",119:"\<c-o>\<c-w>\<c-w>",
-\'help':'123:buff f/ilename g/etchar o/pen w/indow:',
-\'msg':"expand('%:t').' '.join(map(g:MRUF[:2],'GetLbl(v:val)'),' ').' '
-\.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0]).g:LOGDIC.L[-1][1]"}
+\'help':'123:buff f/ilename g/etchar k:center o/pen w/indow:',
+\'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
+\.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]"}
 
 let g:visD={(g:EscAsc):"",42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
-\120:"y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",99:"y:\<c-r>\"",
-\'help':'*:sub g/ofile x/ec c/opy2cmd:',
-\103:"y:e \<c-r>\"\<cr>",
-\'msg':"expand('%:t').' '.line('.').'.'.col('.')
-\.'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0]).g:LOGDIC.L[-1][1] : \"\")"}
+\99:":ce\<cr>",120:"y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",103:"y:\<c-r>\"",
+\'help':'*:sub c/enter e/dit g/et2cmd x/ec',101:"y:e \<c-r>\"\<cr>",
+\'msg':"expand('%:t').' '.line('.')
+\.'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"}
 
 let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 \|exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0]).' ctermbg='.(g:CURCS[g:CSgrp][1]) |en",
@@ -525,3 +550,44 @@ let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 
 "Added changelog
 "Added shortcuts to log functions in normD command
+"Fixed menu history bug in pager
+"Added gliding touch scrolling
+"Added y emulation to cmdnorm
+"Changed cmdnorm to exit on Esc rather than Q
+"Fixed scrolling in folded texts via winline()
+"Removed Center function: already implemented as :ce
+"Explore no longer interacts with history
+"remap center as `k, add line feed
+"fixed c-r / s-r confusion
+"longpress to toggle fold
+"seamless way to deal with end of document scrolling
+"have logappend calculate offset (for normal mode appends)
+"invisible horizontal scrollbar on bottom
+"no autocap on elipse
+"yank for nested
+"reading mode: remember offset
+"long press to go to link
+"Reformat folding, remove reading mode autocommands
+"longpresses are activated on timeout
+"fixed wacky log time display
+"fixed cmdnorm cursor sticking around
+"single esc to get out of autocap, use uppercase to avoid transformation
+"synergize autocap and tmenu
+"no new line autocap if option not set
+"change log visualizations to pagers
+"add T/op function to all pagers
+"pager constructor can now set cursor / offset
+"add option to hide numbers on pager (default)
+"changed folding to marker (from expr)
+"fully swap g, gj, k, gk
+"backspace / esc bug for autocap
+"synergize mouse scrolling and statusline / split dragging
+"changed fold to display line number
+"editmru now edits input if no match was found
+"log histogram accounts for current task
+"combined histogram & printlog
+"shownum, default statusline for pager
+"separate histogram mode and chart mode
+"shortcut for se invwrap
+"included day of week in date display
+"fixed viminfo bug (&vi was being reset to default)
