@@ -1,5 +1,39 @@
 redir => g:StartupErr
 
+fun! QSel(list,msg)
+	let [inp,c]=['','']
+	while c!=g:EscAsc && c!=10 && c!=13
+		let inp=c=="\<bs>"? inp[:-2] : inp.nr2char(c)
+		let [lenmatch,qual,qual1,qual2,qual3]=[len(a:msg)+2,0,'','','']
+		for e in range(len(a:list))
+			let pos=match(a:list[e],'\c'.inp)
+			let thisqual=pos>-1? pos==0? inp==#a:list[e][:len(inp)-1]? 3 : 2 : 1 : 0
+			if !thisqual | continue | en
+			if thisqual>qual
+				if qual
+					let qual{qual}.=a:list[match].' '
+				let [match,matchpos,qual]=[e,pos,thisqual]
+			el| let qual{thisqual}.=a:list[e].' ' |en
+			let lenmatch+=len(a:list[e])+1
+			if lenmatch>2*&columns | break|en
+		endfor
+		redr!
+		if qual==1
+			echon a:msg '(' a:list[match][:matchpos-1] ')' inp len(a:list[match])>matchpos+len(inp)
+			\?'('.a:list[match][matchpos+len(inp):].') _ ':' _ ' qual1[len(a:list[match])+1:]
+		elseif qual==2
+			echon a:msg inp len(a:list[match])>len(inp)?'('.a:list[match][len(inp):].') _ '
+			\: ' _ ' qual2[len(a:list[match])+1:] qual1
+		elseif qual==3
+			echon a:msg inp len(a:list[match])>len(inp)?'('.a:list[match][len(inp):].') _ '
+			\: ' _ ' qual3[len(a:list[match])+1:] qual2 qual1
+		el| echon a:msg inp ' (No match)' |en
+		let c=getchar()
+	endwhile
+	ec '' |redr
+	return c==g:EscAsc? -1 : qual? match : -1
+endfun
+
 let CShst=[[0,7]]
 let [CShix,SwchIx]=[0,0]
 let CSgrp='Normal'
@@ -12,6 +46,7 @@ fun! CompleteSwatches(Arglead,CmdLine,CurPos)
 	return filter(keys(g:SWATCHES),'v:val=~a:Arglead')
 endfun
 fun! CSChooser(...)
+	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
 	if a:0==0
 		let [fg,bg]=has_key(g:CURCS,g:CSgrp)? (g:CURCS[g:CSgrp]) : g:CShst[-1]
 	elseif a:0==2
@@ -68,21 +103,20 @@ fun! CSChooser(...)
 		elseif c==105
 			let [fg,bg]=[bg,fg]
 		elseif c==103
-			let in=input("Group: ",'','highlight')
-			if !empty(in)
-				if has_key(g:CURCS,in)
-					let [fg,bg]=g:CURCS[in] |en
+			let in=QSel(hi,"Group: ")
+			if in!=-1
+				if has_key(g:CURCS,hi[in])
+					let [fg,bg]=g:CURCS[hi[in]] |en
 				if has_key(g:CURCS,g:CSgrp)
 					exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0])
 					\.' ctermbg='.(g:CURCS[g:CSgrp][1])
 				en
-				let g:CSgrp=in
+				let g:CSgrp=hi[in]
 				let msg=g:CSgrp
 			en
 		elseif c==115
-			let name=input("Save as: ",'','customlist,CompleteSwatches')
-			if !empty(name)
-				let g:SWATCHES[name]=[fg,bg] |en
+			let name=input("Save swatch as: ",'','customlist,CompleteSwatches')
+			if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en
 		el| let msg="[*]rand [fb]swatches [g]roup [hl]fg [i]nvert [jk]bg
 			\ [np]history fgbg[rR]and [s]ave" |en
 		if g:CShix<=len(g:CShst)-1
@@ -192,37 +226,8 @@ fun! Ec(...)
 endfun
 
 fun! GetMRU()
-	let [inp,c]=['','']
-	while c!=#g:EscAsc
-		let inp=c=="\<bs>"? inp[:-2] : inp.nr2char(c)
-		let [nummatch,qual,qual1,qual2,qual3]=[0,0,'','','']
-		for e in range(len(g:MRUF))
-			let pos=match(g:MRUF[e],'\c'.inp)
-			let thisqual=pos>-1? pos==0? inp==#g:MRUF[e][:len(inp)-1]? 3 : 2 : 1 : 0
-			if !thisqual | continue | en
-			if thisqual>qual | let [match,matchpos,qual]=[e,pos,thisqual] | en
-			let qual{thisqual}.=g:MRUF[e].' '
-			let nummatch+=1
-			if nummatch>10 | break|en
-		endfor
-		redr!
-		if qual==1
-			echon ':e (' g:MRUF[match][:matchpos-1] ')' inp len(g:MRUF[match])>matchpos+len(inp)
-			\?'('.g:MRUF[match][matchpos+len(inp):].') ':' ' qual1[len(g:MRUF[match])+1:]
-		elseif qual==2
-			echon ':e ' inp len(g:MRUF[match])>len(inp)?'('.g:MRUF[match][len(inp):].') ' : ' '
-			\ qual2[len(g:MRUF[match])+1:] qual1
-		elseif qual==3
-			echon ':e ' inp len(g:MRUF[match])>len(inp)?'('.g:MRUF[match][len(inp):].') ' : ' '
-			\ qual3[len(g:MRUF[match])+1:] qual2 qual1
-		el| ec ':e' inp '(No match)' |en
-		let c=getchar()
-		if c==10 || c==13
-			ec '' |redr
-			exe "e ".(qual? g:MRUF[match] : input)
-			retu|en
-	endwhile
-	ec '' |redr
+	let sel=QSel(g:MRUF,'e: ')
+	if sel!=-1 | exe 'e '.g:MRUF[sel] |en
 endfun
 fun! GetLbl(file)
 	let name=matchstr(a:file,"[[:alnum:]][^/\\\\]*$")
@@ -251,6 +256,10 @@ fun! OnNewBuf()
 	call CheckFormatted()
 endfun
 fun! CheckFormatted()
+	if &wrap
+		nno j gj
+		nno k gk
+	en
 	if getline(1)!~'fo=aw' | retu|en
 	setl noai
 	call InitCap()
@@ -290,17 +299,18 @@ cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
 cnorea <expr> wg ((getcmdtype()==':' && getcmdpos()<4)? "cal WriteVars('saveD')":'wg')
 cnorea <expr> bd! ((getcmdtype()==':' && getcmdpos()<5)? 'let NoMRUsav=1\|bd!':'bd!')
 
+let g:CapStarters=".?!\<nl>\<cr>\<tab>\<space>"
+let g:CapSeparators="\<nl>\<cr>\<tab>\<space>"
 fun! CapWait(prev)
 	redr | let next=nr2char(getchar())
-	if next=~'[.?!\r\n\s]'
-		exe 'norm! i' . next . "\<Right>"
-		return CapWait(next)
-	elseif empty(next) || next==g:EscChar
+	if empty(next) || next==g:EscChar
 		return "\<del>"
-	elseif a:prev=~'[\r\n\s]'
+	elseif stridx(g:CapStarters,next)!=-1
+		exe 'norm! i' . next . "\<right>"
+		return CapWait(next)
+	elseif stridx(g:CapSeparators,a:prev)!=-1
 		return toupper(next) . "\<del>"
-	else
-		return next . "\<del>"
+	el| return next . "\<del>"
 	endif
 endfun
 fun! CapHere()
