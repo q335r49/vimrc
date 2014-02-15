@@ -67,11 +67,11 @@ let Asc2HLb=repeat([-1],256) | for i in range(len(HLb))
 endfor
 let maxW=15
 fun! GetLbl(file)
-	let name=matchstr(a:file,"[[:alnum:]][^/\\\\]*\\$")[:-2]	
+	let name=matchstr(a:file,"[[:alnum:]][^/\\\\]*$")
 	return len(name)+3>g:maxW ? name[0:g:maxW-8]."~".name[-3:] : name
 endfun
 fun! InitHist()
-	let g:histLb=map(copy(g:histL),'GetLbl(v:val)')
+	let g:histLb=map(copy(g:histL),'GetLbl(v:val[0])')
 	let g:HLb2fIx=repeat([-1],len(g:HLb)+1) "invar: g:HLb2fIx[-1]=-1
 	let unassigned=range(len(g:histLb))
 	for i in unassigned
@@ -110,15 +110,15 @@ fun! RmHist(ix)
 	en
 	call remove(g:histLb,a:ix)
 	call map(g:HLb2fIx,'v:val>a:ix ? v:val-1 : (v:val==a:ix ? -1 : v:val)')
-	return split(remove(g:histL,a:ix),'\$')[1]
+	return remove(g:histL,a:ix)[1]
 endfun
 fun! InsHist(name,lnum,cnum)
 	if a:name=='' || a:name=~$VIMRUNTIME |retu|en
-	call insert(g:histL,a:name.'$'.a:lnum.'|'.a:cnum)
+	call insert(g:histL,[a:name,a:lnum,a:cnum])
 	if len(g:histL)>=len(g:HLb)-8
 		let g:histL=g:histL[:len(g:HLb)-16] | call InitHist()
 	retu|en
-	let name=GetLbl(g:histL[0])
+	let name=GetLbl(g:histL[0][0])
 	let lbll=g:Asc2HLb[char2nr(tolower(name[0]))]
 	let lblu=g:Asc2HLb[char2nr(toupper(name[0]))]
 	let collisionl=g:HLb2fIx[lbll]
@@ -165,12 +165,9 @@ fun! HistMenu()
 		elseif RmHist(g:HLb2fIx[g:Asc2HLb[sel2]])=='0' | redr|retu -1 | en|endw
 	redr|retu g:HLb2fIx[g:Asc2HLb[sel]]
 endfun
-fun! Edit(file)
-	exe 'e '.split(a:file,'\$')[0]
-endfun
 fun! OnBufRead()
-	let ix=match(g:histL,'\V'.expand('%').'$')
-	call cursor(ix>=0? split(split(g:histL[ix],'\$')[1],'|') : [1,1])
+	let ix=match(g:histL,expand('%'))
+	call cursor(ix>=0? g:histL[1:2] : [1,1])
 	call CheckFormatted()
 endfun
 fun! OnNewBuf()
@@ -527,7 +524,7 @@ endfun
 
 fun! Write_Viminfo()
 	let g:TLOG=join(map(g:tlog,'v:val[0]."|".v:val[1]'),"\n")
-	let g:HISTL=join(g:histL,"\n")
+	let g:HISTL=join(map(g:histL,'join(v:val,"$")'),"\n")
 	if has("gui_running")
 		let g:WINPOS='se co='.&co.' lines='.&lines.
 		\'|winp '.getwinposx().' '.getwinposy() | en
@@ -590,21 +587,21 @@ fun! SetOpt(...)
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
 \112:":call IniPaint()\<CR>",108:":call Log()\<CR>",
 \103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"^y$:\<C-R>\"\<CR>",
-\115:":let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
+\115:":let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
 \113:"\<Esc>",
 \99:":call QuoteChange(nr2char(getchar()))\<CR>",
-\49:":call Edit(g:histL[0])\<CR>",
-\50:":call Edit(g:histL[1])\<CR>",
-\51:":call Edit(g:histL[2])\<CR>",
+\49:":exe 'e '.g:histL[0][0]\<CR>",
+\50:":exe 'e '.g:histL[1][0]\<CR>",
+\51:":exe 'e '.g:histL[2][0]\<CR>",
 \42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \'help':'b[123] [g]:h [l]og [n]ohl [p]nt [r]mswp l[s] [w]a e[X]e s/[*#]',
 \'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])"}
 	let g:insD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):"\<Esc>a",96:'`',
-\115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
-\49:"\<Esc>:call Edit(g:histL[0])\<CR>",
-\50:"\<Esc>:call Edit(g:histL[1])\<CR>",
-\51:"\<Esc>:call Edit(g:histL[2])\<CR>",
+\115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
+\49:"\<Esc>:exe 'e '.g:histL[0][0]\<CR>",
+\50:"\<Esc>:exe 'e '.g:histL[1][0]\<CR>",
+\51:"\<Esc>:exe 'e '.g:histL[2][0]\<CR>",
 \102:"\<C-R>=escape(expand('%'),' ')\<CR>",
 \113:"\<Esc>a",
 \'help':'b[123] [f]ilename [g]etchar l[s]:',
@@ -637,7 +634,7 @@ fun! OnVimEnter()
 	call SetOpt(g:INPUT_METH) |  exe 'so '.g:WORKING_DIR.'/abbrev'
 	if !argc() | exe 'cd '.g:WORKING_DIR
 		if len(g:histL)>0
-			call Edit(g:histL[0]) | call OnBufRead() | call RmHist(0)
+			exe 'e '.g:histL[0][0] | call OnBufRead() | call RmHist(0)
 	en | en
 	if glob(g:WORKING_DIR)=='/home/q335/Desktop/Dropbox/q335writings'
 	\ && !has("gui_running")
@@ -657,7 +654,7 @@ if !exists('do_once') | let do_once=1
 		el| let g:viminfo_file_invalid=1 | rv | en
 	se viminfo=
 	au VimEnter * call OnVimEnter()
-	au BufWinEnter * call RmHist(match(g:histL,'\V\^'.escape(expand('%'),'\').'$'))
+	au BufWinEnter * call RmHist(match(g:histL,expand('%')))
 	au BufRead * call OnBufRead()
 	au BufNewFile * call OnNewBuf()
 	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
@@ -682,7 +679,8 @@ if !exists('do_once') | let do_once=1
 	let cmdMode='cmdD'
 	if !exists('TLOG') | let tlog=[[localtime(),'0000']]
 	el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
-	let histL=exists('HISTL') ? split(HISTL,"\n") : [] | call InitHist()
+	let g:histL=map(split(g:HISTL,"\n"),'split((v:val),"\\$")')
+	call InitHist()
 	call IniQuote("@")
 	nohl
 en
