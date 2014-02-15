@@ -14,8 +14,9 @@ com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
 
 let Pad=repeat(' ',200)
 fun! FoldText()
-	let l=matchstr(getline(v:foldstart),'^\s*\zs.*\S\ze.*{{{')
-	retu v:foldstart.g:Pad[len(v:foldstart):max([0,(&columns-strwidth(l))/2])].l
+	let l=getline(v:foldstart)
+	let [z,e]=[stridx(l,'  '),stridx(l,'{{{')]
+	retu z>0? v:folddashes[1:].l[:z-1].g:Pad[z+v:foldlevel-2:max([0,(&columns-e+z+2)/2])].l[z+2:e-1] : v:folddashes[1:].g:Pad[v:foldlevel-1:max([0,(&columns-e+1)/2])].l[:e-1]
 endfun
 
 fun! ReltimeLT(t1,t2)
@@ -30,40 +31,41 @@ fun! Getcharuntil(t)
 endfun
 
 let g:prevglide=0
-nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "norm! \<lt>leftmouse>":"")<cr>
+nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
 fun! Mscroll()
 	exe v:mouse_win.'wincmd w'
 	if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1)
 	\ || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) 
 	\ || v:mouse_lnum==line('$')
+		if line('$')==line('w0') | exe "keepj norm! \<c-y>" |en
 		return 1 |en	
-	exe 'norm! '.v:mouse_lnum.'G'.v:mouse_col.'|'
+	exe 'keepj norm! '.v:mouse_lnum.'G'.v:mouse_col.'|'
 	if !&wrap && v:mouse_lnum>=line('w$')-(winheight(0)>19)-(winheight(0)>35)
 		let pos=v:mouse_col
 		while getchar()=="\<leftdrag>"
 			let diff=v:mouse_col-pos
 			let pos+=diff
 			if diff && -9<diff && diff<9
-				exe 'norm! '.(diff>0? "zh" :"zl")
+				exe 'keepj norm! '.(diff>0? "zh" :"zl")
 				redr|en
 		endw
 	el| let pos=winline()
-		if pos==1 | exe "norm! \<c-y>" |en
+		if pos==1 | exe "keepj norm! \<c-y>" |en
 	  	let [timeL,diffL]=[[],[]]
 		while Getcharuntil([0,500000]) is "\<leftdrag>"
-			exe 'norm! '.v:mouse_lnum.'G'
+			exe 'keepj norm! '.v:mouse_lnum.'G'
 			let diff=winline()+(v:mouse_col-1)/&columns-pos
 			call add(timeL,g:gcwait)
 			call add(diffL,diff)
 			if diff
 				let pos+=diff
-				exe 'norm! '.(diff>0? diff."\<c-y>":-diff."\<c-e>")
+				exe 'keepj norm! '.(diff>0? diff."\<c-y>":-diff."\<c-e>")
 				redr|ec line('w0') '/' line('$')|en
 		endwhile
 		if ReltimeLT([0,500000],g:gcwait)
-			try | norm! za
+			try | keepj norm! za
 			catch *
-				try | exe "norm! \<c-]>"
+				try | exe "keepj norm! \<c-]>"
 				catch *
 				endtry
 			endtry
@@ -74,9 +76,9 @@ fun! Mscroll()
 			if elaps<160000 && len(diffL)>1 && max*min>=0 && (max || min)
 				if abs(max)>abs(min)
 					let glide=max+(g:prevglide>0)*g:prevglide
-					let cmd="norm! \<C-Y>"
+					let cmd="keepj norm! \<C-Y>"
 				el| let glide=min+(g:prevglide<0)*g:prevglide
-					let cmd="norm! \<C-E>" |en
+					let cmd="keepj norm! \<C-E>" |en
 				let delay=1080/glide/glide
 				let counter=delay
 				while !getchar(1) && delay<2000
@@ -262,7 +264,9 @@ endfun
 
 fun! EdMRU()
 	let [sel,cmd]=QSel(g:MRUF,'Open: ')
-	if sel==-1 || cmd==g:EscAsc
+	if cmd==g:EscAsc
+		return
+	elseif sel==-1
 		exe empty(g:Qselenter)? '': 'e '.g:Qselenter | retu|en
 	if cmd==22 "<c-v>
 		let ro=1
@@ -285,8 +289,9 @@ fun! EdMRU()
 		el| ec '^E:Edit ^L:vspleft ^R:vspright ^T:sptop ^B:spbot ^V:readonly CR:edit'
 			let cmd=getchar()
 			continue | en
-		return
+		break
 	endwhile
+	redr
 endfun
 
 fun! GetLbl(file)
@@ -321,9 +326,15 @@ fun! TMenu(cmd,...)
 		let key=getchar()|redr! | en
 	retu has_key(a:cmd,key)? a:cmd[key] : TMenu(a:cmd,'help')
 endfun!
-nno <expr> ` TMenu(g:normD)
-ino <expr> ` TMenu(g:insD)
-vno <expr> ` TMenu(g:visD)
+if exists("Cur_Device") && Cur_Device=="Droid4"
+	nno <expr> ' TMenu(g:normD)
+	ino <expr> ' TMenu(g:insD)
+	vno <expr> ' TMenu(g:visD)
+else
+	nno <expr> ` TMenu(g:normD)
+	ino <expr> ` TMenu(g:insD)
+	vno <expr> ` TMenu(g:visD)
+endif
 
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
 cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
@@ -384,17 +395,21 @@ fun! InitCap(capnl)
 endfun
 
 fun! CheckFormatted()
-	let modeline=getline(1)
-	if modeline=~?'prose'
+	let options=getline(1)
+	let options=options[:stridx(options,':')]
+	if options=~?'fold'
+		nn <buffer>	<cr> za
+	en
+	if options=~?'prose'
 		setl noai
-		call InitCap(modeline=~#'Prose')
+		call InitCap(options=~#'Prose')
 		iab <buffer> i I
 		iab <buffer> Id I'd
 		iab <buffer> id I'd
 		iab <buffer> im I'm
 		iab <buffer> Im I'm
 	en
-	if modeline=~'fo=aw'
+	if options=~'fo=aw'
 		nn <buffer> <silent> { :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
 		nn <buffer> <silent> } :if !search('\S\n\\|\s\n\s*\n','W')\|exe'norm!G$'\|en<CR>
 		nm <buffer> A }a
@@ -436,7 +451,7 @@ if g:EscChar!="\e"
 if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
 	cal Ec('Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME)
 	let Working_Dir=$HOME |en
-for file in ['abbrev','cmdnorm','pager','saveD']
+for file in ['abbrev','pager','saveD']
 	if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
 	el| call Ec('Error: '.Working_Dir.'/'.file.' unreadable')|en
 endfor
@@ -480,7 +495,7 @@ if !argc() && filereadable('.lastsession')
 	so .lastsession
 en
 
-let normD={110:":noh\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
+let normD={39:"'",110:":se invhls\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
 \82:"R",67:":call CSChooser()\<cr>",9:":call TODO.show()\<cr>",
 \114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
 \80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
@@ -500,7 +515,7 @@ let normD={110:":noh\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
 \111:":call LOGDIC.111(1)\<cr>",
 \115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>"}
 
-let insD={103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",96:'`',
+let insD={39:"'",103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",96:'`',
 \113:"\<c-o>\<esc>",111:"\<c-r>=input('`o','','customlist,CmpMRU')\<cr>",
 \49:"\<esc>:exe 'e '.g:MRUF[0]\<cr>",50:"\<esc>:exe 'e '.g:MRUF[1]\<cr>",
 \107:"\<esc>:s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:nohl\<cr>",
@@ -591,3 +606,5 @@ let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 "shortcut for se invwrap
 "included day of week in date display
 "fixed viminfo bug (&vi was being reset to default)
+"changed seach hl quick command to toggle
+"changed foldtext to display custom marks
