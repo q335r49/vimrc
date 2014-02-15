@@ -1,3 +1,4 @@
+se nocompatible
 redir => g:StartupErr
 
 if !exists("g:EscChar") | let g:EscChar="\e" | let g:EscAsc=27
@@ -21,8 +22,11 @@ nn j gj
 nn k gk
 let gnmapD={112:":exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'\<cr>",
 \106:'j',107:'k',
-\36:"G:call search('^.*\\S.*$','Wb')\<cr>"}
-let gvmapD={85:":S/\\<\\(\\w\\)\\(\\w*\\)\\>/\\u\\1\\L\\2/g\<cr>"}
+\36:"G:call search('^.*\\S.*$','Wcb')\<cr>",
+\65:"A"}
+let gvmapD={85:":S/\\<\\(\\w\\)\\(\\w*\\)\\>/\\u\\1\\L\\2/g\<cr>",
+\112:"\<esc>:call search('\\S\\n\\s*.\\|\\n\\s*\\n\\s*.\\|\\%^','Wbe')\<cr>m<:call search('\\S\\n\\|\\s\\n\\s*\\n\\|\\%$','W')\<cr>m>gv"}
+"\112:"\<esc>:call search('\S\n\s*.\\|\n\s*\n\s*.\\|\%^','Wbe')\<cr>m<:call search('\S\n\\|\s\n\s*\n\\|\%$','W')\<cr>m>gv"}
 vn <expr> g MyGvmap()
 nn <expr> g MyGnmap()
 fun! MyGvmap()
@@ -69,9 +73,6 @@ fun! ToggleBookmarks()
 	endfor
 endfun
 
-nno <space> 10jzz
-nno <bs> 10kzz
-
 nno <MiddleMouse> <LeftMouse>:q<cr>
 
 hi clear tabline
@@ -85,15 +86,6 @@ if !exists('Cur_RunAs')
 en
 if Cur_Device=='cygwin'
 	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
-
-	map k <up>
-	map j <down>
-	map h <left>
-	map l <right>
-	map! k <up>
-	map! j <down>
-	map! h <left>
-	map! l <right>
 
 	vno <c-c> "*y
 	vno <c-v> "*p
@@ -476,7 +468,7 @@ endfun
 
 let GHprevArg=[0,1]
 fun! GoHeading(indent,dir)
-	let indent=(a:indent==0 && a:dir==g:GHprevArg[1])? g:GHprevArg[0] : a:indent
+	let indent=a:indent==0? g:GHprevArg[0] : a:indent
 	let g:GHprevArg=[indent,a:dir]
 	let [i,end]=[line('.'),line('$')]
 	let line=getline(i)
@@ -570,44 +562,10 @@ fun! JustEcho(str)
 	"let &ch=g:opt_defaultch
 endfun!
 
-let invertD={'start':"call JustEcho('[b]ookmarks [h]lsearch [l]ist [n]umber [s]tatusl [S]pell [t]abl [v]irtualedit [W]riteroom')",
-\'default':"call JustEcho('Undefined command.')",
-\(EscAsc):' ',
-\119:'se invwrap',
-\104:'se invhls',
-\108:'se invlist',
-\116:'let &showtabline=!&showtabline',
-\115:'let &ls=&ls>1? 0:2',
-\110:'se invnumber',
-\87:'if winwidth(0)==&columns | silent call Writeroom(exists(''g:OPT_WRITEROOMWIDTH'')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en',
-\98:'call ToggleBookmarks()',
-\118:'if empty(&ve) | se ve=all | el | se ve= | en',
-\83:'let &spell=!&spell'}
-fun! Menu()
-	exe g:invertD.start
-	exe get(g:invertD,getchar(),g:invertD.default)
-	let &ch=g:chsave
-endfun
-
 fun! TMenu(cmd)
-	let ec=eval(a:cmd.msg)
-	while 1
-		if 1+len(ec)/&columns >= &cmdheight
-			let save=&cmdheight
-			let &cmdheight=1+len(ec)/&columns
-			ec ec
-			let key=getchar()|redr!
-			let &cmdheight=save
-		else
-			ec ec
-			let key=getchar()|redr!
-		en
-		if has_key(a:cmd,key)
-			return a:cmd[key]
-		else
-			let ec=a:cmd.help
-		en
-	endw
+	exe a:cmd.msg
+	let [c,&ch]=[getchar(),g:opt_defaultch]
+	return get(a:cmd, c, a:cmd.default)
 endfun!
 exe "nno <expr> ".opt_TmenuKey." TMenu(g:normD)"
 exe "ino <expr> ".opt_TmenuKey." TMenu(g:insD)"
@@ -703,34 +661,33 @@ fun! CheckFormatted()
 		iab <buffer> im I'm
 		iab <buffer> Im I'm
 
-		onoremap <buffer> <silent> F :let g:lastft=MLF(getchar())<cr>
-		onoremap <buffer> <silent> T :let g:lastft=MLT(getchar())<cr>
-		onoremap <buffer> <silent> f :let g:lastft=MLf(getchar())<cr>
-		onoremap <buffer> <silent> t :let g:lastft=MLt(getchar())<cr>
-		nnoremap <buffer> <silent> F :let g:lastft=MLnF(getchar())<cr>
-		nnoremap <buffer> <silent> T :let g:lastft=MLnT(getchar())<cr>
-		nnoremap <buffer> <silent> f :let g:lastft=MLnf(getchar())<cr>
-		nnoremap <buffer> <silent> t :let g:lastft=MLnt(getchar())<cr>
-		nnoremap <buffer> <silent> ; :let g:lastft=g:ftfuncD["n".g:lastft](g:lastftchar)<cr>
-		nnoremap <buffer> <silent> , :let g:lastft=g:invftD[g:ftfuncD[g:invftD["n".g:lastft]](g:lastftchar)]<cr>
-		onoremap <buffer> <silent> ; :let g:lastft=g:ftfuncD[g:lastft](g:lastftchar)<cr>
-		onoremap <buffer> <silent> , :let g:lastft=g:invftD[g:ftfuncD[g:invftD[g:lastft]](g:lastftchar)]<cr>
+		ono <buffer> <silent> F :let g:lastft=MLF(getchar())<cr>
+		ono <buffer> <silent> T :let g:lastft=MLT(getchar())<cr>
+		ono <buffer> <silent> f :let g:lastft=MLf(getchar())<cr>
+		ono <buffer> <silent> t :let g:lastft=MLt(getchar())<cr>
+		nn <buffer> <silent> F :let g:lastft=MLnF(getchar())<cr>
+		nn <buffer> <silent> T :let g:lastft=MLnT(getchar())<cr>
+		nn <buffer> <silent> f :let g:lastft=MLnf(getchar())<cr>
+		nn <buffer> <silent> t :let g:lastft=MLnt(getchar())<cr>
+		nn <buffer> <silent> ; :let g:lastft=g:ftfuncD["n".g:lastft](g:lastftchar)<cr>
+		nn <buffer> <silent> , :let g:lastft=g:invftD[g:ftfuncD[g:invftD["n".g:lastft]](g:lastftchar)]<cr>
+		ono <buffer> <silent> ; :let g:lastft=g:ftfuncD[g:lastft](g:lastftchar)<cr>
+		ono <buffer> <silent> , :let g:lastft=g:invftD[g:ftfuncD[g:invftD[g:lastft]](g:lastftchar)]<cr>
 	en
 	if &fo=~#'a'
 		nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
 		nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
 		if &fo=~#'w'	
-			nn <buffer> <silent> { :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
-			nn <buffer> <silent> } :if !search('\S\n\\|\s\n\s*\n','W')\|exe'norm!G$'\|en<CR>
-			nn <buffer> <silent> I :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbec')\|exe'norm!gg^'\|en<CR>i
-			nn <buffer> <silent> A :if !search('\S\n\\|\s\n\s*\n','Wc')\|exe'norm!G$'\|en<CR>a
+			nn <buffer> <silent> { :call search('\S\n\s*.\\|\n\s*\n\s*.\\|\%^','Wbe')<CR>
+			nn <buffer> <silent> } :call search('\S\n\\|\s\n\s*\n\\|\%$','W')<CR>
+			nn <buffer> <silent> I :call search('\S\n\s*.\\|\n\s*\n\s*.\\|\%^','Wbe')<CR>i
+			nn <buffer> <silent> A :call search('\S\n\\|\s\n\s*\n\\|\%$','W')<CR>a
 		else
-			nn <buffer> <silent> I :if !search('^\s*\n\s*\S','Wbec')\|exe'norm!gg^'\|en<CR>I
-			nn <buffer> <silent> A :if !search('\S\s*\n\s*\n','Wc')\|exe'norm!G$'\|en<CR>A
+			nn <buffer> <silent> I :call search('^\s*\n\s*\S\\!\%^','Wbec')<CR>i
+			nn <buffer> <silent> A :call search('\S\s*\n\s*\n\\|\%$','Wc')<CR>a
 		en
 	en
 endfun
-nn gf :e <cWORD><cr>
 
 fun! WriteVimState()
 	echoh ErrorMsg
@@ -829,15 +786,29 @@ if !argc() && filereadable('.lastsession')
 	so .lastsession
 en
 
+let invertD={'msg':"call JustEcho('[b]ookmarks [h]lsearch [l]ist [n]umber [s]tatusl [S]pell [t]abl [v]irtualedit [W]riteroom')",
+\'default':"call JustEcho('Undefined command.')",
+\119:'se invwrap',
+\104:'se invhls',
+\108:'se invlist',
+\116:'let &showtabline=!&showtabline',
+\115:'let &ls=&ls>1? 0:2',
+\110:'se invnumber',
+\87:'if winwidth(0)==&columns | silent call Writeroom(exists(''g:OPT_WRITEROOMWIDTH'')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en',
+\98:'call ToggleBookmarks()',
+\118:'if empty(&ve) | se ve=all | el | se ve= | en',
+\83:'let &spell=!&spell'}
+
 let normD={(EscAsc):"\<esc>",(opt_TmenuAsc):opt_TmenuKey}
 let normD=extend(normD,{
+\'default':":ec '123:buff c/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap X/ecPara z:wa *#:sub ^w/riteroom'\<cr>",
 \122:":wa\<cr>",32:":call TODO.show()\<cr>",
 \82:"R",99:":call CSChooser()\<cr>",
 \114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
 \80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
 \107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invhl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
 \101:":call EdMRU()\<cr>",
-\9:":call Menu(g:invertD)\<cr>",
+\9:":exe TMenu(g:invertD)\<cr>",
 \49:":tabn1\<cr>",
 \50:":tabn2\<cr>",
 \51:":tabn3\<cr>",
@@ -852,33 +823,32 @@ let normD=extend(normD,{
 \42:":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \35:":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>",
-\'help':'<>:Font 123:buff c/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap X/ecPara z:wa *#:sub ^w/riteroom',
-\'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]",
+\'msg':"call JustEcho(PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).line('.').'/'.line('$').' '.g:LOGDIC.L[-1][1])",
 \111:":call LOGDIC.111(1)\<cr>",
 \115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>",
 \88:"vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>" })
 
 let insD={(EscAsc):"\<c-o>\<esc>",(opt_TmenuAsc):opt_TmenuKey}
-let insD=extend(insD,{9:":call Menu(g:invertD)\<cr>",
+let insD=extend(insD,{9:"\<c-o>:exe TMenu(g:invertD)\<cr>",
+\'default':"\<c-o>:ec '123:buff f/ilename g/etchar k:center o/pen w/indow:'\<cr>",
 \97:"\<c-o>:call SoftCapsLock()\<cr>",
 \103:"\<c-r>=getchar()\<cr>",
 \113:"\<c-o>\<esc>",111:"\<c-r>=input('`o','','customlist,CmpMRU')\<cr>",
 \110:"\<c-o>:noh\<cr>",
 \107:"\<esc>:s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invnohl\<cr>",
 \102:"\<c-r>=escape(expand('%'),' ')\<cr>",119:"\<c-o>\<c-w>\<c-w>",
-\'help':'123:buff f/ilename g/etchar k:center o/pen w/indow:',
-\'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
-\.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]"})
+\'msg':"call JustEcho(expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
+\.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1])"})
 
 let visD={(g:EscAsc):"",(g:opt_TmenuAsc):g:opt_TmenuKey}
 let g:visD=extend(visD,{42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
+\'default':":\<c-w>ec '*:sub c/enter e/dit g/et2cmd u/nformat x/ec'",
 \120:"y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",
 \103:"y:\<c-r>\"",
-\'help':'*:sub c/enter e/dit g/et2cmd u/nformat x/ec',
 \101:"y:e \<c-r>\"\<cr>",117:":s/ \\n/ /\<cr>",
 \67:"\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>",
-\'msg':"expand('%:t').' '.line('.').'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")",
+\'msg':"call JustEcho(expand('%:t').' '.line('.').'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\"))",
 \99:":\<c-w>call ChangeCase()\<cr>"})
 
 let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
