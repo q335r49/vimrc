@@ -1,8 +1,7 @@
 redir => g:StartupErr
 
 let CShst=[[0,7]]
-let CShix=0
-let SwchIx=0
+let [CShix,SwchIx]=[0,0]
 let CSgrp='Normal'
 fun! CSLoad(cs)
 	for k in keys(a:cs)
@@ -28,7 +27,7 @@ fun! CSChooser(...)
 	exe "echoh ".g:CSgrp
 	ec msg fg bg
 	let c=getchar()
-	while c!=g:EscAsc && c!=113 && c!=10
+	while c!=g:EscAsc && c!=113 && c!=10 && c!=13
 		if c==104 && fg > 0
 			let fg-=1
 			let g:CShix+=1
@@ -96,7 +95,7 @@ fun! CSChooser(...)
 		let msg=g:CSgrp
 		let c=getchar()
 	endwhile
-	if c==10
+	if (c==10 || c==13)
 		exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
 		let g:CURCS[g:CSgrp]=[fg,bg]
 	elseif has_key(g:CURCS,g:CSgrp)
@@ -110,6 +109,7 @@ fun! CSChooser(...)
 endfun
 
 let Pad=repeat(' ',200)
+
 fun! CenterLine()
 	let line=matchstr(getline('.'),'^\s*\zs\S.*\S\ze\s*$')
 	if &tw==0
@@ -158,19 +158,11 @@ endfun
 
 nnoremap <expr> gp '`[' . strpart(getregtype(), 0, 1) . '`]'
 
-fun! GetVar(str)
-	let varname=input('Store as:','','var') | if !empty(varname)
-		exe 'let g:'.varname
-	\.'=Ec(map(split(a:str,"\n"),''v:val=~"^\\[.*]$"? eval(v:val):(v:val)''))'
-	en
-endfun
-
 let GHprevArg=[0,1]
 fun! GoHeading(indent,dir)
 	let indent=(a:indent==0 && a:dir==g:GHprevArg[1])? g:GHprevArg[0] : a:indent
 	let g:GHprevArg=[indent,a:dir]
-	let i=line('.')
-	let end=line('$')
+	let [i,end]=[line('.'),line('$')]
 	let line=getline(i)
 	while ((a:dir==1 && i<end) || (a:dir==-1 && i>1))
 	\&& strdisplaywidth(matchstr(line,'^\s*'))==indent && line!~'^\s*$'
@@ -200,84 +192,80 @@ fun! Ec(...)
 endfun
 
 fun! GetMRU()
-	let chsav=&ch
-	let &ch=3
-
-	let input=""
-	ec join(CmpMRU(input,0,0))."\nOpen: ".input
-	let c=getchar()
-	while c!=g:EscAsc && c!=10
-		if c=="\<bs>"
-			let input=input[:-2]
-		el| let input.=nr2char(c) |en
-		ec join(CmpMRU(input,0,0))."\nOpen: ".input
+	let [inp,c]=['','']
+	while c!=#g:EscAsc
+		let inp=c=="\<bs>"? inp[:-2] : inp.nr2char(c)
+		let [nummatch,qual,qual1,qual2,qual3]=[0,0,'','','']
+		for e in range(len(g:MRUF))
+			let pos=match(g:MRUF[e],'\c'.inp)
+			let thisqual=pos>-1? pos==0? inp==#g:MRUF[e][:len(inp)-1]? 3 : 2 : 1 : 0
+			if !thisqual | continue | en
+			if thisqual>qual | let [match,matchpos,qual]=[e,pos,thisqual] | en
+			let qual{thisqual}.=g:MRUF[e].' '
+			let nummatch+=1
+			if nummatch>10 | break|en
+		endfor
+		redr!
+		if qual==1
+			echon ':e (' g:MRUF[match][:matchpos-1] ')' inp len(g:MRUF[match])>matchpos+len(inp)
+			\?'('.g:MRUF[match][matchpos+len(inp):].') ':' ' qual1[len(g:MRUF[match])+1:]
+		elseif qual==2
+			echon ':e ' inp len(g:MRUF[match])>len(inp)?'('.g:MRUF[match][len(inp):].') ' : ' '
+			\ qual2[len(g:MRUF[match])+1:] qual1
+		elseif qual==3
+			echon ':e ' inp len(g:MRUF[match])>len(inp)?'('.g:MRUF[match][len(inp):].') ' : ' '
+			\ qual3[len(g:MRUF[match])+1:] qual2 qual1
+		el| ec ':e' inp '(No match)' |en
 		let c=getchar()
+		if c==10 || c==13
+			ec '' |redr
+			exe "e ".(qual? g:MRUF[match] : input)
+			retu|en
 	endwhile
-
-	let &ch=chsav
-	if c==10 && !empty(g:LastMatch)
-		exe "e ".g:LastMatch[0] |en
-endfun
-fun! CmpMRU(Arglead,CmdLine,CurPos)
-	redr!
-	let g:LastMatch=[]
-	let sep1=0
-	let sep2=0
-	for e in g:MRUF
-		if e=~?'^'.a:Arglead
-			if e=~#'^'.a:Arglead
-				cal insert(g:LastMatch,e,sep1)
-				let sep1+=1
-			el| cal insert(g:LastMatch,e,sep2+sep1)
-				let sep2+=1 |en
-		elseif e=~?a:Arglead
-			cal add(g:LastMatch,e) |en
-		if len(g:LastMatch)==10 | brea|en
-	endfor
-	return g:LastMatch
+	ec '' |redr
 endfun
 fun! GetLbl(file)
 	let name=matchstr(a:file,"[[:alnum:]][^/\\\\]*$")
 	return len(name)>12 ? name[0:7]."~".name[-3:] : name
 endfun
 fun! InsHist(name,lnum,cnum,w0)
-	if empty(a:name) || a:name=~escape($VIMRUNTIME,'\') | retu|en
-	if g:NoMRUsav==1 | let g:NoMRUsav=0 |retu|en
+	if g:NoMRUsav==1 || empty(a:name) || a:name=~escape($VIMRUNTIME,'\')
+		let g:NoMRUsav=0 | retu|en
 	cal insert(g:MRUF,a:name)
 	cal insert(g:MRUL,[a:lnum,a:cnum,a:w0])
 endfun
-fun! OnWinEnter()
+fun! RemHist()
 	let i=match(g:MRUF,'^'.expand('%').'$')
 	if i==-1 | retu|en
-	let j=g:MRUL[i][0]-g:MRUL[i][2]
-	exe "norm! ".g:MRUL[i][2]."z\<cr>".(j>0? j.'j':'').g:MRUL[i][1].'|'
+	exe "norm! ".g:MRUL[i][2]."z\<cr>".(g:MRUL[i][0]>g:MRUL[i][2]? 
+	\ (g:MRUL[i][0]-g:MRUL[i][2]).'j':'').g:MRUL[i][1].'|'
 	cal remove(g:MRUF,i)
 	cal remove(g:MRUL,i)
 endfun
 
 fun! OnNewBuf()
 	if !g:FmtNew | retu|en
-  	call setline(1,localtime()." vim: set nowrap ts=4 tw=78 fo=aw: "
-   	\.strftime('%H:%M %m/%d/%y'))
-   	setlocal nowrap ts=4 tw=78 fo=aw
-  	call CheckFormatted()
+	call setline(1,localtime()." vim: set nowrap ts=4 tw=78 fo=aw: "
+	\.strftime('%H:%M %m/%d/%y'))
+	setlocal nowrap ts=4 tw=78 fo=aw
+	call CheckFormatted()
 endfun
 fun! CheckFormatted()
 	if getline(1)!~'fo=aw' | retu|en
 	setl noai
-   	call InitCap()
-   	iab <buffer> i I
-   	iab <buffer> Id I'd
-   	iab <buffer> id I'd
-   	iab <buffer> im I'm
-   	iab <buffer> Im I'm
-   	nn <buffer> <silent> { :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
-   	nn <buffer> <silent> } :if !search('\S\n\\|\s\n\s*\n','W')\|exe'norm!G$'\|en<CR>
-   	nm <buffer> A }a
-   	nm <buffer> I {i
-   	nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
-   	nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
-	redr|ec 'Formatting Options Loaded: '.expand('%')
+	call InitCap()
+	iab <buffer> i I
+	iab <buffer> Id I'd
+	iab <buffer> id I'd
+	iab <buffer> im I'm
+	iab <buffer> Im I'm
+	nn <buffer> <silent> { :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
+	nn <buffer> <silent> } :if !search('\S\n\\|\s\n\s*\n','W')\|exe'norm!G$'\|en<CR>
+	nm <buffer> A }a
+	nm <buffer> I {i
+	nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
+	nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
+	redr|ec 'Formatting Options Loaded:' expand('%')
 endfun
 nn gf :e <cword><CR>
 
@@ -304,12 +292,12 @@ cnorea <expr> bd! ((getcmdtype()==':' && getcmdpos()<5)? 'let NoMRUsav=1\|bd!':'
 
 fun! CapWait(prev)
 	redr | let next=nr2char(getchar())
-	if next=~'[.?!\r\n[:blank:]]'
+	if next=~'[.?!\r\n\s]'
 		exe 'norm! i' . next . "\<Right>"
 		return CapWait(next)
 	elseif empty(next) || next==g:EscChar
 		return "\<del>"
-	elseif a:prev=~'[\r\n[:blank:]]'
+	elseif a:prev=~'[\r\n\s]'
 		return toupper(next) . "\<del>"
 	else
 		return next . "\<del>"
@@ -353,7 +341,7 @@ fun! WriteVimState()
 	se viminfo=!,'20,<1000,s10,/50,:150
 	if !exists("g:Viminfo_File") | wviminfo
 	el| if exists('g:RemoveBeforeWriteViminfo')
-		sil exe '!rm '.g:Viminfo_File | en
+			sil exe '!rm '.g:Viminfo_File |en
 		sil exe 'wv! '.g:Viminfo_File |en
 	se viminfo=
 endfun
@@ -367,13 +355,12 @@ if g:EscChar!="\e"
    	exe 'no! '.g:EscChar.' <Esc>'
    	exe 'cno '.g:EscChar.' <C-C>' | en
 if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
-	call Ec('Working_Dir='.Working_Dir.' invalid or not defined in .vimrc!')
-	call Ec('...falling back to $HOME')
+	cal Ec('Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME)
 	let Working_Dir=$HOME |en
 let sources=['abbrev','cmdnorm','pager','saveD']
 for file in sources
 	if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
-	el| call Ec(Working_Dir.'/'.file.' unreadable')|en
+	el| call Ec('Error: '.Working_Dir.'/'.file.' unreadable')|en
 endfor
 if !argc()
 	let g:FmtNew=1
@@ -381,11 +368,10 @@ if !argc()
 		exe 'cd '.Working_Dir |en
 el| let g:FmtNew=0 |en
 se viminfo=!,'20,<1000,s10,/50,:150
-	if !exists('Viminfo_File')
-		call Ec('Viminfo_File not defined in .vimrc!')
-		call Ec('...falling back to default')
-		rviminfo
-	el| exe 'rv '.Viminfo_File |en
+if !exists('Viminfo_File')
+	cal Ec("Error: g:Viminfo_File undefined, falling back to default")
+	rviminfo
+el| exe 'rv '.Viminfo_File |en
 se viminfo=
 if has("gui_running")
 	colorscheme slate
@@ -413,8 +399,8 @@ if !exists('SWATCHES') | let SWATCHES={} |en
 if !argc() && len(MRUF)>0
 	sil exe 'e '.g:MRUF[0]
 	sil call CheckFormatted()
-	call OnWinEnter() |en
-au BufWinEnter * call OnWinEnter()
+	call RemHist() |en
+au BufWinEnter * call RemHist()
 au BufRead * call CheckFormatted()
 au BufNewFile * call OnNewBuf()
 au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'),line('w0'))
@@ -429,7 +415,7 @@ redir END
 
 let normD={110:":noh\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
 \99:":call CSChooser()\<cr>",9:":call TODO.show()\<cr>",
-\114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>",
+\114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
 \80:":call IniPaint()\<cr>",108:":call g:LOGDIC.show()\<cr>",
 \101:":call CenterLine()\<cr>",119:"\<c-w>\<c-w>",
 \103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
@@ -444,7 +430,8 @@ let normD={110:":noh\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
 \ m/sg o/pen p/utvar w/ind z:wa *#:sub',
 \'msg':"expand('%:t').' '.join(map(g:MRUF[:2],'GetLbl(v:val)'),' ').' '
 \.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
-	let insD={103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",96:'`',
+
+let insD={103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",96:'`',
 \113:"\<c-o>\<esc>",111:"\<c-r>=input('Open recent:','','customlist,CmpMRU')\<cr>",
 \49:"\<esc>:exe 'e '.g:MRUF[0]\<cr>",50:"\<esc>:exe 'e '.g:MRUF[1]\<cr>",
 \51:"\<esc>:exe 'e '.g:MRUF[2]\<cr>",110:"\<c-o>:noh\<cr>",
@@ -452,8 +439,8 @@ let normD={110:":noh\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
 \'help':'123:buff f/ilename g/etchar o/pen w/indow:',
 \'msg':"expand('%:t').' '.join(map(g:MRUF[:2],'GetLbl(v:val)'),' ').' '
 \.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
-	let g:visD={(g:EscAsc):"",103:"y:call GetVar(@\")\<cr>",
-\42:"y:,$s/\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
+
+let g:visD={(g:EscAsc):"",42:"y:,$s/\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \120:"y:exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",99:"y:\<c-r>\"",
 \'help':'*:sub g/etvar x/ec c/opy2cmd:','msg':"expand('%:t').' '.line('.').'.'.col('.')
