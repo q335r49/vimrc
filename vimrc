@@ -104,7 +104,7 @@ fun! PRINT(vars)
 	redr
 	return g:debug_on? "exe eval('\"'.input(join(map(split('".a:vars."','|'),'v:val.\":\".eval(v:val)'),' '),'').'\"')" : '""'
 endfun
-let [Qnrm["\<f5>"],Qnhelp['<f5>']]=[":let g:debug_on=!g:debug_on|ec g:debug_on? 'DEBUG ON' : 'DEBUG OFF'\<cr>","Toggle PRINT()"]
+let [Qnrm["\e[15~"],Qnhelp['<f5>']]=[":let g:debug_on=!g:debug_on|ec g:debug_on? 'DEBUG ON' : 'DEBUG OFF'\<cr>","Toggle PRINT()"]
 
 let [pvft,pvftc]=[1,32]
 fun! Multift(x,c,i)
@@ -151,14 +151,7 @@ endfun
 nno <silent> x :<c-u>call Undojx('x')<cr>
 nno <silent> X :<c-u>call Undojx('X')<cr>
 
-nmap <silent> <plug>TxbZ :call TXBGetChar()<cr>
-nmap <silent> <plug>TxbY :call TXBGetChar()<cr>
-nmap <silent> <plug>TxbY2 <nop>
-fun! TXBGetChar()
-	exe getchar(1)? g:GetCharHandleKeyExe : feedkeys("\<plug>TxbY")[9]
-endfun
-
-nmap <expr> q Qmenu()
+nno q :call Qmenu()<cr>
 nno Q q
 vno Q q
 fun! Qmenu()
@@ -168,20 +161,26 @@ fun! Qmenu()
 	call winrestview(g:qmenuView[0])
 	redr
 	let g:qmenuView[0].topline=g:qmenuView[0].topline-!g:qmenuView[1]
-	let g:GetCharHandleKeyExe="call ProcessChar(getchar())"
-	nno <silent> <esc> :call ProcessChar(113)<cr>
-	return "\<plug>TxbZ"
+	let g:GC_ProcChar="QmenuKeyHandler"
+	call feedkeys("\<plug>TxbZ")
 endfun
-fun! ProcessChar(c)
-	nunmap <esc>
-	while getchar(1)
-		call getchar()
-	endwhile
+fun! QmenuKeyHandler(c)
 	let [&stal,&ls]=g:qmenuView[1:]
 	call winrestview(g:qmenuView[0])
 	echo strftime('%c').' <'.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.'>'
-	call feedkeys(get(g:Qnrm,a:c,g:Qnrm.default),'n')
+	if g:qmenuExitIfNoCycle
+		let g:qmenuExitIfNoCycle=0
+		if index(["\<c-i>"," ",'s','d','w','e',"\<c-w>",'M','m'],a:c)==-1
+			call feedkeys(a:c)
+		else
+			call feedkeys(get(g:Qnrm,a:c,a:c[0]=="\e"? a:c[1] : g:Qnrm.default))
+		en
+	else
+		call feedkeys(get(g:Qnrm,a:c,a:c[0]=="\e"? a:c[1] : g:Qnrm.default))
+	en
 endfun
+
+let g:qmenuExitIfNoCycle=0
 vmap <expr> q Qmenuv()
 fun! Qmenuv()
 	let [view,stal]=[winsaveview(),&stal]
@@ -192,44 +191,42 @@ fun! Qmenuv()
 	let [c,view.topline,&stal,&ls]=[getchar(),view.topline-!stal,stal,ls]
 	call winrestview(view)
 	redr
-	return get(g:Qvis,c,g:Qvis.default)
+   	return get(g:Qvis,c,g:Qvis.default)
 endfun
-
-let Qnrm.default=":ec PrintDic(g:Qnhelp,28)\<cr>"
-let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
-let [Qnrm[102],Qnhelp.f]=[":ec search('^\\S*\\ \\S*'.expand('<cword>').'(')\<cr>","Go to function"]
-let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
-let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
-let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
-let [Qnrm.87,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
-let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
-let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
-let [Qnrm.3,Qnhelp.q]=["","exit"]
-let [Qnrm.113,Qnhelp.q]=["","exit"]
 let [Qvis.113,Qvhelp.q]=["","exit"]
-let [Qnrm.103,Qnhelp.g]=[":noh\<cr>","go away highlight"]
-let [Qnrm["\<f1>"],Qnhelp["<f1>"]]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>\<cr>","Help word under cursor"]
-let [Qnrm.49,Qnrm.50,Qnrm.51,Qnrm.52,Qnrm.53,Qnrm.54,Qnrm.55,Qnrm.56,Qnrm.57]=map(range(1,9),'":tabn".v:val."\<cr>"')
-	let Qnhelp['1..9']="Switch tabs"
-let [Qnrm.9,Qnrm.32,Qnhelp['<tab,space']]=[":tabp|call feedkeys('q')\<cr>",":tabn|call feedkeys('q')\<cr>","Tabs <>"]
-let [Qnrm.100,Qnrm.115,Qnhelp.sd]=[":wincmd w|call feedkeys('q')\<cr>",":wincmd W|call feedkeys('q')\<cr>","Columns <>"]
-let [Qnrm.119,Qnrm.101,Qnhelp.we]=[":norm! g;zz\<cr>:call feedkeys('q')\<cr>",":norm! g,zz\<cr>:call feedkeys('q')\<cr>","Changes <>"]
-let [Qnrm.23,Qnhelp['^W']]=[":tabc|call feedkeys('q')\<cr>","tabc"]
-let [Qnrm.77,Qnrm.109,Qnhelp['<>']]=[":tabm -1|call feedkeys('q')\<cr>",":tabm +1|call feedkeys('q')\<cr>","tabm <>"]
-let Qnrm.42=":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>"
-let Qnrm.35=":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>"
-	let Qnhelp['*#']="Replace word"
+let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
 let [Qvis.42,Qvhelp['*']]=["y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>","Replace selection"]
-let [Qnrm.120,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source paragraph"]
 let [Qvis.120,Qvhelp.x]=["y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source selection"]
 let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy to clipboard"]
 let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
-let [Qnrm.116,Qnhelp.Tt]=[":cal g:logdic.show()\<cr>","Show log files"]
-let Qnrm.84=":cal g:logdic.show()\<cr>"
-let [Qnrm.70,Qnhelp.F]=[":call mruf.show()\<cr>","Show recent files"]
-
-nn R <c-r>
-let [Qnrm.73,Qnhelp.I]=["R","Replace mode"]
+let Qnrm.default=":ec PrintDic(g:Qnhelp,28)\<cr>"
+let [Qnrm.f,Qnhelp.f]=[":ec search('^\\S*\\ \\S*'.expand('<cword>').'(')\<cr>","Go to function"]
+let [Qnrm[':'],Qnhelp[':']]=["q:","commandline normal"]
+let [Qnrm.v,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
+let [Qnrm.i,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
+let [Qnrm.W,Qnhelp.W]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
+let [Qnrm.z,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
+let [Qnrm.R,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
+let [Qnrm.q,Qnhelp.q]=["","exit"]
+let Qnrm["\<c-[>"]=""
+let [Qnrm.g,Qnhelp.g]=[":noh\<cr>","go away highlight"]
+let [Qnrm["\<f1>"],Qnhelp["<f1>"]]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>\<cr>","Help word under cursor"]
+let [Qnrm.1,Qnrm.2,Qnrm.3,Qnrm.4,Qnrm.5,Qnrm.6,Qnrm.7,Qnrm.8,Qnrm.9]=map(range(1,9),'":tabn".v:val."\<cr>"')
+	let Qnhelp['1..9']="Switch tabs"
+let [Qnrm["\<c-i>"],Qnrm[" "],Qnhelp['<tab,space']]=[":tabp|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":tabn|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","Tabs <>"]
+let [Qnrm.s,Qnrm.d,Qnhelp.sd]=[":wincmd w|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":wincmd W|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","Columns <>"]
+let [Qnrm.w,Qnrm.e,Qnhelp.we]=[":norm! g;zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":norm! g,zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","Changes <>"]
+let [Qnrm["\<c-w>"],Qnhelp['^W']]=[":tabc|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","tabc"]
+let [Qnrm.M,Qnrm.m,Qnhelp['mM']]=[":tabm -1|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":tabm +1|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","tabm <>"]
+let Qnrm["*"]=":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>"
+let Qnrm["#"]=":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>"
+	let Qnhelp['*#']="Replace word"
+let [Qnrm.x,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source paragraph"]
+let [Qnrm.t,Qnhelp.Tt]=[":cal g:logdic.show()\<cr>","Show log files"]
+let Qnrm.T=Qnrm.t
+let [Qnrm.F,Qnhelp.F]=[":call mruf.show()\<cr>","Show recent files"]
+let [Qnrm.I,Qnhelp.I]=["R","Replace mode"]
+	nn R <c-r>
 
 fun! PrintDic(dict,width)
 	let [L,cols,keys]=[len(a:dict),min([(&columns-1)/a:width,18]),sort(keys(a:dict))]
@@ -267,7 +264,7 @@ fun! AsciiUI()
 		redr | echon char ' --> ' strtrans(@")
 	en
 endfun
-let [Qnrm.97,Qnhelp.a]=[":call AsciiUI()\<cr>","Show Ascii"]
+let [Qnrm.a,Qnhelp.a]=[":call AsciiUI()\<cr>","Show Ascii"]
 
 if !exists("g:EscChar") | let g:EscChar="\e" | let g:EscAsc=27
 el | let g:EscAsc=char2nr(g:EscChar) |en
@@ -277,8 +274,6 @@ if g:EscChar!="\e"
    	exe 'no!' g:EscChar '<Esc>'
    	exe 'cno' g:EscChar '<C-C>'
 en
-let Qnrm[EscAsc]="g\e"
-let Qvis[EscAsc]=""
 
 nno <space> <c-e>
 nno <bs> <c-y>
@@ -483,8 +478,8 @@ let colorD.82="echo ''|let ix=0|for i in sort(keys(g:SCHEMES.swatches))\n
 	\let ix+=1\n
 \endfor\n".'echohl CS_LightOnDark | let name=input("> let SCHEMES.".g:CS_NAME.".".g:CS_grp." = SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) && has_key(g:SCHEMES.swatches,name) | let g:CS_histi=g:CS_histi+1 | let hl=copy(g:SCHEMES.swatches[name]) | else | echo "  **Swatch not found**" | sleep 1 | en'
 let colorD.18='call CSLoad(g:CS_NAME)'
-let [Qnrm.67,Qnhelp.C]=[":call CS_UI()\<cr>","Colors chooser"]
-let [Qnrm.7,Qnhelp['^G']]=[":ec 'hi<' . synIDattr(synID(line('.'),col('.'),1),'name') . '> trans<'
+let [Qnrm.C,Qnhelp.C]=[":call CS_UI()\<cr>","Colors chooser"]
+let [Qnrm["\<c-g>"],Qnhelp['^G']]=[":ec 'hi<' . synIDattr(synID(line('.'),col('.'),1),'name') . '> trans<'
 \ . synIDattr(synID(line('.'),col('.'),0),'name') . '> lo<'
 \ . synIDattr(synIDtrans(synID(line('.'),col('.'),1)),'name') . '>'\<cr>","Get highlight"]
 
@@ -669,13 +664,14 @@ if !exists('firstrun')
 		el| exe setViExpr.g:Viminfo_File | en
 	en
 	au VimEnter * call LoadViminfoData()
-	au VimEnter * au BufRead * call mruf.restorepos(expand('%')) 
+	au VimEnter * au BufRead * call mruf.restorepos(expand('%'))
 	au VimEnter * au BufLeave * call mruf.insert(expand('<afile>'),line('.'),col('.'),line('w0'))
 	se linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
-	se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2 stal=0 ls=0
-	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
+	se ai tabstop=4 history=1000 mouse=a hidden backspace=2 stal=0 ls=0
+	se wildmode=list:longest,full display=lastline modeline t_Co=256
 	se whichwrap+=b,s,h,l,,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 	se fcs=vert:\  showbreak=.\  
+    se ttymouse=sgr
 	se stl=%f\ %l/%L\ %c%V
 	if opt_device!~?'windows'	
 		se term=screen-256color
@@ -694,6 +690,8 @@ if !exists('firstrun')
 	unlet i conflicts file latest_date setViExpr viminfotime
 en
 
-for i in exists('TXBcmds')? keys(TXBcmds) : []
-	let Qnrm[i]=has_key(Qnrm,i)? Qnrm[i] : ":exe exists('t:txb')? 'call TXBcmd(".i.")' : 'ec \"Plane not loaded!\"'\<cr>"
+for i in filter(keys(TXBcmds),"!has_key(Qnrm,v:val)")
+	let Qnrm[i]=":exe exists('t:txb')? \"call TXBcmd('\<c-v>".i."')\" : 'ec \"Plane not loaded!\"'\<cr>"
 endfor
+let Qnrm.o=":exe exists('t:txb')? \"call TXBcmd('o')\" : 'ec \"Plane not loaded!\"'\<cr>"
+let Qnrm[':']=""
