@@ -1,16 +1,34 @@
 se viminfo=!,'20,<1000,s10,/50,:50
+se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch
+se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
+se wildmode=list:longest,full display=lastline modeline t_Co=256
+se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
+syntax off
+if has("gui_running")
+	se guifont=Envy\ Code\ R:h12:cANSI guioptions-=T
+	colorscheme slate
+	hi ColorColumn guibg=#222222
+else
+	hi clear Search       | hi Search ctermfg=9 ctermbg=none
+	hi clear ErrorMsg     | hi ErrorMsg ctermbg=9 ctermfg=15
+	hi clear MatchParen   | hi link MatchParen Search
+	hi clear StatusLine   | hi StatusLine cterm=underline
+	hi clear StatusLineNC | hi StatusLineNC cterm=underline ctermfg=240
+en
+se stl=\ %l.%02c/%L\ %<%f%=\ 
+se stl+=%{(localtime()-g:TLOG[0:9])/60.strftime('\ %H:%M\ %d')}\ 
 if has("win16") || has("win32") || has("win64")
 	let K_ESC="\<Esc>" | let N_ESC=27
 	let g:LblFunc="GetLblWin"
 else
 	let K_ESC='@'|let N_ESC=64
+	let g:LblFunc="GetLblUnix"
 	exe 'no '.K_ESC.' <Esc>'
 	exe 'no! '.K_ESC.' <Esc>'
 	exe 'cno '.K_ESC.' <C-C>'
 	nn <silent> <leftmouse> <leftmouse>:call {g:OnTouch}()<CR>
 	nn <silent> <leftrelease> <leftmouse>:call OnRelease()<CR>
 	vn <silent> <leftmouse> <Esc>mv<leftmouse>:let g:OnTouch='OnVisual'<CR>
-	let g:LblFunc="GetLblUnix"
 	map <C-J> <C-M>
 	map! <C-J> <C-M>
 	no   OQ @
@@ -32,16 +50,10 @@ if !exists('au_processed')
 	\ .strftime('%y%m%d')." vim: set nowrap ts=4 tw=62 fo=aw:"
 en
 fun! AfterViminfo()
-	colorscheme slate
-	se guifont=Consolas:h9:cANSI guioptions-=T
-	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch
-	se tabstop=4 history=150 mouse=a ttymouse=xterm hidden  backspace=2
-	se wildmode=list:longest,full display=lastline modeline t_Co=256
-	se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-	syntax off
 	if !exists('g:TLOG') | let g:TLOG=localtime().'[0] ---' | en
 	let g:histL=exists('g:FHIST') ? split(g:FHIST) : [] |cal InitHist()
-	if !exists('g:MAIN_DIRECTORY') | echoerr "Set MAIN_DIRECTORY!"
+	if !exists('g:MAIN_DIRECTORY') || !isdirectory(g:MAIN_DIRECTORY)
+		echoerr 'Set MAIN_DIRECTORY!'
 	elseif !argc()
 		exe 'cd '.g:MAIN_DIRECTORY
 		so abbrev | e main.txt 
@@ -49,17 +61,24 @@ fun! AfterViminfo()
 	call UpdHist()
 	au BufWinEnter * call UpdHist()
 	au BufWinLeave * call AddHist(expand('%'),line('.'))
-	au VimLeavePre * let g:FHIST=join(g:histL,"\n")
-	if !has("gui_running")
-		hi clear Search       | hi Search ctermfg=9
-		hi clear ErrorMsg     | hi ErrorMsg ctermbg=9 ctermfg=15
-		hi clear MatchParen   | hi link MatchParen Search
-		hi clear StatusLine   | hi StatusLine cterm=underline
-		hi clear StatusLineNC | hi StatusLineNC cterm=underline ctermfg=240
-	en
-	se stl=\ %l.%02c/%L\ %<%f%=\ 
-	se stl+=%{(localtime()-g:TLOG[0:9])/60.strftime('\ %H:%M\ %d')}\ 
+	au VimLeavePre * call AddHist(expand('%'),line('.'))
+		\|let g:FHIST=join(g:histL,"\n")
 endfun
+
+let EndQuote={'(':')','[':']','{':'}'}
+let QtCmd={(g:K_ESC):'','w':['b','ea'],'W':['B','Ea'],'s':['(',')ba'],'p':['{w','}bA']}
+fun! Quote()
+	let in=[nr2char(getchar())]
+	while !has_key(g:QtCmd,in[-1])
+		let in+=[nr2char(nr2char(getchar()))]
+	endwhile
+	if in[-1]!=g:K_ESC | let unit=remove(in,-1) | el|retu|en
+	let num=(len(in)>0 && in[-1]=~'[[:digit:]]') ? in[-1] : 1 
+	let quotes=len(in)>0 ? join(in,'') : "'"
+	echom 99 unit 0 num 0 quotes
+	exe 'norm! l'.g:QtCmd[unit][0].'i'.quotes."\<Esc>l".num.g:QtCmd[unit][1]
+	\.(has_key(g:EndQuote,quotes) ? g:EndQuote[quotes] : quotes)
+endf
 
 fun! Log(...)
 	let log=input(g:TLOG[:match(g:TLOG,'\n',0,6)]
@@ -86,8 +105,9 @@ let QCD={108:'redr|call Log()',112:'call Paint()',101:'e<cWORD>',
 \110:'noh|ec""|redr',9:'ec""|redr',(g:N_ESC):'ec""|redr',
 \114:'exe"redi@t|sw|redi END"|exe"!rm ".substitute(@t[1:]," ","\\\\ ","g")',
 \104:'exe"norm! vawly"|exe "h ".(@"[-1:-1]=="("? @":@"[:-2])',
-\98:'let qcx=HistMenu()|exe (qcx=="" ? "" : "e ".qcx)',
-\63:'redr|ec"[B]uffer [L]og [P]aint [E]dit [N]ohls [R]m swp [H]elp > "
+\98:'let qcx=HistMenu()|exe (qcx=="" ? "" : "e ".qcx)',115:'redr|call Quote()',
+\42:'norm! ',
+\63:'redr|ec"[B]uffer [E]dit [H]elp [L]og [N]ohls [P]aint [Q]uote [R]m swp > "
 \|let qcx=getchar()|exe QCD[has_key(QCD,qcx)? qcx : 63]'}
 nn <silent> <Tab> :ec line('.').'.'.col('.').'/'.line('$').' - '
 \.(localtime()-TLOG[0:9])/60.strftime('/%H:%M/%d - ').expand('%:t').' > '
@@ -180,7 +200,7 @@ fun! FmtList(list, ...)
 endfun
 fun! HistMenu(...)
 	ec FmtList(g:histLb,g:maxW).' > ' | let sel=a:0==0? getchar() : a:1
-	if sel==9
+	if sel==9 || sel==32
 		redr|retu substitute(split(g:histL[0],'\$')[0],"\ ",'\\ ',"g")
 	elseif sel=="\<BS>"
 		ec 'RM >' | let sel=RmHist(g:HLb2fIx[g:Asc2HLb[getchar()]])
@@ -191,7 +211,6 @@ fun! HistMenu(...)
 	en
 endfun
 
-nn <silent> <Space><Space> :<C-U>exe 'norm! a'.nr2char(getchar())<CR>
 nn <silent> <Space> :<C-U>exe 'norm! i'.nr2char(getchar())<CR>
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
 cnorea <expr> waq ((getcmdtype()==':' && getcmdpos()<5)? 'wa\|q':'waq')
@@ -287,7 +306,7 @@ fun! InitTextFile()
 	im <buffer> <silent> . ._<Left><C-R>=CapWait('.')<CR>
 	im <buffer> <silent> ? ?_<Left><C-R>=CapWait('?')<CR>
 	im <buffer> <silent> ! !_<Left><C-R>=CapWait('!')<CR>
-	im <buffer> <silent> <CR> <CR>_<Left><C-R>=CapWait("\r")<R>
+	im <buffer> <silent> <CR> <CR>_<Left><C-R>=CapWait("\r")<CR>
 	im <buffer> <silent> <NL> <NL>_<Left><C-R>=CapWait("\n")<CR>
 	nm <buffer> <silent> O O_<Left><C-R>=CapWait("\r")<CR>
 	nm <buffer> <silent> o o_<Left><C-R>=CapWait("\r")<CR>
