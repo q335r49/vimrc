@@ -2,6 +2,50 @@ se nocompatible
 
 redir => g:StartupErr
 
+map k <up>
+map j <down>
+map h <left>
+map l <right>
+map! k <up>
+map! j <down>
+map! h <left>
+map! l <right>
+
+for mark in map(range(97,122)+range(65,90),'nr2char(v:val)')
+	exe 'sign define bkmrk'.mark.' texthl=Visual text='.mark.'-'
+endfor
+fun! UpdateBookmark()
+	let mark=getchar()
+	if (65<=mark && mark<=90) || (97<=mark && mark<=122)
+		exe "sign unplace ".mark 
+		exe "sign place ".mark." line=".line('.')." name=bkmrk".nr2char(mark)." file=" . expand("%:p")
+	en
+	return "m".nr2char(mark)
+endfun
+fun! ToggleBookmarks()
+	if exists("b:bookmarks_shown")
+		unlet b:bookmarks_shown
+		exe 'sign unplace * buffer='.bufnr("%")
+		nunmap m
+		return
+	en
+	let b:bookmarks_shown=1
+	nnoremap <expr> m UpdateBookmark()
+	let curbn=bufnr("%")
+	for mark in map(range(65,90),'nr2char(v:val)')
+		let pos=getpos("'".mark)
+		if pos[0]==curbn 
+			exe "sign place ".char2nr(mark)." line=".pos[1]." name=bkmrk".mark." file=" . expand("%:p")
+		en
+	endfor
+	for mark in map(range(97,122),'nr2char(v:val)')
+		let pos=getpos("'".mark)
+		if pos[1]!=0
+			exe "sign place ".char2nr(mark)." line=".pos[1]." name=bkmrk".mark." file=" . expand("%:p")
+		en
+	endfor
+endfun
+
 nno <space> 10jzz
 nno <bs> 10kzz
 
@@ -109,6 +153,8 @@ fun! InvertSetting(choice)
 		if winwidth(0)==&columns	
 			silent call Writeroom(exists('OPT_WRITEROOMWIDTH')? OPT_WRITEROOMWIDTH : 25)
 		else | only | en
+	elseif a:choice==98
+		call ToggleBookmarks()
 	en
 endfun
 
@@ -729,9 +775,17 @@ let normD=extend(normD,{62:":silent call AdjustFontSize(62)\<cr>",
 \107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invhl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
 \101:":call EdMRU()\<cr>",
 \116:":call InvertSetting(getchar())\<cr>",
-\49:":exe 'e '.escape(g:MRUF[0],' ')\<cr>",50:":exe 'e '.escape(g:MRUF[1],' ')\<cr>",
-\113:"\<esc>",51:":exe 'e '.escape(g:MRUF[2],' ')\<cr>",
-\112:"i\<c-r>=eval(input('Put: ','','var'))\<cr>",109:":mes\<cr>",
+\49:":tabn1\<cr>",
+\50:":tabn2\<cr>",
+\51:":tabn3\<cr>",
+\52:":tabn4\<cr>",
+\53:":tabn5\<cr>",
+\54:":tabn6\<cr>",
+\55:":tabn7\<cr>",
+\56:":tabn8\<cr>",
+\57:":tabn9\<cr>",
+\112:":tabp\<cr>",
+\110:":tabn\<cr>",
 \42:":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \35:":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>",
@@ -745,22 +799,24 @@ let insD=extend(insD,{105:":call InvertSetting(getchar())\<cr>",
 \97:"\<c-o>:call SoftCapsLock()\<cr>",
 \103:"\<c-r>=getchar()\<cr>",
 \113:"\<c-o>\<esc>",111:"\<c-r>=input('`o','','customlist,CmpMRU')\<cr>",
-\49:"\<esc>:exe 'e '.g:MRUF[0]\<cr>",50:"\<esc>:exe 'e '.g:MRUF[1]\<cr>",
+\110:"\<c-o>:noh\<cr>",
 \107:"\<esc>:s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invnohl\<cr>",
-\51:"\<esc>:exe 'e '.g:MRUF[2]\<cr>",110:"\<c-o>:noh\<cr>",
 \102:"\<c-r>=escape(expand('%'),' ')\<cr>",119:"\<c-o>\<c-w>\<c-w>",
 \'help':'123:buff f/ilename g/etchar k:center o/pen w/indow:',
 \'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
 \.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]"})
 
-let visD={(EscAsc):"",(opt_TmenuAsc):opt_TmenuKey}
-let visD=extend(visD,{42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
-\99:":ce\<cr>",103:"y:\<c-r>\"",
-\120:":\<c-w>exe join(getline(\"'<\",\"'>\"),'|')\<cr>",
+let visD={(g:EscAsc):"",(g:opt_TmenuAsc):g:opt_TmenuKey}
+let g:visD=extend(visD,{42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
+\\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
+\99:":ce\<cr>",
+\120:"y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",
+\103:"y:\<c-r>\"",
 \'help':'*:sub c/enter e/dit g/et2cmd u/nformat x/ec',
 \101:"y:e \<c-r>\"\<cr>",117:":s/ \\n/ /\<cr>",
 \67:"\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>",
-\'msg':"expand('%:t').' '.line('.').'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"})
+\'msg':"expand('%:t').' '.line('.')
+\.'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"})
 
 let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 \|exe 'hi '.g:CSgrp.' ctermfg='.(g:cs_current[g:CSgrp][0]).' ctermbg='.(g:cs_current[g:CSgrp][1]) |en",
@@ -881,5 +937,5 @@ let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 "added `it `is to toggle tab bar and status line
 "updated visual `x to work on all lines
 "added <space> and <bs> as pgdown / pgup
-"TD: combine tabline and statusline, revamp MRU system
-"TD: signs
+"`tb to tggle bookmark visibility
+"remapped arrow keys to alt-hjkl
