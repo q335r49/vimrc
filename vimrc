@@ -1,4 +1,3 @@
-let Qsel=['0','1','*',"'",'"','(','[','{','\']
 let Qpairs={'(':')','{':'}','[':']','<':'>'}
 let QpairsOpp={')':'(','}':'{',']':'[','>':'<'}
 let Qx1=['h','l']
@@ -6,19 +5,17 @@ let Qx2=['xb"hPl','xe"iph']
 let Qx3=['xbbhe"iph','xeelb"hPl']
 let Qx4=['norm! lb"hPe"iphmq','norm! he"ipb"hPlmq']
 fun! IniQuote(mark)
-	if has_key(g:Qpairs,a:mark) | let @h=a:mark | let @i=(g:QPAIRS[a:mark])
-	elsei has_key(g:QpairsOpp,a:mark) | let @h=(g:QPAIRS[a:mark]) |let @i=a:mark
+	if has_key(g:Qpairs,a:mark) | let @h=a:mark | let @i=(g:Qpairs[a:mark])
+	elsei has_key(g:QpairsOpp,a:mark) | let @h=(g:QpairsOpp[a:mark]) |let @i=a:mark
 	el| let @h=a:mark | let @i=a:mark | en
 endfun
 fun! Quote(sel,dr)
-	if a:sel==0
-	    norm! mrhel"tylbh"uyl`r
+	if a:sel==0 | norm! mrhel"tylbh"uyl`r
 		if @u=~"[\[{(\*'\"/]" | call IniQuote(@u)
 		elsei @t=~"[\)}]\*'\"/]" | call IniQuote(@t) | en
-	elseif a:sel==1 | ec "Quote mark:" | call IniQuote(nr2char(getchar()))
-	el|  call IniQuote(g:Qsel[a:sel]) | en
+	elseif a:sel==1 | ec "Quote mark:" | call IniQuote(nr2char(getchar())) | en
 	let WORD=expand('<cWORD>')		
-    norm! mrlBms`r
+	norm! mrlBms`r
 	let cur=col("'r")-col("'s'")
 	let tLQ=match(WORD,@h) | let LQ=tLQ
 	while tLQ>-1 && tLQ<cur
@@ -36,9 +33,17 @@ fun! Quote(sel,dr)
 	elsei A!=-1 | retu 'norm! mq'.(A>0? A.g:Qx1[!a:dr] :'').g:Qx3[a:dr]
 	el|retu g:Qx4[a:dr] | en
 endfun
+fun! QuoteChange(mark)
+	let mark=has_key(g:QpairsOpp,a:mark)? g:QpairsOpp[a:mark] : a:mark
+	if search(@h,'bc') | let @h=mark | norm! x"hPl
+		if search(@i,'c')
+			let @i=has_key(g:Qpairs,@h)? g:Qpairs[@h] : @h | norm! x"iPh
+		el| let @i=has_key(g:Qpairs,@h)? g:Qpairs[@h] : @h | en
+	endif
+endfun
 nn <silent> [ :<C-U>exe Quote(v:count,0)<CR>
 nn <silent> ] :<C-U>exe Quote(v:count,1)<CR>
-nn <C-F> :<C-U>ec Quote(v:count,0)<CR>
+nn <C-F> :<C-U>let gg=Quote(v:count,0)<CR>:ec gg<CR>
 nn <C-G> :<C-U>ec Quote(v:count,1)<CR>
 
 let HLb=split('1234567890abcdefghijklmnopqrstuvwxyz
@@ -339,7 +344,7 @@ fun! ScrollRC()
 		call OnResize()
 		retu
 	en
-	exe 'norm! '.(s:cP[2]>s:pP[2]? (s:cP[2]-s:pP[2])."zh" : s:pP[2]>s:cP[2]? (s:pP[2]-s:cP[2])."zl" : '').(s:cP[1]>s:pP[1]? (s:cP[1]-s:pP[1])."\<C-Y>" : s:pP[1]>s:cP[1]? (s:pP[1]-s:cP[1])."\<C-E>" : '')
+	exe 'norm! '.(s:cP[2]>s:pP[2]? (s:cP[2]-s:pP[2])."zh" : s:pP[2]>s:cP[2]? (s:pP[2]-s:cP[2])."zl" : '').(s:cP[1]>s:pP[1]? (s:cP[1]-s:pP[1])."\<C-Y>" : s:pP[1]>s:cP[1]? (s:pP[1]-s:cP[1])."\<C-E>" : 'g')
 	let s:pP=s:cP
 endfun
 fun! OnVisual()
@@ -523,8 +528,8 @@ fun! Write_Viminfo()
 		!cp ~/.viminfo $VIMINFO_FILE
 	en | se viminfo=
 endfun
-fun! SetOpt(options)
-	let g:INPUT_METH=a:options
+fun! SetOpt(...)
+	let g:INPUT_METH=a:0? a:1 : 'thumb'
 	if g:INPUT_METH==?"THUMB"
 		let op=["@",64,1]
 	el| let op=["\<Esc>",27,0] | en
@@ -561,39 +566,37 @@ fun! SetOpt(options)
 \115:"\<C-R>='S:'.((inputsave()? '':'').input(g:logmsg.'STILL:')
 \.(inputrestore()? '':''))\<CR>\<CR>",'help':'[L]og [R]ename [S]till [X]Del:',
 \(g:N_ESC):"\<C-R>=input(g:logmsg)\<CR>\<CR>",
-\'msg':"PrintTime(localtime()-g:tlog[0][0],g:tlog[0][0]).len(g:tlog).' logs:'"}
+\'msg':"PrintTime(localtime()-g:tlog[0][0],g:tlog[0][0]).len(g:tlog).'L:'"}
 	let g:normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',119:":wa\<CR>",
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
 \112:":call IniPaint()\<CR>",108:":call Log()\<CR>",
-\101:":call Edit(expand('<cWORD>'))\<CR>",
 \103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"^y$:\<C-R>\"\<CR>",
 \115:":let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
+\113:":call QuoteChange(nr2char(getchar()))\<CR>",
 \49:":call Edit(g:histL[0])\<CR>",
 \50:":call Edit(g:histL[1])\<CR>",
 \51:":call Edit(g:histL[2])\<CR>",
 \42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
-\111:":call SetOpt(\<C-R>=g:INPUT_METH==?'thumb'? \"'key'\" : \"'thumb'\"\<CR>)\<CR>
-\:ec 'Current input is '.g:INPUT_METH\<CR>",
-\'help':'b[12] [e]d [g]:h [l]og [n]ohl t[o]gglekbd [p]nt l[s] [r]mswp [w]a e[X]e s/[*#]',
-\'msg':"line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])
-\.expand('%:t')"}
+\'help':'b[123] [g]:h [l]og [n]ohl [p]nt [r]mswp l[s] [w]a e[X]e s/[*#]',
+\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])"}
 	let g:insD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):"\<Esc>a",96:'`',
 \115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
 \49:"\<Esc>:call Edit(g:histL[0])\<CR>",
-\50:"\<Esc>:call Edit(g:histL[2])\<CR>",51:"\<Esc>:call Edit(g:histL[3])\<CR>",
-\102:"\<C-R>=escape(expand('%'),' ')\<CR>",'help':'[f]ilename [g]etchar l[s]:',
-\'msg':"line('.').'.'.col('.').'/'.line('$').' '
-\.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
+\50:"\<Esc>:call Edit(g:histL[1])\<CR>",
+\51:"\<Esc>:call Edit(g:histL[2])\<CR>",
+\102:"\<C-R>=escape(expand('%'),' ')\<CR>",
+\'help':'b[123] [f]ilename [g]etchar l[s]:',
+\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])"}
 	let g:cmdD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):" \<BS>",96:" \<BS>`",
 \115:"\<C-R>=eval(join(repeat([HistMenu()],2),'==-1 ? \"\" : 
 \escape(split(histL[').'],\"\\\\\\$\")[0],\" \")')\<CR>",
 \102:"\<C-R>=escape(expand('%'),' ')\<CR>",
 \108:"\<C-R>=matchstr(getline('.'),'[[:graph:]].*[[:graph:]]')\<CR>",
 \119:"\<C-R>=expand('<cword>')\<CR>",87:"\<C-R>=expand('<cWORD>')\<CR>",
-\'help':'[12]bn [f]ilename [g]etchar [l]ine l[s] [wW]ord:',
-\'msg':"line('.').'.'.col('.').'/'.line('$').' '
-\.PrintTime(localtime()-g:tlog[-1][0]).expand('%:t').':'"}
+\'help':'[f]ilename [g]etchar [l]ine l[s] [wW]ord:',
+\'msg':"expand('%:t').' '.line('.').'.'.col('.').'/'.line('$').' '
+\.PrintTime(localtime()-g:tlog[-1][0])"}
 endfun
 fun! FirstRunSetup()
 	if has('win16') || has('win32') || has('win64') | let os='WIN'
@@ -620,13 +623,13 @@ if !exists('do_once') | let do_once=1
 		if filereadable($VIMINFO_FILE) | rv $VIMINFO_FILE
 		el| let g:viminfo_file_invalid=1 | rv | en
 	se viminfo=
-	au VimLeavePre * call InsHist(expand('%'),line('.'),col('.')) | call Write_Viminfo()
+	au VimEnter * call OnVimEnter()
 	au BufWinEnter * call RmHist(match(g:histL,'\V'.escape(expand('%'),'\').'$'))
 	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
-	au VimEnter * call OnVimEnter()
+	au VimLeavePre * call InsHist(expand('%'),line('.'),col('.')) | call Write_Viminfo()
 	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
 	se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
-	se wildmode=list:longest,full display=lastline modeline t_Co=256
+	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 	se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 	se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-tlog[-1][0])}
 	se guifont=Envy\ Code\ R\ 10 guioptions-=T
@@ -647,3 +650,4 @@ if !exists('do_once') | let do_once=1
 	let histL=exists('HISTL') ? split(HISTL,"\n") : [] | call InitHist()
 	call IniQuote("'")
 en
+"norm! l error in quote( ... separate func?
