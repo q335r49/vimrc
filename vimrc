@@ -8,12 +8,25 @@ if !exists('Qnrm') | let [Qnrm,Qnhelp]=[{},{}] | en
 if !exists('Qvis') | let [Qvis,Qvhelp]=[{},{}] | en
 let [Qnrm.81,Qnhelp.Q]=["Q","Ex mode"]
 let [Qvis.81,Qvhelp.Q]=["Q","Ex mode"]
+fun! Qmenu(cmd)
+	exe a:cmd.msg
+	return get(a:cmd, getchar(), a:cmd.default)
+endfun
+nno <expr> q Qmenu(g:Qnrm)
+vno <expr> q Qmenu(g:Qvis)
+fun! PrintTime(e,t) "%e crashes Windows!
+	retu eval(strftime('printf("%%d%%s%%d %%d:%M %%d:%%02d ",%m,''SMTWRFA''[%w],%d,%I,a:e/3600,a:e/60%%60)',a:t))
+endfun
+let Qnrm.msg="ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).line('.').'/'.line('$').' '.g:LOGDIC.L[-1][1]"
+let Qvis.msg="ec expand('%:t').' '.line('.').'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"
+let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
+let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
 
 fun! CIcompare(a,b)
 	return toupper(a:a)<toupper(a:b)? -1:1
 endfun
-fun! PrintDic(title,dict,width)
-	let ec=len(a:title)<&columns-1? g:Pad[:(&columns-1-strdisplaywidth(a:title))/2].a:title : a:title
+fun! PrintDic(dict,width)
+	let ec=""
 	let cols=min([(&columns-1)/a:width,18])
 	let keys=sort(keys(a:dict),"CIcompare")
 	let L=len(keys)
@@ -32,7 +45,7 @@ let asciidic={}
 for i in range(1,256)
 	let asciidic[printf("%3d",i)]=strtrans(nr2char(i))
 endfor
-let [Qnrm.103,Qnhelp.g]=[":ec PrintDic('',asciidic,11)\<cr>","Show Ascii"]
+let [Qnrm.103,Qnhelp.g]=[":ec PrintDic(asciidic,11)\<cr>","Show Ascii"]
 
 fun! Scrollbind()
 	norm! mtHmu
@@ -254,10 +267,14 @@ fun! SoftCapsLock()
 		let key=getchar()
 	endwhile
 endfun
-let [Qnrm.67,Qnhelp.C]=[":call SoftCapsLock()|startinsert\<cr>","Caps lock"]
+let [Qnrm.99,Qnhelp.c]=[":call SoftCapsLock()\<cr>","Caps lock"]
 
 let Pad=repeat(' ',200)
 exe "ab /f {{{\<cr>\<cr>\<cr>\}}}\<esc>3k$a\<c-o>"
+fun! FoldTextPara()
+	let l=getline(v:foldstart)
+	return ' -- '.l[:match(l,'[?!\.-]\s')]
+endfun
 fun! FoldText()
 	let l=getline(v:foldstart)
 	let p=stridx(l,'{{{')
@@ -382,7 +399,7 @@ fun! CSLoad(...)
 	en
 endfun
 fun! CompleteSwatches(Arglead,CmdLine,CurPos)
-	return filter(keys(g:SWATCHES),'v:val=~a:Arglead')
+	return filter(keys(g:SCHEMES.swatches),'v:val=~a:Arglead')
 endfun
 fun! CompleteSchemes(Arglead,CmdLine,CurPos)
 	return filter(keys(g:SCHEMES),'v:val=~a:Arglead')
@@ -394,11 +411,11 @@ fun! CSChooser(...)
 	elseif a:0==2
 		let [fg,bg]=[a:1,a:2]
 		call add(g:CShst,[fg,bg])
-	elseif a:0==1 && type(a:1)==1 && has_key(g:SWATCHES,a:1)
-		let [fg,bg]=g:SWATCHES[a:1]
+	elseif a:0==1 && type(a:1)==1 && has_key(g:SCHEMES.swatches,a:1)
+		let [fg,bg]=g:SCHEMES.swatches[a:1]
 		call add(gName:CShst,[fg,bg])
 	el|retu|en
-	let swatchlist=keys(g:SWATCHES)
+	let swatchlist=keys(g:SCHEMES.swatches)
 	exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg | redr
 	let msg=g:CSgrp
 	exe "echoh ".g:CSgrp
@@ -406,7 +423,7 @@ fun! CSChooser(...)
 	let c=getchar()
 	let continue=1
 	while 1
-		exe get(g:CSChooserD,c,'let msg="[*]rand [fb]swatches [g]roup [hl]fg [i]nvert [jk]bg [np]history fgbg[rR]and [s]ave [S]avescheme [L]oadscheme"')
+		exe get(g:colorD,c,'ec ">>>>>> Color chooser commands >>>>>>".PrintDic(g:colorDh,20)|call getchar()')
 		if continue
 			if g:CShix<=len(g:CShst)-1
 				let g:CShst[g:CShix]=[fg,bg]
@@ -424,29 +441,33 @@ fun! CSChooser(...)
 			return g:CShst[g:CShix] | en
 	endwhile
 endfun
-let CSChooserD={113:"let continue=0 | if has_key(g:SCHEMES.current,g:CSgrp)
-\|exe 'hi '.g:CSgrp.' ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1]) |en",
-\(g:EscAsc):"let continue=0 | if has_key(g:SCHEMES.current,g:CSgrp)
-\|exe 'hi '.g:CSgrp.' ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1]) |en",
-\10: "let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
-\|let g:SCHEMES.current[g:CSgrp]=[fg,bg]",
-\13: "let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
-\|let g:SCHEMES.current[g:CSgrp]=[fg,bg]",
-\104:'let [fg,g:CShix]=fg>0?   [fg-1,g:CShix+1] : [fg,g:CShix]',
-\108:'let [fg,g:CShix]=fg<255? [fg+1,g:CShix+1] : [fg,g:CShix]',
-\106:'let [bg,g:CShix]=bg>0?   [bg-1,g:CShix+1] : [bg,g:CShix]',
-\107:'let [bg,g:CShix]=bg<255? [bg+1,g:CShix+1] : [bg,g:CShix]',
-\98: 'let g:CShix+=1 | let g:SwchIx=g:SwchIx>0? g:SwchIx-1 : len(swatchlist)-1 |
-\let [fg,bg]=g:SWATCHES[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]',
-\102:'let g:CShix+=1 | let g:SwchIx=g:SwchIx<len(swatchlist)-1? g:SwchIx+1 : 0 |
-\let [fg,bg]=g:SWATCHES[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]',
-\112:'if g:CShix > 0 | let g:CShix-=1 | let [fg,bg]=g:CShst[g:CShix] | en',
-\110:'if g:CShix<len(g:CShst)-1|let g:CShix+=1|let [fg,bg]=g:CShst[g:CShix]|en',
-\42: 'let [fg,bg,g:CShix]=[reltime()[1]%256,reltime()[1]%256,g:CShix+1]',
-\114:'let [fg,g:CShix]=[reltime()[1]%256,g:CShix+1]',
-\82: 'let [bg,g:CShix]=[reltime()[1]%256,g:CShix+1]',
-\105:'let [fg,bg]=[bg,fg]',
-\103:"let in=input('Group: ','','highlight')\n
+let colorD={}
+let colorDh={}
+let [colorD.113,colorDh['q/esc']]=["let continue=0\n
+\if has_key(g:SCHEMES.current,g:CSgrp)\n
+\    exe 'hi '.g:CSgrp.' ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1])|en","Quit"]
+let colorD[EscAsc]=colorD.113
+let colorD.10="let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
+\|let g:SCHEMES.current[g:CSgrp]=[fg,bg]"
+let colorD.13=colorD.10
+let colorD.104='let [fg,g:CShix]=[(fg+255)%256,g:CShix+1]'
+let colorD.108='let [fg,g:CShix]=[(fg+1)%256,g:CShix+1]'
+let colorDh.hl="cycle fg"
+let colorD.106='let [bg,g:CShix]=[(bg+255)%256,g:CShix+1]'
+let colorD.107='let [bg,g:CShix]=[(bg+1)%256,g:CShix+1]'
+let colorDh.jk="cycle bg"
+let colorD.98='let [g:SwchIx,g:CShix]=[(g:SwchIx+len(swatchlist)+1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]'
+let colorD.102='let [g:SwchIx,g:CShix]=[(g:SwchIx+1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]'
+let colorDh.bf="cycle swatches"
+let colorD.112='if g:CShix > 0 | let g:CShix-=1 | let [fg,bg]=g:CShst[g:CShix] | en'
+let colorD.110='if g:CShix<len(g:CShst)-1|let g:CShix+=1|let [fg,bg]=g:CShst[g:CShix]|en'
+let colorDh.np="nav history"
+let colorD.42='let [fg,bg,g:CShix]=[reltime()[1]%256,reltime()[1]%256,g:CShix+1]'
+let colorD.114='let [fg,g:CShix]=[reltime()[1]%256,g:CShix+1]'
+let colorD.82='let [bg,g:CShix]=[reltime()[1]%256,g:CShix+1]'
+let colorDh['rR*']="Random"
+let [colorD.105,colorDh.i]=['let [fg,bg]=[bg,fg]',"invert"]
+let [colorD.103,colorDh.g]=["let in=input('Group: ','','highlight')\n
 \if has_key(g:SCHEMES.current,in)\n
 \     let [fg,bg]=g:SCHEMES.current[in]\n
 \en\n
@@ -454,16 +475,15 @@ let CSChooserD={113:"let continue=0 | if has_key(g:SCHEMES.current,g:CSgrp)
 \    exe 'hi '.g:CSgrp.' ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1])\n
 \en\n
 \let g:CSgrp=in\n
-\let msg=g:CSgrp",
-\115:'let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
-\if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en',
-\83:'let name=input("Save scheme as: ","","customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=deepcopy(g:SCHEMES.current) | en | let continue=0',
-\76:"let in=get(g:SCHEMES,input('Load scheme: ','','customlist,CompleteSchemes'),{})\n
+\let msg=g:CSgrp","hl group"]
+let [colorD.115,colorDh.s]=['let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
+\if !empty(name) | let g:SCHEMES.swatches[name]=[fg,bg] |en','Save swatch']
+let [colorD.83,colorDh.S]=['let name=input("Save scheme as: ","","customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=deepcopy(g:SCHEMES.current) | en | let continue=0','Save Scheme']
+let [colorD.76,colorDh.L]=["let in=get(g:SCHEMES,input('Load scheme: ','','customlist,CompleteSchemes'),{})\n
 \if !empty(in)\n
-\    call CSLoad(in)\n
-\en\n
-\let continue=0"}
-let [Qnrm.99,Qnhelp.c]=[":call CSChooser()\<cr>","Customize colors"]
+\    call CSLoad(in) | en\n
+\let continue=0",'Load scheme']
+let [Qnrm.67,Qnhelp.C]=[":call CSChooser()\<cr>","Customize colors"]
 
 fun! GetCompletion()
 	let c=col('.')
@@ -487,20 +507,6 @@ fun! Ec(...)
 	echoh None
 	return a:1
 endfun
-
-fun! Qmenu(cmd)
-	exe a:cmd.msg
-	return get(a:cmd, getchar(), a:cmd.default)
-endfun
-nno <expr> q Qmenu(g:Qnrm)
-vno <expr> q Qmenu(g:Qvis)
-fun! PrintTime(e,t) "%e crashes Windows!
-	retu eval(strftime('printf("%%d%%s%%d %%d:%M %%d:%%02d ",%m,''SMTWRFA''[%w],%d,%I,a:e/3600,a:e/60%%60)',a:t))
-endfun
-let Qnrm.msg="ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).line('.').'/'.line('$').' '.g:LOGDIC.L[-1][1]"
-let Qvis.msg="ec expand('%:t').' '.line('.').'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"
-let Qnrm.default=":ec PrintDic('',Qnhelp,28)\<cr>"
-let Qvis.default=":\<c-u>ec PrintDic('',Qvhelp,28)\<cr>"
 
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
 cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
@@ -601,8 +607,34 @@ fun! CapHere()
 endfun
 fun! CheckFormatted()
 	let options=getline(1)
-	if &fdm!='manual'
+	if options=~?'foldmark'
 		nn <buffer>	<cr> za
+		nn <buffer> <rightmouse> <leftmouse>za
+		setl fdm=marker
+		setl fdt=FoldText()
+	elseif options=~?'foldpara'
+		nn <buffer>	<cr> za
+		nn <buffer> <rightmouse> <leftmouse>za
+		setl fdm=expr
+		setl foldexpr=getline(v:lnum)=~'^\\s*$'&&getline(v:lnum+1)=~'\\S'?'<1':1
+		setl fdt=FoldTextPara()
+	en
+	if options=~?'hardwrap'
+		setl nowrap
+		let number=matchstr(options,'autoformat\zs\d*') 
+		exe "setl tw=".(empty(number)? 80 : number)
+		setl fo=aw
+		nn <buffer>	<cr> za
+		nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
+		nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
+		if &fo=~#'w'	
+			nn <buffer> <silent> { :call search('\S\n\s*.\\|\n\s*\n\s*.\\|\%^','Wbe')<CR>
+			nn <buffer> <silent> } :call search('\S\n\\|\s\n\s*\n\\|\%$','W')<CR>
+			nn <buffer> <silent> I :call search('\S\n\s*.\\|\n\s*\n\s*.\\|\%^','Wbe')<CR>i
+			nn <buffer> <silent> A :call search('\S\n\\|\s\n\s*\n\\|\%$','W')<CR>a
+		el| nn <buffer> <silent> I :call search('^\s*\n\s*\S\\!\%^','Wbec')<CR>i
+			nn <buffer> <silent> A :call search('\S\s*\n\s*\n\\|\%$','Wc')<CR>a
+		en
 	en
 	if options=~?'prose'
 		setl noai
@@ -647,18 +679,6 @@ fun! CheckFormatted()
 		nn <buffer> <silent> , :let g:lastft=g:invftD[g:ftfuncD[g:invftD["n".g:lastft]](g:lastftchar)]<cr>
 		ono <buffer> <silent> ; :let g:lastft=g:ftfuncD[g:lastft](g:lastftchar)<cr>
 		ono <buffer> <silent> , :let g:lastft=g:invftD[g:ftfuncD[g:invftD[g:lastft]](g:lastftchar)]<cr>
-	en
-	if &fo=~#'a'
-		nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
-		nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
-		if &fo=~#'w'	
-			nn <buffer> <silent> { :call search('\S\n\s*.\\|\n\s*\n\s*.\\|\%^','Wbe')<CR>
-			nn <buffer> <silent> } :call search('\S\n\\|\s\n\s*\n\\|\%$','W')<CR>
-			nn <buffer> <silent> I :call search('\S\n\s*.\\|\n\s*\n\s*.\\|\%^','Wbe')<CR>i
-			nn <buffer> <silent> A :call search('\S\n\\|\s\n\s*\n\\|\%$','W')<CR>a
-		el| nn <buffer> <silent> I :call search('^\s*\n\s*\S\\!\%^','Wbec')<CR>i
-			nn <buffer> <silent> A :call search('\S\s*\n\s*\n\\|\%$','Wc')<CR>a
-		en
 	en
 endfun
 
@@ -770,8 +790,9 @@ if !exists('LOGDIC') | let LOGDIC=New('Log') |en
 if !exists('MRUF')
 	let MRUF={} | en
 call PruneHistory(60)
-if !exists('SWATCHES') | let SWATCHES={} |en
-if !exists('SCHEMES') | let SCHEMES={'lastscheme':{}} | en
+if !exists('SCHEMES') | let SCHEMES={'swatches':{},'current':{}} | en
+if !has_key(SCHEMES,'swatches')
+	let SCHEMES.swatches={} |en
 hi clear tabline
 if exists('opt_colorscheme') && has_key(SCHEMES,opt_colorscheme)
 	call CSLoad(SCHEMES[opt_colorscheme])
@@ -780,7 +801,7 @@ au BufLeave * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
 au BufWinEnter * call LoadLastPosition(expand('%')) 
 au BufWinEnter * call CheckFormatted()
 au VimLeavePre * call WriteVimState()
-se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch
+se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
 se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 se whichwrap+=b,s,h,l,<,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
