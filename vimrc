@@ -65,20 +65,20 @@ fun! AfterViminfo()
 		\|let g:FHIST=join(g:histL,"\n")
 endfun
 
-let EndQuote={'(':')','[':']','{':'}'}
-let QtCmd={(g:K_ESC):'','w':['b','ea'],'W':['B','Ea'],'s':['(',')ba'],'p':['{w','}bA']}
-fun! Quote()
-	let in=[nr2char(getchar())]
-	while !has_key(g:QtCmd,in[-1])
-		let in+=[nr2char(nr2char(getchar()))]
-	endwhile
-	if in[-1]!=g:K_ESC | let unit=remove(in,-1) | el|retu|en
-	let num=(len(in)>0 && in[-1]=~'[[:digit:]]') ? in[-1] : 1 
-	let quotes=len(in)>0 ? join(in,'') : "'"
-	echom 99 unit 0 num 0 quotes
-	exe 'norm! l'.g:QtCmd[unit][0].'i'.quotes."\<Esc>l".num.g:QtCmd[unit][1]
-	\.(has_key(g:EndQuote,quotes) ? g:EndQuote[quotes] : quotes)
-endf
+fun! Quote(mark)
+	norm! `< 
+	let l=getline(".")
+	if l=='' | exe 'norm! {}Wi'.a:mark
+	elseif l[col('.')-1]=~'[[:blank:]]' | exe 'norm! Wi'.a:mark
+	el | exe 'norm lbi'.a:mark | en
+	let l=getline(".") | let c=col('.')
+	exe (c!=col('$') ? 'norm! `>l' : 'norm! `>')
+	if l=='' | exe 'norm! {}BEa'.a:mark
+ 	elseif l[c-1]=~'[[:blank:]]' | exe 'norm! BEa'.a:mark
+	el | exe 'norm! bea'.a:mark | en
+endfun
+let QuoteCodes={97:"'",113:'"',115:'*',105:'/'}
+vn <silent> q :call Quote(QuoteCodes[getchar()])<CR>
 
 fun! Log(...)
 	let log=input(g:TLOG[:match(g:TLOG,'\n',0,6)]
@@ -101,17 +101,20 @@ fun! Log(...)
 	en
 endfun
 
-let QCD={108:'redr|call Log()',112:'call Paint()',101:'e<cWORD>',
-\110:'noh|ec""|redr',9:'ec""|redr',(g:N_ESC):'ec""|redr',
-\114:'exe"redi@t|sw|redi END"|exe"!rm ".substitute(@t[1:]," ","\\\\ ","g")',
-\104:'exe"norm! vawly"|exe "h ".(@"[-1:-1]=="("? @":@"[:-2])',
-\98:'let qcx=HistMenu()|exe (qcx=="" ? "" : "e ".qcx)',115:'redr|call Quote()',
-\42:'norm! ',
-\63:'redr|ec"[B]uffer [E]dit [H]elp [L]og [N]ohls [P]aint [Q]uote [R]m swp > "
-\|let qcx=getchar()|exe QCD[has_key(QCD,qcx)? qcx : 63]'}
-nn <silent> <Tab> :ec line('.').'.'.col('.').'/'.line('$').' - '
-\.(localtime()-TLOG[0:9])/60.strftime('/%H:%M/%d - ').expand('%:t').' > '
-\\|let qcx=getchar()\|exe QCD[has_key(QCD,qcx)? qcx : 63]<CR>
+let QCD={110:":noh\<CR>",9:"\<Esc>",(g:N_ESC):"\<Esc>",
+\114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=substitute(@t[1:],' ','\\\\ ','g')
+\\<CR>",112:":call Paint()\<CR>",108:":call Log()\<CR>",101:":e <cWORD>\<CR>",
+\104:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",
+\98:":let qcx=HistMenu()|exe qcx=='' ? '' : 'e '.qcx\<CR>",
+\42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
+\35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>"}
+fun! QCF(mess)
+	ec a:mess|let key=getchar()|return has_key(g:QCD,key)? g:QCD[key] : 
+	\QCF('[B]uffer [E]d [H]lp [L]og [N]ohls [P]aint [R]m swp [*]sub 
+	\[#]vsub > ')
+endfun!
+nn <expr> <Tab> QCF(line('.').'.'.col('.').'/'.line('$').' - '.
+\(localtime()-g:TLOG[0:9])/60.strftime('/%H:%M/%d - ').expand('%:t').' > ')
 
 let HLb=split('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ','\zs')
 let Asc2HLb=repeat([-1],256) | for i in range(len(HLb))
