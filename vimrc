@@ -286,20 +286,20 @@ fun! PrintList(list,i,cursor)
 	return (a:cursor==a:i? '>':' ').g:Pad[1:4-len(a:i)].a:i.' '
 	\.(type(a:list[a:i])==3? string(a:list[a:i]) : (a:list[a:i]))[:&columns-8]."\n"
 endfun
-fun! Pager(list,...)
-	let listD=a:0==0? {'Print':'PrintList'} : a:1
+fun! Pager(listD)
 	let g:cmdsave=&cmdheight
-	if has_key(listD,'cursor') && listD.cursor>=0 && listD.cursor<len(a:list)	
-		let cursor=listD.cursor	
-	el| let cursor=len(a:list)-1 | en
-	if has_key(listD,'offset')
-		if cursor<listD.offset
+	if has_key(a:listD,'cursor') && a:listD.cursor>=0 && a:listD.cursor<len(a:listD.L)	
+		let cursor=a:listD.cursor	
+	el| let cursor=len(a:listD.L)-1 | en
+	if has_key(a:listD,'offset')
+		if cursor<a:listD.offset
 			let offset=cursor
-		elseif cursor>listD.offset+g:PagerH-1
+		elseif cursor>a:listD.offset+g:PagerH-1
 			let offset=cursor-g:PagerH+1
-		el| let offset=listD.offset
+		el| let offset=a:listD.offset
 		endif
 	el| let offset=cursor-g:PagerH+1 | en
+	let PrintFunc=has_key(a:listD,'Print')?  (a:listD.Print):'PrintList'
 	exe "se ch=".(g:PagerH+1)
 	let ent=''
 	while ent!=g:N_ESC
@@ -307,47 +307,47 @@ fun! Pager(list,...)
 		for i in range(offset,offset+g:PagerH-1)
 			if i<0
 				let g:logmsg.="\n"
-			elseif i<len(a:list)
-				let g:logmsg.={listD.Print}(a:list,i,cursor)
-			elseif i>len(a:list)
+			elseif i<len(a:listD.L)
+				let g:logmsg.={PrintFunc}(a:listD.L,i,cursor)
+			elseif i>len(a:listD.L)
 				let g:logmsg.="\n" | en	
 		endfor
 		redr!|ec g:logmsg
 		let ent=getchar()
-		if has_key(listD,ent)
-			if listD[ent]!='' | let cursor={listD[ent]}(a:list,cursor) | en
+		if has_key(a:listD,ent)
+			if a:listD[ent]!='' | let cursor={a:listD[ent]}(a:listD.L,cursor) | en
 		else
 			if ent==120 "x
-				if len(a:list)>0 | call remove(a:list,cursor) | en
-				if cursor==len(a:list) | let cursor=len(a:list)-1 | en
+				if len(a:listD.L)>0 | call remove(a:listD.L,cursor) | en
+				if cursor==len(a:listD.L) | let cursor=len(a:listD.L)-1 | en
 			elseif ent==107 "k
 				if cursor>0 | let cursor-=1 | en
 			elseif ent==106 "j
-				if cursor<len(a:list)-1 | let cursor+=1 | en
+				if cursor<len(a:listD.L)-1 | let cursor+=1 | en
 			elseif ent==71 "G
-				let cursor=len(a:list)-1
+				let cursor=len(a:listD.L)-1
 			elseif ent==65 "A
-				let cursor=len(a:list)
-				let offset=len(a:list)-g:PagerH+1
-				redr!|let ent=input(g:logmsg.'CHG >',a:list[cursor])
-				let a:list[cursor]=ent
+				let cursor=len(a:listD.L)
+				let offset=len(a:listD.L)-g:PagerH+1
+				redr!|let ent=input(g:logmsg.'CHG >',a:listD.L[cursor])
+				let a:listD.L[cursor]=ent
 			elseif ent==113 "q
 				let ent=g:N_ESC
 			elseif ent==105 "i
 				redr!|let ent=input(g:logmsg.'INS >')
-				if len(a:list)==0
-					call insert(a:list,ent,cursor+1)
+				if len(a:listD.L)==0
+					call insert(a:listD.L,ent,cursor+1)
 					let cursor+=1
-				el| call insert(a:list,ent,cursor) |en
+				el| call insert(a:listD.L,ent,cursor) |en
 			elseif ent==97 "a
 				redr!|let ent=input(g:logmsg.'APP >')
-				call insert(a:list,ent,cursor+1)
+				call insert(a:listD.L,ent,cursor+1)
 				let cursor+=1
 			elseif ent==115 "s
-				redr!| exe 'let g:'.input(g:logmsg.'Save as: ').'=a:list'
+				redr!| exe 'let g:'.input(g:logmsg.'Save as: ').'=a:listD.L'
 			elseif ent==99 "c
-				redr!|let ent=input(g:logmsg.'CHG >',a:list[cursor])
-				let a:list[cursor]=ent
+				redr!|let ent=input(g:logmsg.'CHG >',a:listD.L[cursor])
+				let a:listD.L[cursor]=ent
 			en
 		en
 		if cursor<offset
@@ -356,10 +356,14 @@ fun! Pager(list,...)
 			let offset+=cursor-offset-g:PagerH+1
 		endif
 	endwhile
-	if has_key(listD,'cursor') | let listD.cursor=cursor |en
-	if has_key(listD,'offset') | let listD.offset=offset |en
+	if has_key(a:listD,'cursor') | let a:listD.cursor=cursor |en
+	if has_key(a:listD,'offset') | let a:listD.offset=offset |en
 	exe 'se ch='.g:cmdsave
 endfun "Builtin functions xkjGAqiasc
+
+fun! ListEditor(list)
+	call Pager({'L':(a:list)})
+endfun
 
 fun! PrintLogLine(list, i, cursor)
 	return ((a:cursor==a:i? '>':' ')
@@ -403,7 +407,7 @@ fun! LogGomrk(list, cursor)
 	return a:cursor
 endfun
 fun! Log()
-	call Pager(g:tlog,g:LogDic)
+	call Pager(g:LogDic)
 endfun
 
 fun! TMenu(cmd,...)
@@ -873,13 +877,10 @@ if !exists('do_once') | let do_once=1
 	el | syntax off | en
 	let tlog=exists('TLOG')? eval(TLOG) : []
 	let histL=exists('HISTL')? eval(HISTL) : []
-
-	if !exists('LOGDIC_SAV')
-		let LogDic={'save':111111,'L':[],'cursor':'','offset':'','65':'LogAppend','105':'LogInsert','115':'LogStill','103':'LogGomrk','Print':'PrintLogLine','98':'LogBkmrk','99':'LogChange','97':'LogAppend'}
-	else
-		let LogDic=eval(LOGDIC_SAV)
-	en
-
+    let LogDic=exists('LOGDIC_SAV')? eval(LOGDIC_SAV) : {'save':111111,
+	\'L':[],'cursor':'','offset':'','65':'LogAppend','105':'LogInsert',
+	\'115':'LogStill','103':'LogGomrk','Print':'PrintLogLine','98':'LogBkmrk',
+	\'99':'LogChange','97':'LogAppend'}
 	call InitHist()
 	call IniQuote("*")
 	nohl
