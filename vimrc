@@ -298,7 +298,14 @@ fun! Pager(list,...)
 		endfor
 		if logmode==0
 			if has_key(funcD,'_'.ent)
-				call {funcD['_'.ent]}(a:list,i,cursor)
+				let newcursor={funcD['_'.ent]}(a:list,cursor)
+				if newcursor<offset
+					let offset=newcursor
+				elseif newcursor>offset+g:PagerH-1
+					let offset+=newcursor-offset-g:PagerH+1
+				endif
+				let cursor=newcursor
+				let logmode=1
 			else
 				if ent==105 "i
 					redr!|let ent=input(g:logmsg.'INS >')
@@ -323,7 +330,7 @@ fun! Pager(list,...)
 		el| redr!|ec g:logmsg
 			let ent=getchar()
 			if has_key(funcD,ent)
-				call {funcD.ent}(a:list,i,cursor)
+				call {funcD.ent}(a:list,cursor)
 			else
 				if ent==120 "x
 					if len(a:list)>0 | call remove(a:list,cursor) | en
@@ -381,7 +388,7 @@ fun! Log()
 		endfor
 		if logmode==0
 			if offset==len(g:tlog)-g:PagerH+1
-				redr!|let ent=input(g:logmsg.'>'.PrintTime(localtime()-g:tlog[-1][0]))
+				redr!|let ent=input(g:logmsg.'>'.y)
 			else
 				redr!|let ent=input(g:logmsg.'Edit:',g:tlog[cursor][1]) | en
 			if ent[0:1]==?'S:'
@@ -451,14 +458,26 @@ fun! PrintLogLine(list, i, cursor)
 	\.PrintTime(a:list[a:i][0]-(a:i>0? a:list[a:i-1][0] : 0),
 	\a:list[a:i][0]).a:list[a:i][1])[0:&columns-2]."\n"
 endfun
-fun! LogChange(list,i,cursor)
-		
+fun! LogChange(list,cursor)
+	let a:list[a:cursor][1]=input(g:logmsg.'CHG >',a:list[a:cursor][1])
+	return a:cursor
 endfun
-let LogDic={'Print':'PrintLogLine',
-\'099':'LogChange','98':'LogBookmark','97':'LogAppend','115':'LogStill'}
-fun! Log2()
+fun! LogAppend(list,cursor)
+	call insert(a:list,[localtime(),input(g:logmsg.PrintTime(localtime()-a:list[-1][0]))],len(a:list))
+	return len(a:list)-1
+endfun
+fun! LogStill(list,cursor)
+	let a:list[len(a:list)-1]=[localtime(),input(g:logmsg.'STILL >',a:list[len(a:list)-1][1])]
+	return len(a:list)-1
+endfun
+let LogDic={'Print':'PrintLogLine','_99':'LogChange','_97':'LogAppend','_115':'LogStill'}
+fun! Log()
 	call Pager(g:tlog,g:LogDic)
 endfun
+
+"todo:
+"How do you lock functions? Merely having an empty function, right? good.
+"Bookmarks... easy
 
 fun! TMenu(cmd,...)
 	let ec=a:0==0? eval(a:cmd.msg) : a:cmd[a:1]
@@ -948,25 +967,19 @@ if !exists('do_once') | let do_once=1
 en
 
 "Pager
-	"remove logmenu
-	"2d arrays
-	"Undo
+	"eval() for multidim
+	"Undo (use global variables)
 	"Copy Paste
 	"Memory
-	"Readonly
 	"Increase/decrease height (+/-)
 	"Special functions
 		"merge with Log
-		"return values with position
-		"shopping list quick check!
+		"shopping list
 		"TOC
-		"On Noexist create a list (Command)
-		"User Menus
+		"User Menus ... recipe cabinet: doable, like vsp
 	"better help msg based on LogPager ('more')
-	"l\Log menus, for going straight to normal
-	"bookmark jumps maintain log?? or, remember place after jump?!
-	"Open files (eg, shopping) as list
-		"longer arrays in viminfo, daily? viminfo backups
+	"Read and write lists to file -- basically, own viminfo????
+	"2d arrays
 "palette, generalized color scheme, pastel palette though! 'relational' colors!
 	"complement, eg! balance customizability & uniformity
 	"Use higlight line and normal to change it for *most* cases
@@ -982,3 +995,4 @@ en
 "Set message for cmdnormal
 "Colorful echos
 "Centering, left, right justify
+"custom fonts for every *WORKING DIRECTORY* -- not stored in viminfo!!!
