@@ -562,7 +562,17 @@ fun! RemHist(file)
 	en
 endfun
 
-let invertD={(EscAsc):'',
+let g:opt_defaultch=1
+fun! JustEcho(str)
+	let &ch=max([len(a:str)/&columns+1,&ch]) 
+	redr!
+	ec a:str
+	"let &ch=g:opt_defaultch
+endfun!
+
+let invertD={'start':"call JustEcho('[b]ookmarks [h]lsearch [l]ist [n]umber [s]tatusl [S]pell [t]abl [v]irtualedit [W]riteroom')",
+\'default':"call JustEcho('Undefined command.')",
+\(EscAsc):' ',
 \119:'se invwrap',
 \104:'se invhls',
 \108:'se invlist',
@@ -571,14 +581,12 @@ let invertD={(EscAsc):'',
 \110:'se invnumber',
 \87:'if winwidth(0)==&columns | silent call Writeroom(exists(''g:OPT_WRITEROOMWIDTH'')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en',
 \98:'call ToggleBookmarks()',
+\118:'if empty(&ve) | se ve=all | el | se ve= | en',
 \83:'let &spell=!&spell'}
-fun! InvertSetting()
-	redr!|ec '[b]ookmarks [h]lsearch [l]ist [n]umber [s]tatusl [S]pell [t]abl [W]riteroom'
-		let choice=get(g:invertD,getchar(),'')
-	while empty(choice)
-		let choice=get(g:invertD,getchar(),'')
-	endwhile
-	exe choice
+fun! Menu()
+	exe g:invertD.start
+	exe get(g:invertD,getchar(),g:invertD.default)
+	let &ch=g:chsave
 endfun
 
 fun! TMenu(cmd)
@@ -829,7 +837,7 @@ let normD=extend(normD,{
 \80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
 \107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invhl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
 \101:":call EdMRU()\<cr>",
-\116:":call InvertSetting()\<cr>",
+\9:":call Menu(g:invertD)\<cr>",
 \49:":tabn1\<cr>",
 \50:":tabn2\<cr>",
 \51:":tabn3\<cr>",
@@ -851,7 +859,7 @@ let normD=extend(normD,{
 \88:"vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>" })
 
 let insD={(EscAsc):"\<c-o>\<esc>",(opt_TmenuAsc):opt_TmenuKey}
-let insD=extend(insD,{105:":call InvertSetting()\<cr>",
+let insD=extend(insD,{9:":call Menu(g:invertD)\<cr>",
 \97:"\<c-o>:call SoftCapsLock()\<cr>",
 \103:"\<c-r>=getchar()\<cr>",
 \113:"\<c-o>\<esc>",111:"\<c-r>=input('`o','','customlist,CmpMRU')\<cr>",
