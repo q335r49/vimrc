@@ -2,12 +2,20 @@ fun! Nexe()
 	let range=getline(line("'<"),line("'>"))
 	let commented=1 | for line in range
 		if line!~'^\s*"' | let commented=0 | break | en | endfor
+	for i in range(len(range))
+		if range[i]=~'^\s\\'
+			if i>0
+				let range[i-1].=range[i][stridx(range[i],'\')+1:]
+				let range[i]=''
+			en	
+		en
+	endfor
 	if commented
 		for line in range
-			exe 'norm! :'.Ec(substitute(line,'^\s*"','',''),200)
+			exe Ec(substitute(line,'^\s*"','',''),500)
 		endfor
 	el| for line in range
-			exe 'norm! :'.Ec(line,200)
+			exe Ec(line,200)
 		endfor|en
 endfun
 
@@ -353,8 +361,6 @@ fun! Pager(list,...)
 	exe 'se ch='.g:cmdsave
 endfun "Builtin functions xkjGAqiasc
 
-let LogDic={'cursor':'','offset':'','65':'LogAppend','105':'LogInsert','115':'LogStill','103':'LogGomrk',
-\'Print':'PrintLogLine','98':'LogBkmrk','99':'LogChange','97':'LogAppend'}
 fun! PrintLogLine(list, i, cursor)
 	return ((a:cursor==a:i? '>':' ')
 	\.PrintTime(a:list[a:i][0]-(a:i>0? a:list[a:i-1][0] : 0),
@@ -413,7 +419,6 @@ endfun!
 nno <expr> ` TMenu(g:normD)
 ino <expr> ` TMenu(g:insD)
 vno <expr> ` TMenu(g:visD)
-cno <expr> ` eval('TMenu('.g:cmdMode.')')
 
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
 cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
@@ -710,8 +715,9 @@ fun! OnRelease() " Must move before release
 endfun
 
 fun! Write_Viminfo()
-	let g:TLOG=join(map(g:tlog,'v:val[0]."|".v:val[1]'),"\n")
-	let g:HISTL=join(map(g:histL,'join(v:val,"$")'),"\n")
+	let g:TLOG=string(g:tlog)
+	let g:HISTL=string(g:histL)
+	let g:LOGDIC_SAV=string(g:LogDic)
 	if has("gui_running")
 		let g:S_GUIFONT=&guifont
 		let g:WINPOS='se co='.&co.' lines='.&lines.
@@ -790,16 +796,6 @@ fun! SetOpt(...)
 	let g:visD={(g:N_ESC):"",103:"y:call GetVar(@\")\<CR>",
 \120:"y:@\"\<CR>",99:"y:\<C-R>\"",'help':'[g]etvar e[x]e 2[c]md:',
 \'msg':"expand('%:t').' '.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])"}
-	let g:cmdD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):" \<BS>",96:" \<BS>`",
-\115:"\<C-R>=eval(join(repeat([HistMenu()],2),'==-1 ? \"\" : 
-\escape(split(histL[').'],\"\\\\\\$\")[0],\" \")')\<CR>",
-\102:"\<C-R>=escape(expand('%'),' ')\<CR>",
-\108:"\<C-R>=matchstr(getline('.'),'[[:graph:]].*[[:graph:]]')\<CR>",
-\113:" \<BS>",
-\119:"\<C-R>=expand('<cword>')\<CR>",87:"\<C-R>=expand('<cWORD>')\<CR>",
-\'help':'[f]ilename [g]etchar [l]ine l[s] [wW]ord:',
-\'msg':"expand('%:t').' '.line('.').'.'.col('.').'/'.line('$').' '
-\.PrintTime(localtime()-g:tlog[-1][0])"}
 endfun
 fun! WelcomeMsg()
 	if has('win16') || has('win32') || has('win64') | let os='WIN'
@@ -866,7 +862,6 @@ if !exists('do_once') | let do_once=1
 	hi StatusLine cterm=underline ctermfg=244 ctermbg=236
 	hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
 	hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
-	let cmdMode='cmdD'
 	if has("gui_running")
 		colorscheme slate
 		if exists("WINPOS") | exe WINPOS | en
@@ -876,15 +871,21 @@ if !exists('do_once') | let do_once=1
 			let S_GUIFONT='Envy_Code_R:h10' 
 		el| exe 'se guifont='.S_GUIFONT | en
 	el | syntax off | en
-	if !exists('TLOG') | let tlog=[[localtime(),'0000']]
-	el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
-	if !exists("HISTL") | let g:HISTL="" | en
-	let g:histL=map(split(g:HISTL,"\n"),'split((v:val),"\\$")')
+	let tlog=exists('TLOG')? eval(TLOG) : []
+	let histL=exists('HISTL')? eval(HISTL) : []
+
+	if !exists('LOGDIC_SAV')
+		let LogDic={'save':111111,'L':[],'cursor':'','offset':'','65':'LogAppend','105':'LogInsert','115':'LogStill','103':'LogGomrk','Print':'PrintLogLine','98':'LogBkmrk','99':'LogChange','97':'LogAppend'}
+	else
+		let LogDic=eval(LOGDIC_SAV)
+	en
+
 	call InitHist()
 	call IniQuote("*")
 	nohl
 en
 
+"Nexe & continuation
 "Pager
 	"shopping list
 	"eval() for multidim
