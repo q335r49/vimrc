@@ -1,6 +1,23 @@
 se nocompatible
 redir => g:StartupErr
 
+let opt_DimInactiveWin=0
+hi Inactive ctermfg=235
+fun! ToggleDimInactiveWin()
+	if g:opt_DimInactiveWin
+		autocmd! DimWindows
+		windo syntax clear Inactive
+	else
+		windo syntax region Inactive start='^' end='$'
+		syntax clear Inactive
+		augroup DimWindows
+			autocmd BufEnter * syntax clear Inactive
+			autocmd BufLeave * syntax region Inactive start='^' end='$'
+		augroup end
+	en
+	let g:opt_DimInactiveWin=!g:opt_DimInactiveWin
+endfun
+
 fun! InsHist(name,lnum,cnum,w0)
 	if !empty(a:name) && a:name!~escape($VIMRUNTIME,'\') && !isdirectory(a:name)
 		let g:MRUF[a:name]=[a:lnum,a:cnum,a:w0,localtime()]
@@ -37,7 +54,7 @@ en
 
 nno <space> <c-e>
 nno <backspace> <c-y>
-nno <c-i> <c-y>
+nno <f1> <c-y>
 
 let opt_autocap=0
 if !exists('opt_device')
@@ -63,7 +80,7 @@ if opt_device=~?'cygwin'
 en
 if opt_device=~?'notepad'
 	se noswapfile
-	nno <c-s> :wa<cr>			
+	nno <c-s> :wa<cr>
 	nno <c-w> :wqa<cr>
 	nno <c-v> "*p
 	nno <c-q> <c-v> 
@@ -370,7 +387,7 @@ let CSgrp='Normal'
 fun! CSLoad(...)
 	if a:0!=0
 		for k in keys(a:1)
-			exe 'hi '.k.' ctermfg='.a:cs[k][0].' ctermbg='.a:1[k][1]
+			exe 'hi '.k.' ctermfg='.a:1[k][0].' ctermbg='.a:1[k][1]
 		endfor
 		let g:SCHEMES.current=deepcopy(a:1)
 	el
@@ -423,21 +440,23 @@ fun! CSChooser(...)
 	endwhile
 endfun
 
-fun! WriteVars(...)
+fun! WriteVars()
 	sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
-	let list=[]
+	let i=0
 	for name in split(v)  
 		if name[2:]==#toupper(name[2:])	
 			let type=eval("type(".name.")")
 			if type>1
-				call add(list,substitute("let ".name."=".eval("string(".name.")"),"\n",'''."\\n".''',"g"))
+				let g:VARSAV_{i}=substitute("let ".name."=".eval("string(".name.")"),"\n",'''."\\n".''',"g")
+				let i+=1
 				if type==4 && eval("has_key(".name.",'reinit')")
-					call add(list,"call ".name.".reinit()")
+					let g:VARSAV_{i}="call ".name.".reinit()"
+					let i+=1
 				en
 			en
 		en
 	endfor
-	return map(copy(a:000),'writefile(list,escape(v:val," "))')
+	let g:VARSAVES=i
 endfun
 
 let g:DoWk='SMTWRFA'
@@ -597,29 +616,18 @@ fun! CheckFormatted()
 endfun
 
 fun! WriteVimState()
+	exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
 	echoh ErrorMsg
-	if g:StartupErr=~?'error' && input("Startup errors were encountered! "
-	\.g:StartupErr."\nSave settings anyways?")!~?'^y'
+	if g:StartupErr=~?'error' && input("Startup errors were encountered! ".g:StartupErr."\nSave settings anyways?")!~?'^y'
 		retu|en
-	if g:opt_device=~?'cygwin'
-		exe 'cd '.g:Cyg_Working_Dir
-	el
-		exe 'cd '.g:Working_Dir 
-	en
-	if filereadable('vars'.strftime("%y%m%d"))
-		call WriteVars('vars')
-	el
-		call WriteVars('vars','vars'.strftime("%y%m%d"))
-	en
+	exe 'cd '.(g:opt_device=~?'cygwin'? g:Cyg_Working_Dir : g:Working_Dir)
+	call WriteVars()
 	if has("gui_running")
 		let g:S_GUIFONT=&guifont |en
 	"curdir is necessary to retain relative path
 	se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
-	if argc()
-		argd *
-	el
-		mksession! .lastsession
-	en
+	if argc() | argd *
+	el | mksession! .lastsession | en
 	if exists('g:RemoveBeforeWriteViminfo')
 		sil exe '!rm '.g:Viminfo_File |en
 endfun
@@ -629,7 +637,7 @@ if !firstrun
 if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
 	cal Ec('Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME)
 	let Working_Dir=$HOME |en
-for file in ['abbrev','pager','vars']
+for file in ['abbrev','pager']
 	if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
 	el| call Ec('Error: '.Working_Dir.'/'.file.' unreadable')|en
 endfor
@@ -640,10 +648,18 @@ if !argc() && isdirectory(Working_Dir)
 		exe 'cd '.Working_Dir
 	en
 en
-se viminfo=!,'120,<100,s10,/50,:500,h
+exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
 if !exists('g:Viminfo_File')
 	cal Ec("Error: g:Viminfo_File undefined, falling back to default")
-el| exe "se viminfo+=n".g:Viminfo_File |en
+	rv
+el
+	exe "rv ".g:Viminfo_File
+en
+if exists("g:VARSAVES")
+	for i in range(g:VARSAVES)
+		exe VARSAV_{i}
+	endfor
+en
 if has("gui_running")
 	colorscheme slate
 	hi ColorColumn guibg=#222222 
@@ -692,31 +708,24 @@ if !argc() && filereadable('.lastsession')
 	so .lastsession
 en
 
-let invertD={'msg':"call JustEcho((exists('b:bookmarks_shown')? '+' : ''). '[b]ookmarks '.(exists('b:opt_scrollbar')? '+':'').'Scroll[B]ar '.(&hls? '+':'').'[h]lsearch '.(&list? '+':'').'[l]ist '.(&number? '+':'').'[n]umber '.(&ls!=0? '+':'').'[s]tatusl '.(&spell? '+':'').'[S]pell '.(&stal? '+':'').'[t]abl '.(!empty(&ve)? '+':'').'[v]irtualedit '.(&wrap? '+':'').'[w]rap '.(winwidth(0)!=&columns? '+':'').'[W]riteroom')",
-\'default':"call JustEcho('Undefined command.')",
-\119:'se invwrap',
-\104:'se invhls',
-\108:'se invlist',
-\116:'let &showtabline=!&showtabline',
-\115:'let &ls=&ls>1? 0:2',
-\110:'se invnumber',
-\87:'if winwidth(0)==&columns | silent call Writeroom(exists(''g:OPT_WRITEROOMWIDTH'')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en',
-\118:'if empty(&ve) | se ve=all | el | se ve= | en',
-\83:'se invspell'}
-if has('signs')
-	let invertD[66]='call ToggleScrollbar()'
-	let invertD[99]='call ToggleBookmarks()'
-en
-
-let normD={'default':":ec '[123]tabs [c]olor [e]dit(^R^L^T^B) [g]ethelp [k]center [l]og [o]:punchin [r]mswp [m]sg [s]till [X]ecPara [z]:wa [*#]:sub'\<cr>",
+let normD={68:":call ToggleDimInactiveWin()\<cr>",
+\87:":if winwidth(0)==&columns | silent call Writeroom(exists(''g:OPT_WRITEROOMWIDTH'')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en\<cr>",
+\83:":se invspell\<cr>",
+\116:":let &showtabline=!&showtabline\<cr>",
+\118:":if empty(&ve) | se ve=all | el | se ve= | en\<cr>",
+\108:":se invlist\<cr>",
+\115:":let &ls=&ls>1? 0:2\<cr>",
+\119:":se invwrap\<cr>",
 \122:":wa\<cr>",32:":call TODO.show()\<cr>",
-\82:"R",99:":call CSChooser()\<cr>",
-\114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
-\80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
-\107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invhl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
-\101:":call EdMRU()\<cr>",
+\99:":call CSChooser()\<cr>",
+\82:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
+\71:":cal g:LOGDIC.show()\<cr>",
+\107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invhl\<cr>",
+\104:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
+\103:":echo nr2char(expand('<cword>'))\<cr>",
 \72:":call New('RecentFiles').show()\<cr>",
-\9:":exe TMenu(g:invertD)\<cr>",
+\110:":noh\<cr>",
+\78:":se invnumber\<cr>",
 \49:":tabn1\<cr>",
 \50:":tabn2\<cr>",
 \51:":tabn3\<cr>",
@@ -728,18 +737,38 @@ let normD={'default':":ec '[123]tabs [c]olor [e]dit(^R^L^T^B) [g]ethelp [k]cente
 \57:":tabn9\<cr>",
 \"\<f1>":":tabp\<cr>",
 \"\<f2>":":tabn\<cr>",
-\42:":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>
-\\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
+\42:":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \35:":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>",
 \'msg':"call JustEcho(PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).line('.').'/'.line('$').' '.g:LOGDIC.L[-1][1])",
 \111:":call LOGDIC.111(1)\<cr>",
-\115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>",
-\88:"vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>"}
+\120:"vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>"}
 let normD[EscAsc]="\<esc>"
 let normD[opt_TmenuAsc]=opt_TmenuKey
+if has('signs')
+	let normD[66]=":call ToggleScrollbar()\<cr>"
+	let normD[67]=":call ToggleBookmarks()\<cr>"
+en
+let normD.default=":ec normD.helpstring\<cr>"
+let normD.helpstring="\n
+\                          <".opt_TmenuKey."> Commands\n
+\                       ------------------\n
+\ 1..9 Switch Tabs                     \ *,#  substitute <cword>\n
+\ B    toggle scrollbar                \ o    punch in timelog\n
+\ c    customize colors                \ R    !rm *.swp for this file\n
+\ C    toggle bookmarks                \ S    toggle spelling\n
+\ D    dim inactive windows            \ s    toggle statusline\n
+\ g    ascii to char                   \ t    toggle tabline\n
+\ h    help <cword>                    \ v    toggle virtual edit\n
+\ l    toggle hidden chars             \ w    toggle wrap\n
+\ L    toggle timelog                  \ W    toggle Writeroom\n
+\ n    turn off hl search              \ x    source paragraph\n
+\ N    toggle linenumbers              \ z    :wa\n"
+if opt_device=~?'droid4'
+	let normD[114]="R"
+	let normD.helpstring.="\n".opt_device." specific:\nR    Replace mode\n"
+en
 
-let insD={9:"\<c-o>:exe TMenu(g:invertD)\<cr>",
-\'default':"\<c-o>:ec '123:buff f/ilename g/etchar k:center w/indow:'\<cr>",
+let insD={'default':"\<c-o>:ec '123:buff f/ilename g/etchar k:center w/indow:'\<cr>",
 \97:"\<c-o>:call SoftCapsLock()\<cr>",
 \103:"\<c-r>=getchar()\<cr>",
 \113:"\<c-o>\<esc>",
