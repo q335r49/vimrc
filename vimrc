@@ -1,5 +1,8 @@
 redir => g:StartupErr
 
+nno j gj
+nno k gk
+
 com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
 
 fun! QSel(list,msg)
@@ -46,32 +49,6 @@ endfun
 fun! CompleteSwatches(Arglead,CmdLine,CurPos)
 	return filter(keys(g:SWATCHES),'v:val=~a:Arglead')
 endfun
-let CSChooserD={
-\113:"let continue=0 | if has_key(g:CURCS,g:CSgrp) | exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0]).' ctermbg='.(g:CURCS[g:CSgrp][1]) |en",
-\(g:EscAsc):"let continue=0 | if has_key(g:CURCS,g:CSgrp) | exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0]).' ctermbg='.(g:CURCS[g:CSgrp][1]) |en",
-\10:"let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg|let g:CURCS[g:CSgrp]=[fg,bg]",
-\13:"let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg|let g:CURCS[g:CSgrp]=[fg,bg]",
-\104:'if fg>0 | let fg-=1 | let g:CShix+=1 | en',
-\108:'if fg<255 | let fg+=1 | let g:CShix+=1 | en',
-\98:'let g:CShix+=1 | let g:SwchIx=g:SwchIx>0? g:SwchIx-1 : len(swatchlist)-1 |
-\let [fg,bg]=g:SWATCHES[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]',
-\102:'let g:CShix+=1 | let g:SwchIx=g:SwchIx<len(swatchlist)-1? g:SwchIx+1 : 0 |
-\let [fg,bg]=g:SWATCHES[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]',
-\106:'if bg>0 | let bg-=1 | let g:CShix+=1 | en',
-\107:'if bg<255 | let bg+=1 | let g:CShix+=1 | en',
-\112:'if g:CShix > 0 | let g:CShix-=1 | let [fg,bg]=g:CShst[g:CShix] | en',
-\110:'if g:CShix<len(g:CShst)-1 | let g:CShix+=1 | let [fg,bg]=g:CShst[g:CShix] | en',
-\42:'let g:CShix+=1 | let [fg,bg]=[reltime()[1]%256,reltime()[1]%256]',
-\114:'let g:CShix+=1 | let fg=reltime()[1]%256 | en',
-\82:'let g:CShix+=1 | let bg=reltime()[1]%256',
-\105:'let [fg,bg]=[bg,fg]',
-\103:'let [in,cmd]=QSel(hi,"Group: ")|if in!=-1 && cmd!=g:EscAsc|
-\if has_key(g:CURCS,hi[in]) | let [fg,bg]=g:CURCS[hi[in]]|en|
-\if has_key(g:CURCS,g:CSgrp) | 
-\exe "hi ".g:CSgrp." ctermfg=".(g:CURCS[g:CSgrp][0])." ctermbg=".(g:CURCS[g:CSgrp][1])
-\| en | let g:CSgrp=hi[in] | let msg=g:CSgrp | en',
-\115:'let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
-\if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en'}
 fun! CSChooser(...)
 	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
 	if a:0==0
@@ -123,7 +100,7 @@ fun! CenterLine()
 	en
 endfun
 
-fun! WriteVars(filename)
+fun! WriteVars(file)
 	sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
 	let list=[]
 	for name in split(v)  
@@ -138,7 +115,7 @@ fun! WriteVars(filename)
 			en
 		en
 	endfor
-	call writefile(list,a:filename)
+	ec "\n".a:file.(writefile(list,a:file)? " write failed!\n" : " written")
 endfun
 
 fun! PrintTime(s,...) "%e crashes Windows!
@@ -196,18 +173,29 @@ fun! Ec(...)
 endfun
 
 fun! EdMRU()
-	let [sel,cmd]=QSel(g:MRUF,'`o ')
-	if sel!=-1 && cmd!=g:EscAsc
+	let [sel,cmd]=QSel(g:MRUF,'Open: ')
+	if sel==-1 || cmd==g:EscAsc | retu|en
+	if cmd==22 "<c-v>
+		let ro=1
+		ec 'Read Only, split which direction? (CR,^L,^R,^T,^B)'
+		let cmd=getchar()
+	el| let ro=0 |en
+	while 1
 		if cmd==18 "<c-r>
-			exe 'botright vsp '.g:MRUF[sel]
+			exe 'botright vertical '.(ro? 'sv ':'sp ').escape(g:MRUF[sel],' ')
 		elseif cmd==12 "<c-l>
-			exe 'topleft vsp '.g:MRUF[sel]
+			exe 'topleft vertical '.(ro? 'sv ':'sp ').escape(g:MRUF[sel],' ')
 		elseif cmd==20 "<c-t>
-			exe 'topleft sp '.g:MRUF[sel]
+			exe 'topleft '.(ro? 'sv ':'sp ').escape(g:MRUF[sel],' ')
 		elseif cmd==2 "<c-b>
-			exe 'botright sp '.g:MRUF[sel]
-		el| exe 'e '.g:MRUF[sel] |en
-	en
+			exe 'botright '.(ro? 'sv ':'sp ').escape(g:MRUF[sel],' ')
+		elseif cmd==10 || cmd==13
+			exe (ro? 'view ':'e ').escape(g:MRUF[sel],' ')
+		el| ec '^L:vspleft ^R:vspright ^T:sptop ^B:spbot ^V:readonly CR:edit'
+			let cmd=getchar()
+			continue | en
+		return
+	endwhile
 endfun
 
 fun! GetLbl(file)
@@ -228,36 +216,6 @@ fun! RemHist(file)
 	cal remove(g:MRUF,i)
 	cal remove(g:MRUL,i)
 endfun
-
-fun! OnNewBuf()
-	if !g:FmtNew | retu|en
-	call setline(1,localtime()." vim: set nowrap ts=4 tw=78 fo=aw: "
-	\.strftime('%H:%M %m/%d/%y'))
-	setlocal nowrap ts=4 tw=78 fo=aw
-	call CheckFormatted()
-endfun
-fun! CheckFormatted()
-	if &wrap
-		nno j gj
-		nno k gk
-	en
-	if getline(1)!~'fo=aw' | retu|en
-	setl noai
-	call InitCap()
-	iab <buffer> i I
-	iab <buffer> Id I'd
-	iab <buffer> id I'd
-	iab <buffer> im I'm
-	iab <buffer> Im I'm
-	nn <buffer> <silent> { :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
-	nn <buffer> <silent> } :if !search('\S\n\\|\s\n\s*\n','W')\|exe'norm!G$'\|en<CR>
-	nm <buffer> A }a
-	nm <buffer> I {i
-	nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
-	nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
-	redr|ec 'Formatting Options Loaded:' expand('%')
-endfun
-nn gf :e <cWORD><cr>
 
 fun! TMenu(cmd,...)
 	let ec=a:0==0? eval(a:cmd.msg) : a:cmd[a:1]
@@ -296,39 +254,80 @@ fun! CapWait(prev)
 endfun
 fun! CapHere()
 	let trunc = getline(".")[:col(".")-2] 
-	return col(".")==1 ? CapWait("\r")
+	return col(".")==1 ? (g:AUTOCAPNL ? CapWait("\r") : "\<del>")
 	\ : trunc=~'[?!.]\s*$\|^\s*$' ? CapWait(trunc[-1:-1]) : "\<del>"
 endfun
-fun! InitCap()
-	ino <buffer> <silent> <F6> _<ESC>mt:call search("'",'b')<CR>x`ts
+fun! InitCap(capnl)
+	ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
+	if a:capnl==1
+		nm <buffer> <silent> O O_<Left><C-R>=CapWait("\r")<CR>
+		nm <buffer> <silent> o o_<Left><C-R>=CapWait("\r")<CR>
+		nm <buffer> <silent> cc cc_<Left><C-R>=CapHere()<CR>
+		nm <buffer> <silent> I I_<Left><C-R>=CapHere()<CR>
+		im <buffer> <silent> <CR> <CR>_<Left><C-R>=CapWait("\r")<CR>
+		im <buffer> <silent> <NL> <NL>_<Left><C-R>=CapWait("\n")<CR>
+	en
 	im <buffer> <silent> . ._<Left><C-R>=CapWait('.')<CR>
 	im <buffer> <silent> ? ?_<Left><C-R>=CapWait('?')<CR>
 	im <buffer> <silent> ! !_<Left><C-R>=CapWait('!')<CR>
-	im <buffer> <silent> <CR> <CR>_<Left><C-R>=CapWait("\r")<CR>
-	im <buffer> <silent> <NL> <NL>_<Left><C-R>=CapWait("\n")<CR>
-	nm <buffer> <silent> O O_<Left><C-R>=CapWait("\r")<CR>
-	nm <buffer> <silent> o o_<Left><C-R>=CapWait("\r")<CR>
 	nm <buffer> <silent> a a_<Left><C-R>=CapHere()<CR>
 	nm <buffer> <silent> A $a_<Left><C-R>=CapHere()<CR>
 	nm <buffer> <silent> i i_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> I I_<Left><C-R>=CapHere()<CR>
 	nm <buffer> <silent> s s_<Left><C-R>=CapHere()<CR>
-	nm <buffer> <silent> cc cc_<Left><C-R>=CapHere()<CR>
 	nm <buffer> <silent> cw cw_<Left><C-R>=CapHere()<CR>
 	nm <buffer> <silent> R R_<Left><C-R>=CapHere()<CR>
 	nm <buffer> <silent> C C_<Left><C-R>=CapHere()<CR>
 endfun
+
+fun! CheckFormatted()
+	let modeline=getline(1)
+	if modeline=~?'prose'
+		setl noai
+		call InitCap(modeline=~#'Prose')
+		iab <buffer> i I
+		iab <buffer> Id I'd
+		iab <buffer> id I'd
+		iab <buffer> im I'm
+		iab <buffer> Im I'm
+	en
+	if modeline=~'fo=aw'
+		nn <buffer> <silent> { :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
+		nn <buffer> <silent> } :if !search('\S\n\\|\s\n\s*\n','W')\|exe'norm!G$'\|en<CR>
+		nm <buffer> A }a
+		nm <buffer> I {i
+		nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
+		nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
+	en
+endfun
+nn gf :e <cWORD><cr>
 
 fun! WriteVimState()
 	echoh ErrorMsg
 	if g:StartupErr=~?'error' && input("Startup errors were encountered! "
 	\.g:StartupErr."\nSave settings anyways?")!~?'^y'
 		retu|en
+	if !exists('g:LASTBACKUPDATE') || localtime()-g:LASTBACKUPDATE>86400
+		while 1
+			ec "Backup variables (y/n)?"
+			let sel=getchar()
+			if sel==110 || sel==78
+				let g:LASTBACKUPDATE=localtime()
+				break
+			elseif sel==121 || sel==89
+				let g:BACKUPNR=exists('g:BACKUPNR')? g:BACKUPNR+1 : 0
+				call WriteVars('varsave'.(g:BACKUPNR%5))		
+				sleep 500m
+				let g:LASTBACKUPDATE=localtime()
+				break
+			en
+		endwhile
+	en
 	call WriteVars('saveD')
 	if has("gui_running")
 		let g:S_GUIFONT=&guifont |en
-	se sessionoptions=winpos,resize,winsize,tabpages,folds
-	mksession! lastsession
+	"curdir is necessary to retain relative path
+	se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
+	mksession! .lastsession
 	se viminfo=!,'20,<1000,s10,/50,:150
 	if !exists("g:Viminfo_File") | wviminfo
 	el| if exists('g:RemoveBeforeWriteViminfo')
@@ -353,11 +352,8 @@ for file in sources
 	if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
 	el| call Ec('Error: '.Working_Dir.'/'.file.' unreadable')|en
 endfor
-if !argc()
-	let g:FmtNew=1
-	if isdirectory(Working_Dir)
-		exe 'cd '.Working_Dir |en
-el| let g:FmtNew=0 |en
+if !argc() && isdirectory(Working_Dir)
+	exe 'cd '.Working_Dir |en
 se viminfo=!,'20,<1000,s10,/50,:150
 if !exists('Viminfo_File')
 	cal Ec("Error: g:Viminfo_File undefined, falling back to default")
@@ -381,24 +377,24 @@ if !exists('MRUF')
 	let MRUF=[]
 	let MRUL=[] |en
 if len(MRUF)>60
-	let MRUF=MRUF(:40)
-	let MRUL=MRUL(:40) |en
+	let MRUF=MRUF[:40]
+	let MRUL=MRUL[:40] |en
 let NoMRUsav=0
 if !exists('CURCS') | let CURCS={} | el | call CSLoad(CURCS) |en
 if !exists('SWATCHES') | let SWATCHES={} |en
 au BufWinEnter * call RemHist(expand('<afile>'))
 au BufRead * call CheckFormatted()
-au BufNewFile * call OnNewBuf()
 au BufWinLeave * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
 au VimLeavePre * call WriteVimState()
 se noshowmode wrap linebreak sidescroll=1 ignorecase smartcase incsearch
 se ai tabstop=4 history=150 mouse=a ttymouse=xterm2 hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
-se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:< showbreak=..
+se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:< showbreak=\|
 se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-LastTime)}
+se fcs=vert:\ ,fold:\ 
 nohl
 redir END
-if !argc() && filereadable('lastsession') | so lastsession | en
+if !argc() && filereadable('.lastsession') | so .lastsession | en
 
 let normD={110:":noh\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
 \99:":call CSChooser()\<cr>",9:":call TODO.show()\<cr>",
@@ -407,8 +403,8 @@ let normD={110:":noh\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
 \67:":call CenterLine()\<cr>",119:"\<c-w>\<c-w>",
 \103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
 \111:":call EdMRU()\<cr>",
-\49:":exe 'e '.g:MRUF[0]\<cr>",50:":exe 'e '.g:MRUF[1]\<cr>",
-\113:"\<esc>",51:":exe 'e '.g:MRUF[2]\<cr>",
+\49:":exe 'e '.escape(g:MRUF[0],' ')\<cr>",50:":exe 'e '.escape(g:MRUF[1],' ')\<cr>",
+\113:"\<esc>",51:":exe 'e '.escape(g:MRUF[2],' ')\<cr>",
 \112:"i\<c-r>=eval(input('Put: ','','var'))\<cr>",109:":mes\<cr>",
 \42:":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
@@ -419,7 +415,7 @@ let normD={110:":noh\<cr>",(g:EscAsc):"\<esc>",96:'`',122:":wa\<cr>",
 \.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
 
 let insD={103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",96:'`',
-\113:"\<c-o>\<esc>",111:"\<c-r>=input('Open recent:','','customlist,CmpMRU')\<cr>",
+\113:"\<c-o>\<esc>",111:"\<c-r>=input('`o','','customlist,CmpMRU')\<cr>",
 \49:"\<esc>:exe 'e '.g:MRUF[0]\<cr>",50:"\<esc>:exe 'e '.g:MRUF[1]\<cr>",
 \51:"\<esc>:exe 'e '.g:MRUF[2]\<cr>",110:"\<c-o>:noh\<cr>",
 \102:"\<c-r>=escape(expand('%'),' ')\<cr>",119:"\<c-o>\<c-w>\<c-w>",
@@ -427,7 +423,7 @@ let insD={103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",96:'`',
 \'msg':"expand('%:t').' '.join(map(g:MRUF[:2],'GetLbl(v:val)'),' ').' '
 \.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
 
-let g:visD={(g:EscAsc):"",42:"y:,$s/\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
+let g:visD={(g:EscAsc):"",42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \120:"y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",99:"y:\<c-r>\"",
 \'help':'*:sub g/ofile x/ec c/opy2cmd:',
@@ -435,5 +431,32 @@ let g:visD={(g:EscAsc):"",42:"y:,$s/\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
 \'msg':"expand('%:t').' '.line('.').'.'.col('.')
 \.'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
 
-
-
+let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
+\|exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0]).' ctermbg='.(g:CURCS[g:CSgrp][1]) |en",
+\(g:EscAsc):"let continue=0 | if has_key(g:CURCS,g:CSgrp)
+\|exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0]).' ctermbg='.(g:CURCS[g:CSgrp][1]) |en",
+\10: "let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
+\|let g:CURCS[g:CSgrp]=[fg,bg]",
+\13: "let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
+\|let g:CURCS[g:CSgrp]=[fg,bg]",
+\104:'let [fg,g:CShix]=fg>0?   [fg-1,g:CShix+1] : [fg,g:CShix]',
+\108:'let [fg,g:CShix]=fg<255? [fg+1,g:CShix+1] : [fg,g:CShix]',
+\106:'let [bg,g:CShix]=bg>0?   [bg-1,g:CShix+1] : [bg,g:CShix]',
+\107:'let [bg,g:CShix]=bg<255? [bg+1,g:CShix+1] : [bg,g:CShix]',
+\98: 'let g:CShix+=1 | let g:SwchIx=g:SwchIx>0? g:SwchIx-1 : len(swatchlist)-1 |
+\let [fg,bg]=g:SWATCHES[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]',
+\102:'let g:CShix+=1 | let g:SwchIx=g:SwchIx<len(swatchlist)-1? g:SwchIx+1 : 0 |
+\let [fg,bg]=g:SWATCHES[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]',
+\112:'if g:CShix > 0 | let g:CShix-=1 | let [fg,bg]=g:CShst[g:CShix] | en',
+\110:'if g:CShix<len(g:CShst)-1|let g:CShix+=1|let [fg,bg]=g:CShst[g:CShix]|en',
+\42: 'let [fg,bg,g:CShix]=[reltime()[1]%256,reltime()[1]%256,g:CShix+1]',
+\114:'let [fg,g:CShix]=[reltime()[1]%256,g:CShix+1]',
+\82: 'let [bg,g:CShix]=[reltime()[1]%256,g:CShix+1]',
+\105:'let [fg,bg]=[bg,fg]',
+\103:'let [in,cmd]=QSel(hi,"Group: ")|if in!=-1 && cmd!=g:EscAsc|
+\if has_key(g:CURCS,hi[in]) | let [fg,bg]=g:CURCS[hi[in]]|en|
+\if has_key(g:CURCS,g:CSgrp) | 
+\exe "hi ".g:CSgrp." ctermfg=".(g:CURCS[g:CSgrp][0])." ctermbg=".(g:CURCS[g:CSgrp][1])
+\| en | let g:CSgrp=hi[in] | let msg=g:CSgrp | en',
+\115:'let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
+\if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en'}
