@@ -6,17 +6,17 @@ if !exists('opt_device')
 	let opt_device='' | en
 if opt_device=~?'windows'
 	let Working_Dir='C:\Users\q335r49\Desktop\Dropbox\q335writings'
-	let Viminfo_File='C:\Users\q335r49\Desktop\Dropbox\q335writings\viminfo'
-	en
+	let Viminfo_File='C:\Users\q335r49\Desktop\Dropbox\q335writings\viminfo' | en
 if opt_device=~?'cygwin'
 	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
 	cno <c-h> <left>
 	cno <c-j> <down>
 	cno <c-k> <up>
 	cno <c-l> <right>
+	cno <c-_> <c-w>
 	vno <c-c> "*y
 	vno <c-v> "*p
-	ino <c-_> <c-w>
+	no! <c-_> <c-w>
 	nno <c-_> db
 	let opt_LongPressTimeout=[99999,99999]
 	nno <MiddleMouse> <LeftMouse>:q<cr>
@@ -25,14 +25,20 @@ if opt_device=~?'cygwin'
 if opt_device=~?'notepad'
 	se noswapfile
 	nno <c-s> :wa<cr>
+	small bug in @ mapping
 	nno <c-w> :wqa<cr>
 	nno <c-v> "*p
 	nno <c-q> <c-v> 
 	let opt_colorscheme='notepad' | en
 if opt_device=~?'droid4'
+	set diffexpr=MyDiff()
+	fun! MyDiff()
+	   silent! exe "!~/difftools/diff ".(&diffopt=~"icase"? "-i ":"").(&diffopt =~ "iwhite"? "-b ":"").v:fname_in." ".v:fname_new." > ".v:fname_out." 2> /dev/null"
+	endfun
+	exe "ino <c-[>[3~ <bs>"
 	exe "ino <c-[>OQ @"
-	exe "map \<c-v>\eOP !" | exe "map! \<c-v>\eOP !"
-	exe "map \<c-v>\eOQ @" | exe "map! \<c-v>\eOQ @"
+	exe "no \<c-v>\eOP !" | exe "no! \<c-v>\eOP !"
+	exe "no \<c-v>\eOQ @" | exe "no! \<c-v>\eOQ @"
 	exe "map \<c-v>\eOR #" | exe "map! \<c-v>\eOR #"
 	exe "map \<c-v>\eOS $" | exe "map! \<c-v>\eOS $"
 	exe "map \<c-v>\[15~ %" | exe "map! \<c-v>\[15~ %"
@@ -48,7 +54,6 @@ if opt_device=~?'droid4'
 	ino <c-b> <c-w>
 	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
 	nn <silent> <leftmouse> <leftmouse>:call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
-	nn R <c-r>
 	nn <c-r> <nop> 
 	let opt_LongPressTimeout=[0,500000] | en
 if empty(opt_device)
@@ -77,37 +82,44 @@ vno <expr> q Qmenu(g:Qvis)
 let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
 
-fun! SplitAtSpace(str,w)
-	let breaks=[0]
-	while breaks[-1]<len(a:str)-a:w
-		let match=strridx(a:str,' ',breaks[-1]+a:w)
-		call extend(breaks,match<=breaks[-1]? [breaks[-1]+a:w-1,breaks[-1]+a:w] : [match-1,match+1])
+nn R <c-r>
+let [Qnrm.73,Qnhelp.I]=["R","Replace mode"]
+
+fun! BreakLines(str,w)
+	let [seg,spc]=[[0],repeat(' ',len(&brk))]
+	while seg[-1]<len(a:str)-a:w
+		let ix=(a:w+strridx(tr(a:str[seg[-1]:seg[-1]+a:w-1],&brk,spc),' '))%a:w
+		call extend(seg,[seg[-1]+ix-(a:str[seg[-1]+ix=~'\s']),seg[-1]+ix+1])
 	endw
-	call add(breaks,len(a:str)-1)
-	return map(range(len(breaks)/2),'a:str[breaks[2*v:val]:breaks[2*v:val+1]]')
+	call add(seg,-1)
+	return map(range(len(seg)/2),'a:str[seg[2*v:val]:seg[2*v:val+1]]')
 endfun
-fun! Dialogue(A,B,...)
+fun! Dialog(...)
+	let [A,B,col,mg,off]=map(['Amadeus','Theophilus',50,5,10],"v:key<a:0? a:{v:key+1} : v:val")
+	let Aparx='let pg[0]="'.printf(mg>1? '%-'.(mg-1).'.'.(mg-1).'s ':'%-'.mg.'.'.mg.'s',A).'".pg[0]['.mg.':]'
+	let Bparx='let pg[0]=pg[0]."'.printf(mg>1? ' %-'.(mg-1).'.'.(mg-1).'s':'%-'.mg.'.'.mg.'s',B).'"'
+	let Amapx='"'.repeat(' ',mg).'".v:val'
+	let Bmapx='printf("%'.(col+off).'.'.(col+off).'s",v:val)'
+	let [AB,input]=['A',input(A.': ')]
 	echohl Question
-	let [mainw,marginw]=[exists("a:1")? a:1 : 60,exists("a:2")? a:2 : 5]
-	let colw=mainw*8/10
-	let Bprint0='printf("%'.mainw.'.'.mainw.'s: %'.(marginw-2).'.'.(marginw-2).'s",lines[0],a:B)'
-	let BprintfN='%'.mainw.'.'.mainw.'s'
-	let Aline0='printf("%-'.(marginw-2).'.'.(marginw-2).'s: %s",a:A,lines[0])'
-	let AprintfN=repeat(' ',marginw).'%s'
-	norm! mq
-	let [turn,input]=['A',strtrans(input(a:A.': '))]
-	whi input!='//'
+	while input!='.'
 		if !empty(input)
-			let lines=SplitAtSpace(input,colw)
-			let @t=join(insert(map(range(1,len(lines)-1),'printf({turn}printfN,lines[v:val])'),eval({turn}line0)),"\n")
-			exe "norm! O\e\"tP`q" | redr!
-		el| let turn=turn=='A'? 'B':'A' | en
-		let input=strtrans(input(a:{turn}.': '))
-	endw
-	echohl None
+			let pg=map(BreakLines(input,col),{AB}mapx)
+			exe {AB}parx
+			call append(line('.'),pg)
+			exe line('.')+len(pg)
+			redr
+		el| let AB="AB"[AB=='A'] | en
+		let input=input({AB}.': ')
+	endw | echohl None
 endfun
-
-
+fun! BlockText(text,...)
+	let [width,col,line]=map([30,0,line('.')],"v:key<a:0? a:{v:key+1} : v:val")
+	let lines=BreakLines(a:text,width)
+	let mainTxt=getline(line,line+len(lines)-1)
+	let col=col? col : max(map(range(len(lines)),'len(mainTxt[v:val])'))
+	call setline(line,map(mainTxt,'printf("%-".col.".".col."s %s",v:val,lines[v:key])'))
+endfun
 
 fun! PrintDic(dict,width)
 	let [L,cols,keys]=[len(a:dict),min([(&columns-1)/a:width,18]),sort(keys(a:dict))]
@@ -270,16 +282,17 @@ vn <expr> g gvmap[getchar()]
 
 fun! SoftCapsLock()
 	norm! i^
-	redr!
+	redr
 	let key=getchar()
 	while key!=g:EscAsc
 		if key=="\<backspace>"
 			undoj | norm! X
 		el | undoj | exe "norm! i".toupper(nr2char(key))."\el" |en
-		redraw!
+		redr
 		let key=getchar()
 	endwhile
 	undojoin | norm! x
+	startinsert
 endfun
 let [Qnrm.99,Qnhelp.c]=[":call SoftCapsLock()\<cr>","Caps lock"]
 
@@ -499,7 +512,7 @@ endfun
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
 cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
-cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
+cnorea <expr> qnv ((getcmdtype()==':' && getcmdpos()<5)? "let &viminfo=''\|exe 'autocmd! WriteViminfo' \|qa!":"qnv")
 
 let lastft='f'
 let lastftchar=32
@@ -656,9 +669,8 @@ fun! LoadFormatting()
 	en
 endfun
 
-
-com! -nargs=1 -complete=file RestoreSettings rv! <args>|call RestoreSavedVars()
-fun! RestoreSavedVars()
+com! -nargs=+ -complete=file RestoreSettings rv! <args>|call LoadViminfoData()
+fun! LoadViminfoData()
 	silent exe "norm! :let v=g:SAVED_\<c-a>'\<c-b>\<right>\<right>\<right>\<right>\<right>\<right>'\<cr>"
 	if exists('v') && len(v)>8
 		for var in split(v)
@@ -684,7 +696,7 @@ fun! RestoreSavedVars()
 	catch | let g:Qnrm.msg="ec line('.').','.col('.').'/'.line('$')" | endtry
 	let g:Qvis.msg=g:Qnrm.msg
 endfun
-fun! WriteVimState(file)
+fun! WriteViminfo(file)
 	if g:StartupErr=~?'error' && input("Startup errors were encountered! ".g:StartupErr."\nSave settings anyways?")!~?'^y'
 		return |en
 	sil exe "norm! :unlet! g:SAVED_\<c-a>\<cr>"
@@ -742,8 +754,8 @@ let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy
 let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
 let [Qnrm.108,Qnhelp.l]=[":cal g:logdic.show()\<cr>","Show log files"]
 let [Qnrm.72,Qnhelp.H]=[":call mruf.show()\<cr>","Show recent files"]
-if opt_device=='droid4' | let [Qnrm.73,Qnhelp.I]=["R","Replace mode"] | en
-let [Qnrm.86,Qnhelp['V']]=[":call WriteVimState(input('Name of file to write: ',Viminfo_File,'file'))\n","Write viminfo"]
+let [Qnrm.86,Qnhelp['V']]=[":call WriteViminfo(input('Name of file to write: ',Viminfo_File,'file'))\n","Write viminfo"]
+let [Qnrm.84,Qnhelp['T']]=[":call Dialog()\n","Talk"]
 
 if !exists('firstrun')
 	let firstrun=0
@@ -763,12 +775,12 @@ if !exists('firstrun')
 	el| let viminfotime=strftime("%Y-%m-%d-%H-%M-%S",getftime(glob(g:Viminfo_File)))
 		let conflicts=sort(split(glob(g:Viminfo_File.' (conflicted*'),"\n"))
 		let latest_date=matchstr(get(conflicts,-1,''),'conflicted copy \zs.*\ze)')
-		if !empty(latest_date) && latest_date>viminfotime && input("\nA more recent viminfo has been found!\nLoad ".conflicts[-1]."? (yes / no)")=~?'^y'
+		if !empty(latest_date) && latest_date>viminfotime && input("\nCurrent viminfo (".viminfotime.") older than ".conflicts[-1]."; load latter instead? (y/n)")=~?'^y'
 			echo "Loading" conflicts[-1] "...\nUse :wv to overrite current viminfo."
 			exe setViExpr.conflicts[-1]
 		el| exe setViExpr.g:Viminfo_File | en
 	en
-	au VimEnter * call RestoreSavedVars() 
+	au VimEnter * call LoadViminfoData() 
 	au VimEnter * au BufWinEnter * call mruf.restorepos(expand('%')) 
 	au VimEnter * au BufLeave * call mruf.insert(expand('<afile>'),line('.'),col('.'),line('w0'))
 	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
@@ -786,7 +798,9 @@ if !exists('firstrun')
 		let &t_te.="\e[0 q"
 		se noshowmode | en
 	au BufWinEnter * call LoadFormatting()
-	au VimLeavePre * call WriteVimState('exit')
+	augroup WriteViminfo
+		au VimLeavePre * call WriteViminfo('exit')
+	augroup end
 	redir END
 	if !argc() && filereadable('.lastsession')
 		so .lastsession | en
