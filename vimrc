@@ -6,6 +6,9 @@ if !exists('Cur_Device')
 	echom "Warning: Cur_Device is undefined, device specific settings may not be loaded."
 	let Cur_Device=''
 en
+if !exists('Cur_RunAs')
+	let Cur_RunAs=''
+en
 if Cur_Device=='cygwin'
 	vno <c-c> "*y
 	vno <c-v> "*p
@@ -16,6 +19,12 @@ if Cur_Device=='cygwin'
 	let Cyg_Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings'
 	let Working_Dir= 'C:/Users/q335r49/Desktop/Dropbox/q335writings'
 	let EscChar=''
+	if Cur_RunAs=='notepad'
+		se noswapfile
+		nno <c-s> :wa<cr>			
+		nno <c-w> :wqa<cr>
+		let opt_colorscheme='notepad'
+	en
 en
 
 nno <c-p> :call GotoPreviousFold()<cr>
@@ -179,6 +188,7 @@ fun! CSLoad(cs)
 	for k in keys(a:cs)
 		exe 'hi '.k.' ctermfg='.a:cs[k][0].' ctermbg='.a:cs[k][1]
 	endfor
+	let g:cs_current=a:cs
 endfun
 fun! CompleteSwatches(Arglead,CmdLine,CurPos)
 	return filter(keys(g:SWATCHES),'v:val=~a:Arglead')
@@ -189,7 +199,7 @@ endfun
 fun! CSChooser(...)
 	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
 	if a:0==0
-		let [fg,bg]=has_key(g:CURCS,g:CSgrp)? (g:CURCS[g:CSgrp]) : g:CShst[-1]
+		let [fg,bg]=has_key(g:cs_current,g:CSgrp)? (g:cs_current[g:CSgrp]) : g:CShst[-1]
 	elseif a:0==2
 		let [fg,bg]=[a:1,a:2]
 		call add(g:CShst,[fg,bg])
@@ -541,14 +551,17 @@ if len(MRUF)>60
 	let MRUF=MRUF[:40]
 	let MRUL=MRUL[:40] |en
 let NoMRUsav=0
-if !exists('CURCS')
-	let CURCS={}
-el
-	call CSLoad(CURCS)
-en
 if !exists('SWATCHES') | let SWATCHES={} |en
-if !exists('SCHEMES') | let SCHEMES={} |en
-if !exists('CS_LASTSCHEME') | let CS_LASTSCHEME='' |en
+if !exists('SCHEMES') | let SCHEMES={'lastscheme':''} | en
+if exists('opt_colorscheme')
+	call CSLoad(SCHEMES[opt_colorscheme])
+else
+	if has_key(SCHEMES,SCHEMES.lastscheme)
+		call CSLoad(SCHEMES[SCHEMES.lastscheme])
+	el
+		call CSLoad({})
+	en
+en
 au BufWinEnter * call RemHist(expand('%'))
 au BufRead * call CheckFormatted()
 au BufHidden * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
@@ -562,12 +575,12 @@ se fcs=vert:\  showbreak=.\
 se term=screen-256color
 se so=4
 if Cur_Device=='cygwin' "from code.google.com/p/mintty/wiki/Tips
-	"let &t_ti.="\e[2 q"
-	"let &t_SI.="\e[6 q"
-	"let &t_EI.="\e[2 q"
-	"let &t_te.="\e[0 q"
-	"inoremap <Esc> <Esc><Esc>
-	"se noshowmode
+	let &t_ti.="\e[2 q"
+	let &t_SI.="\e[6 q"
+	let &t_EI.="\e[2 q"
+	let &t_te.="\e[0 q"
+	inoremap <Esc> <Esc><Esc>
+	se noshowmode
 en
 redir END
 if !argc() && filereadable('.lastsession')
@@ -579,7 +592,7 @@ let normD={95:"_",96:'`',48:"@",
 \82:"R",99:":call CSChooser()\<cr>",116:":call TODO.show()\<cr>",
 \114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
 \80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
-\107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:nohl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
+\107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invhl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
 \101:":call EdMRU()\<cr>",119:":se invwrap\<cr>",
 \49:":exe 'e '.escape(g:MRUF[0],' ')\<cr>",50:":exe 'e '.escape(g:MRUF[1],' ')\<cr>",
 \113:"\<esc>",51:":exe 'e '.escape(g:MRUF[2],' ')\<cr>",
@@ -598,7 +611,7 @@ let insD={95:"_",96:'`',48:"@",
 \103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",
 \113:"\<c-o>\<esc>",111:"\<c-r>=input('`o','','customlist,CmpMRU')\<cr>",
 \49:"\<esc>:exe 'e '.g:MRUF[0]\<cr>",50:"\<esc>:exe 'e '.g:MRUF[1]\<cr>",
-\107:"\<esc>:s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:nohl\<cr>",
+\107:"\<esc>:s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invnohl\<cr>",
 \51:"\<esc>:exe 'e '.g:MRUF[2]\<cr>",110:"\<c-o>:noh\<cr>",
 \102:"\<c-r>=escape(expand('%'),' ')\<cr>",119:"\<c-o>\<c-w>\<c-w>",
 \'help':'123:buff f/ilename g/etchar k:center o/pen w/indow:',
@@ -613,14 +626,14 @@ let g:visD={(g:EscAsc):"",42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left
 \'msg':"expand('%:t').' '.line('.')
 \.'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"}
 
-let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
-\|exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0]).' ctermbg='.(g:CURCS[g:CSgrp][1]) |en",
-\(g:EscAsc):"let continue=0 | if has_key(g:CURCS,g:CSgrp)
-\|exe 'hi '.g:CSgrp.' ctermfg='.(g:CURCS[g:CSgrp][0]).' ctermbg='.(g:CURCS[g:CSgrp][1]) |en",
+let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
+\|exe 'hi '.g:CSgrp.' ctermfg='.(g:cs_current[g:CSgrp][0]).' ctermbg='.(g:cs_current[g:CSgrp][1]) |en",
+\(g:EscAsc):"let continue=0 | if has_key(g:cs_current,g:CSgrp)
+\|exe 'hi '.g:CSgrp.' ctermfg='.(g:cs_current[g:CSgrp][0]).' ctermbg='.(g:cs_current[g:CSgrp][1]) |en",
 \10: "let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
-\|let g:CURCS[g:CSgrp]=[fg,bg]",
+\|let g:cs_current[g:CSgrp]=[fg,bg]",
 \13: "let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
-\|let g:CURCS[g:CSgrp]=[fg,bg]",
+\|let g:cs_current[g:CSgrp]=[fg,bg]",
 \104:'let [fg,g:CShix]=fg>0?   [fg-1,g:CShix+1] : [fg,g:CShix]',
 \108:'let [fg,g:CShix]=fg<255? [fg+1,g:CShix+1] : [fg,g:CShix]',
 \106:'let [bg,g:CShix]=bg>0?   [bg-1,g:CShix+1] : [bg,g:CShix]',
@@ -636,14 +649,14 @@ let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 \82: 'let [bg,g:CShix]=[reltime()[1]%256,g:CShix+1]',
 \105:'let [fg,bg]=[bg,fg]',
 \103:'let [in,cmd]=QSel(hi,"Group: ")|if in!=-1 && cmd!=g:EscAsc|
-\if has_key(g:CURCS,hi[in]) | let [fg,bg]=g:CURCS[hi[in]]|en|
-\if has_key(g:CURCS,g:CSgrp) | 
-\exe "hi ".g:CSgrp." ctermfg=".(g:CURCS[g:CSgrp][0])." ctermbg=".(g:CURCS[g:CSgrp][1])
+\if has_key(g:cs_current,hi[in]) | let [fg,bg]=g:cs_current[hi[in]]|en|
+\if has_key(g:cs_current,g:CSgrp) | 
+\exe "hi ".g:CSgrp." ctermfg=".(g:cs_current[g:CSgrp][0])." ctermbg=".(g:cs_current[g:CSgrp][1])
 \| en | let g:CSgrp=hi[in] | let msg=g:CSgrp | en',
 \115:'let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
 \if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en',
-\83:'let name=input("Save scheme as: ",g:CS_LASTSCHEME,"customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=g:CURCS | let g:CS_LASTSCHEME=name | en | let continue=0',
-\76:'let schemek=keys(g:SCHEMES) | let [in,cmd]=QSel(schemek,"scheme: ")|if in!=-1 && cmd!=g:EscAsc | let g:CURCS=g:SCHEMES[schemek[in]] | call CSLoad(g:CURCS) | let g:LASTSCHEME=schemek[in] | en | let continue=0'}
+\83:'let name=input("Save scheme as: ",g:SCHEMES.lastscheme,"customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=g:cs_current | let g:SCHEMES.lastscheme=name | en | let continue=0',
+\76:'let schemek=keys(g:SCHEMES) | let [in,cmd]=QSel(schemek,"scheme: ")|if in!=-1 && cmd!=g:EscAsc | let g:cs_current=g:SCHEMES[schemek[in]] | call CSLoad(g:cs_current) | let g:SCHEMES.lastscheme=schemek[in] | en | let continue=0'}
 
 "Added changelog
 "Added shortcuts to log functions in normD command
@@ -714,7 +727,16 @@ let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 "Cygwin: Cursor changes shape based on mode
 "Cygwin: innoremap escape to escape-escape to prevent delay
 "set nocompatible to avoid absurd errors
+"notepad mode (set Cur_RunAs='notepad') with ^W ^S nmaps
 
-"TODO: `il `iw for invlist, invwrap in normal / insert mode
-"TODO: multiline FTft for prose
-
+"TODO:
+"`il `iw for invlist, invwrap in normal / insert mode
+"multiline FTft for prose
+"set up persistent undo
+"prevent args vim from interfering with normal vim?
+"Use "Default" and not cs_current on initialize
+"Prompt to set as default on save && Command to set as default
+"Change "runas" to "Cur_Function"
+"Some way to reinitialize all variables
+"debug backup system, saveD
+"Eliminate hold to expand for Cygwin
