@@ -51,11 +51,8 @@ if opt_device=~?'droid4'
 	let EscChar='@'
 	let opt_autocap=1
 	ino <c-b> <c-w>
-	let opt_mousescroll=1
+	let opt_mousepan=1
 	nn <c-r> <nop> 
-	en
-if empty(opt_device)
-	let opt_mousescroll=1
 	en
 if has("gui_running")
 	se guifont=Envy_Code_R:h11:cANSI
@@ -298,49 +295,37 @@ fun! Writeroom(margin)
 endfun
 let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | silent call Writeroom(exists('g:OPT_WRITEROOMWIDTH')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en\<cr>","Writeroom mode"]
 
-fun! ReltimeLT(t1,t2)
-	return a:t1[0]<a:t2[0] || a:t1[0]==a:t2[0] && a:t1[1]<a:t2[1]
-endfun
-if exists('opt_mousescroll') && opt_mousescroll
-	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
-en
-let speed=[99999999]+map(range(11),'11*(11-v:val)*(11-v:val)')+repeat([1],40)
-fun! Mscroll()
-	if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1) || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) || v:mouse_lnum==line('$')
-		if line('$')==line('w0') | exe "keepj norm! \<c-y>" |en
-		return 1 | en
-	exe "norm! \<leftmouse>"
-	let frame=-1
-	let [tl,dvl,dhl]=[repeat([reltime()],4),repeat([0],4),repeat([0],4)]
-	while getchar()=="\<leftdrag>"
-		let [dV,dH]=[v:mouse_lnum-line('.'), &ve!=?'all'? 0 : v:mouse_col-virtcol('.')]
+if exists('opt_mousepan') && opt_mousepan
+	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (MousePan()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
+	let glidestep=[99999999]+map(range(11),'11*(11-v:val)*(11-v:val)')+repeat([1],40)
+	fun! MousePan()
+		if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1) || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) || v:mouse_lnum==line('$')
+			if line('$')==line('w0') | exe "keepj norm! \<c-y>" |en
+			return 1 | en
 		exe "norm! \<leftmouse>"
-		let v=winsaveview()
-		let [dV,dH]=[dV>v.topline-1? v.topline-1 : dV, dH>v.leftcol? v.leftcol : dH]
-		let [v.topline,v.leftcol,v.lnum,v.col,v.coladd,frame]-=[dV,dH,dV,v.col,v.coladd-v.curswant+dH,-1]
-		let [tl[frame%4],dvl[frame%4],dhl[frame%4]]=[reltime(),dV,dH]
-		call winrestview(v)
-		if !(frame%2) | redr! | en
-	endwhile
-	let elapsed=reltime(tl[(frame+1)%4])
-	let [vv,vh]=[dvl[0]+dvl[1]+dvl[2]+dvl[3],dhl[0]+dhl[1]+dhl[2]+dhl[3]]
-	let [cmdv,vv]=vv>3? ["\<c-y>",vv] : vv<-4? ["\<c-e>",-vv] : ['',0]
-	let [cmdh,vh]=vh>3? ["zh",vh] : vh<-4? ["zl",-vh] : ['',0]
-	if elapsed[0] || elapsed[1]>200000 || (!vv && !vh) | return | en
-	let [vv,vh,s,vc,hc]=[vv+10,vh+10,0,0,0]
-	while s<=8000 && !getchar(1) && (vv>0 || vh>0)
-		let [s,vc,hc,cmd]=[s+1,vc+1,hc+1,'']
-		if vc>g:speed[vv]
-			let [vv,vc,cmd]=[vv-1,0,cmdv]
-		en
-		if hc>g:speed[vh]
-			let [vh,hc,cmd]=[vh-1,0,cmd.cmdh]
-		en
-		if !empty(cmd)
-			exe 'norm! '.cmd | redr
-		en
-	endw
-endfun
+		let [veon,frame,tl,dvl,dhl]=[&ve==?'all',-1,repeat([reltime()],4),[0,0,0,0],[0,0,0,0]]
+		while getchar()=="\<leftdrag>"
+			let [dV,dH]=[v:mouse_lnum-line('.'), veon*(v:mouse_col-virtcol('.'))]
+			exe "norm! \<leftmouse>"
+			let v=winsaveview()
+			let [dV,dH,frame]=[dV>v.topline-1? v.topline-1 : dV, dH>v.leftcol? v.leftcol : dH,(frame+1)%4]
+			let [v.topline,v.leftcol,v.lnum,v.col,v.coladd,tl[frame],dvl[frame],dhl[frame]]=[v.topline-dV,v.leftcol-dH,v.lnum-dV,0,v.curswant-dH,reltime(),dV,dH]
+			call winrestview(v)
+			if !(frame%2) | redr! | en
+		endwhile
+		let [sv,sh]=[dvl[0]+dvl[1]+dvl[2]+dvl[3],dhl[0]+dhl[1]+dhl[2]+dhl[3]]
+		let [cmd,sv]=sv>2? ["\<c-y>",sv+10] : sv<-2? ["\<c-e>",-sv+10] : ["\<c-e>",0]
+		let [cmd,sh,vc,hc]=sh>2? [cmd."zh",sh+10,0,0] : sh<-2? [cmd."zl",-sh+10,0,0] : [cmd.'zl',0,0,0]
+		if eval(join(reltime(tl[(frame+1)%4]),'*1000000+'))>200000 || !sv && !sh | return | en
+		while !getchar(1) && sv+sh>0
+			let [y,x]=[vc>g:glidestep[sv],hc>g:glidestep[sh]]
+			let [sv,sh,vc,hc]=[sv-y,sh-x,!y*vc+!y,!x*hc+!x]
+			if !y<=2*x
+				exe 'norm!' cmd[!y :2*x] | redr
+			en
+		endw
+	endfun
+en
 
 let CShst=[[0,7]]
 let [CShix,SwchIx]=[0,0]
