@@ -1,5 +1,3 @@
-redir => g:StartupErr
-
 let opt_autocap=0
 if !exists('opt_device')
 	echom "Warning: opt_device is undefined."
@@ -304,19 +302,20 @@ if exists('opt_mousepan') && opt_mousepan
 			return 1 | en
 		exe "norm! \<leftmouse>"
 		let [veon,frame,tl,dvl,dhl]=[&ve==?'all',-1,repeat([reltime()],4),[0,0,0,0],[0,0,0,0]]
+		let v=winsaveview()
+		let [v.col,v.coladd]=[0,v.curswant]
 		while getchar()=="\<leftdrag>"
-			let [dV,dH]=[v:mouse_lnum-line('.'), veon*(v:mouse_col-virtcol('.'))]
-			exe "norm! \<leftmouse>"
-			let v=winsaveview()
+			let [dV,dH]=[v:mouse_lnum-v.lnum, veon*(v:mouse_col-v.coladd-1)]
+			let [v.lnum,v.coladd,v.curswant]=[v:mouse_lnum,v:mouse_col-1,v:mouse_col-1]
 			let [dV,dH,frame]=[dV>v.topline-1? v.topline-1 : dV, dH>v.leftcol? v.leftcol : dH,(frame+1)%4]
-			let [v.topline,v.leftcol,v.lnum,v.col,v.coladd,tl[frame],dvl[frame],dhl[frame]]=[v.topline-dV,v.leftcol-dH,v.lnum-dV,0,v.curswant-dH,reltime(),dV,dH]
+			let [v.topline,v.leftcol,v.lnum,v.coladd,tl[frame],dvl[frame],dhl[frame]]=[v.topline-dV,v.leftcol-dH,v.lnum-dV,v.curswant-dH,reltime(),dV,dH]
 			call winrestview(v)
 			if !(frame%2) | redr! | en
 		endwhile
 		let [sv,sh]=[dvl[0]+dvl[1]+dvl[2]+dvl[3],dhl[0]+dhl[1]+dhl[2]+dhl[3]]
 		let [cmd,sv]=sv>2? ["\<c-y>",sv+10] : sv<-2? ["\<c-e>",-sv+10] : ["\<c-e>",0]
 		let [cmd,sh,vc,hc]=sh>2? [cmd."zh",sh+10,0,0] : sh<-2? [cmd."zl",-sh+10,0,0] : [cmd.'zl',0,0,0]
-		if eval(join(reltime(tl[(frame+1)%4]),'*1000000+'))>200000 || !sv && !sh | return | en
+		if !eval(join(reltime(tl[(frame+1)%4]),' || 20000<')) || !sv && !sh | return | en
 		while !getchar(1) && sv+sh>0
 			let [y,x]=[vc>g:glidestep[sv],hc>g:glidestep[sh]]
 			let [sv,sh,vc,hc]=[sv-y,sh-x,!y*vc+!y,!x*hc+!x]
@@ -628,8 +627,6 @@ fun! LoadViminfoData()
 	let g:Qvis.msg=g:Qnrm.msg
 endfun
 fun! WriteViminfo(file)
-	if g:StartupErr=~?'error' && input("Startup errors were encountered! ".g:StartupErr."\nSave settings anyways?")!~?'^y'
-		return |en
 	sil exe "norm! :unlet! g:SAVED_\<c-a>\<cr>"
 	sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
 	let removeOriginal=(a:file==#'exit') && (v:version>703 || (v:version==703 && has("patch30")))
