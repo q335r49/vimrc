@@ -154,16 +154,6 @@ nno <silent> X :<c-u>call Undojx('X')<cr>
 nno q :call Qmenu()<cr>
 nno Q q
 vno Q q
-fun! Qmenu()
-	let g:qmenuView=[winsaveview(),&stal,&ls]
-	let [g:qmenuView[0].topline,&stal,&ls]=[g:qmenuView[0].topline+!g:qmenuView[1],2,2]
-	echo strftime('%c').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
-	call winrestview(g:qmenuView[0])
-	redr
-	let g:qmenuView[0].topline=g:qmenuView[0].topline-!g:qmenuView[1]
-	let g:GC_ProcChar="QmenuKeyHandler"
-	call feedkeys("\<plug>TxbZ")
-endfun
 fun! QmenuKeyHandler(c)
 	let [&stal,&ls]=g:qmenuView[1:]
 	call winrestview(g:qmenuView[0])
@@ -178,6 +168,16 @@ fun! QmenuKeyHandler(c)
 	else
 		call feedkeys(get(g:Qnrm,a:c,a:c[0]=="\e"? a:c[1] : g:Qnrm.default))
 	en
+endfun
+fun! Qmenu()
+	let g:qmenuView=[winsaveview(),&stal,&ls]
+	let [g:qmenuView[0].topline,&stal,&ls]=[g:qmenuView[0].topline+!g:qmenuView[1],2,2]
+	ech strftime('%c').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
+	cal winrestview(g:qmenuView[0])
+	redr
+	let g:qmenuView[0].topline=g:qmenuView[0].topline-!g:qmenuView[1]
+	let g:TXBkeyhandler=function("QmenuKeyHandler")
+	cal feedkeys("\<plug>TxbZ")
 endfun
 
 let g:qmenuExitIfNoCycle=0
@@ -202,9 +202,8 @@ let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
 let Qnrm.default=":ec PrintDic(g:Qnhelp,28)\<cr>"
 let [Qnrm.f,Qnhelp.f]=[":ec search('^\\S*\\ \\S*'.expand('<cword>').'(')\<cr>","Go to function"]
 let [Qnrm[':'],Qnhelp[':']]=["q:","commandline normal"]
-let [Qnrm.v,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
 let [Qnrm.i,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
-let [Qnrm.W,Qnhelp.W]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
+let [Qnrm.v,Qnhelp.v]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
 let [Qnrm.z,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
 let [Qnrm.R,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
 let [Qnrm.q,Qnhelp.q]=["","exit"]
@@ -405,7 +404,7 @@ fun! CS_UI()
 			echon ']'
 		en
 		exe "echoh" g:CS_grp
-		echon ' hjklJKr <bs>Up <cr>Save [L]ink [g]oLink [WR]Favs [bf]Hist [U]nlet [^R]eload'
+		echon ' hjklJKr <bs>Up <cr>Save [L]ink [g]oLink [WR]Favs [bf]Hist [U]nlet [^R]eload [*]Random'
 		exe get(g:colorD,getchar(),'')
 	endwhile
 	if len(g:CS_histL)>100
@@ -429,8 +428,10 @@ let colorD.74="if hl[0] isnot 'LINK-->' | let hl[field]='NONE' | en"
 let colorD.75="if hl[0] isnot 'LINK-->' | let hl[field]=field==2? 'NONE' : 100 | en"
 let colorD.104='let field=(field+2)%3'
 let colorD.108='let field=(field+1)%3'
-let colorD.106='if hl[0] isnot "LINK-->" | let [hl[field],g:CS_histi]=field<2? [hl[field] is "NONE"? 255 : hl[field] == 0? "NONE" : hl[field]-1,g:CS_histi+1] : [g:CS_attr[(get(g:CS_attrIx,hl[2], 1)-1)%len(g:CS_attr)],g:CS_histi+1] | el | let hl=[0,15,"NONE"] | en'
-let colorD.107='if hl[0] isnot "LINK-->" | let [hl[field],g:CS_histi]=field<2? [hl[field] is "NONE"? 0 : hl[field] == 255? "NONE" : hl[field]==0? 1 : hl[field]+1,g:CS_histi+1] : [g:CS_attr[(get(g:CS_attrIx,hl[2],-1)+1)%len(g:CS_attr)],g:CS_histi+1] | el | let hl=[0,15,"NONE"] | en'
+
+let colorD.106='if hl[0] isnot "LINK-->" | let [hl[field],g:CS_histi]=field<2? [hl[field] is "NONE"? 255 : hl[field] == 0? "NONE" : hl[field]-1,g:CS_histi+1] : [g:CS_attr[(get(g:CS_attrIx,hl[2], 1)-1)%len(g:CS_attr)],g:CS_histi+1] | el | let hl=[synIDattr(synIDtrans(hlID(g:CS_grp)),"fg"),synIDattr(synIDtrans(hlID(g:CS_grp)),"bg"),"NONE"] | en'
+let colorD.107='if hl[0] isnot "LINK-->" | let [hl[field],g:CS_histi]=field<2? [hl[field] is "NONE"? 0 : hl[field] == 255? "NONE" : hl[field]==0? 1 : hl[field]+1,g:CS_histi+1] : [g:CS_attr[(get(g:CS_attrIx,hl[2],-1)+1)%len(g:CS_attr)],g:CS_histi+1] | el | let hl=[synIDattr(synIDtrans(hlID(g:CS_grp)),"fg"),synIDattr(synIDtrans(hlID(g:CS_grp)),"bg"),"NONE"] | en'
+
 let colorD.98='if g:CS_histi > 0 | let g:CS_histi-=1 | let hl=copy(g:CS_histL[g:CS_histi]) | en'
 let colorD.102='if g:CS_histi<len(g:CS_histL)-1|let g:CS_histi+=1|let hl=copy(g:CS_histL[g:CS_histi]) |en'
 let colorD.114='let [hl[field],g:CS_histi]=[field==2? hl[field] : reltime()[1]%256,g:CS_histi+1]'
@@ -497,7 +498,7 @@ fun! New(class,...)
 endfun
 
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
-cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
+cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'up\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 
 let g:charL=[]
@@ -690,8 +691,8 @@ if !exists('firstrun')
 	unlet i conflicts file latest_date setViExpr viminfotime
 en
 
-for i in filter(keys(TXBcmds),"!has_key(Qnrm,v:val)")
-	let Qnrm[i]=":exe exists('t:txb')? \"call TXBcmd('\<c-v>".i."')\" : 'ec \"Plane not loaded!\"'\<cr>"
+for i in filter(keys(TXBkyCmd),"!has_key(Qnrm,v:val)")
+	let Qnrm[i]=":exe exists('t:txb')? \"call TXBdoCmd('\<c-v>".i."')\" : 'ec \"Plane not loaded!\"'\<cr>"
 endfor
-let Qnrm.o=":exe exists('t:txb')? \"call TXBcmd('o')\" : 'ec \"Plane not loaded!\"'\<cr>"
+let Qnrm.o=":exe exists('t:txb')? \"call TXBdoCmd('o')\" : 'ec \"Plane not loaded!\"'\<cr>"
 let Qnrm[':']=""
