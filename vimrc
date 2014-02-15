@@ -274,7 +274,16 @@ fun! PrintTime(s,...) "%e crashes Windows!
 endfun
 
 let PagerH=6
-fun! Pager(list)
+fun! PrintList(list,i,cursor)
+	return (a:cursor==a:i? '>':' ').g:Pad[1:4-len(a:i)].a:i.' '
+	\.(type(a:list[a:i])==3? string(a:list[a:i]) : (a:list[a:i]))[:&columns-8]."\n"
+endfun
+fun! Pager(list,...)
+	if a:0==0
+		let PrintFunc='PrintList'
+	else
+		let PrintFunc=a:1
+	en
 	let g:cmdsave=&cmdheight
 	exe "se ch=".(g:PagerH+1)
 	let logmode=1
@@ -287,23 +296,27 @@ fun! Pager(list)
 			if i<0
 				let logmsg.="\n"
 			elseif i<len(a:list)
-				let logmsg.=g:Pad[1:4-len(i)].i.(cursor==i? '>':' ')
-				\.a:list[i][0:&columns-7]."\n"
+				let logmsg.={PrintFunc}(a:list,i,cursor)
 			elseif i>len(a:list)
 				let logmsg.="\n" | en	
 		endfor
 		if logmode==0
-			if ent==105
+			if ent==105 "i
 				redr!|let ent=input(logmsg.'INS >')
-				call insert(a:list,ent,cursor)
-			elseif ent==97
+				if len(a:list)==0
+					call insert(a:list,ent,cursor+1)
+					let cursor+=1
+					let offset+=1
+				el| call insert(a:list,ent,cursor) |en
+			elseif ent==97 "a
 				redr!|let ent=input(logmsg.'APP >')
 				call insert(a:list,ent,cursor+1)
 				let cursor+=1
 				let offset+=1
+			elseif ent==115 "s
+				redr!| exe 'let g:'.input(logmsg.'Save as: ').'=a:list'
 			else
-				redr!|let ent=input(logmsg.'CHG >'
-				\,a:list[cursor])
+				redr!|let ent=input(logmsg.'CHG >',a:list[cursor])
 				let a:list[cursor]=ent
 			en
 			let logmode=1
@@ -335,6 +348,8 @@ fun! Pager(list)
 				let logmode=0
 			elseif ent==113 "q
 				let ent=g:N_ESC
+			elseif ent==115 "s
+				let logmode=0
 			en
 		en
 	endwhile
@@ -424,6 +439,15 @@ fun! Log()
 		en
 	endwhile
 	exe 'se ch='.g:cmdsave
+endfun
+
+fun! PrintLogLine(list, i, cursor)
+	return ((a:cursor==a:i? '>':' ')
+	\.PrintTime(a:list[a:i][0]-(a:i>0? a:list[a:i-1][0] : 0),
+	\a:list[a:i][0]).a:list[a:i][1])[0:&columns-2]."\n"
+endfun
+fun! Log2()
+	call Pager(g:tlog,'PrintLogLine')
 endfun
 
 fun! TMenu(cmd,...)
@@ -792,14 +816,6 @@ fun! SetOpt(...)
 		exe (op[2]? 'nn <F9> <C-O>' : 'nun <F9>')
 		exe (op[2]? 'nn <F10> <C-I>' : 'nun <F10>')
 	catch | endtry
-	let g:tlogD={108:"\<C-R>=input(g:logmsg)\<CR>\<CR>",
-\114:"\<C-R>='R:'.((inputsave()? '':'').input(g:logmsg.'RENAME:')
-\.(inputrestore()? '':''))\<CR>\<CR>",120:"\<C-U>X\<CR>",
-\115:"\<C-R>='S:'.((inputsave()? '':'').input(g:logmsg.'STILL:')
-\.(inputrestore()? '':''))\<CR>\<CR>",'help':'[L]og [R]ename [S]till [X]Del:',
-\(g:N_ESC):"\<C-R>=input(g:logmsg)\<CR>\<CR>",
-\113:"\<C-R>=input(g:logmsg)\<CR>\<CR>",
-\'msg':"PrintTime(localtime()-g:tlog[0][0],g:tlog[0][0]).len(g:tlog).'L:'"}
 	let g:normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',122:":wa\<CR>",
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
 \80:":call IniPaint()\<CR>",108:":call Log()\<CR>",
@@ -921,10 +937,8 @@ if !exists('do_once') | let do_once=1
 	nohl
 en
 
-"visual +/- (use &ts)
-	"don't count blank lines as 0 indent
-	"use count!!!
 "Pager
+	"remove logmenu
 	"2d arrays
 	"Undo
 	"Copy Paste
