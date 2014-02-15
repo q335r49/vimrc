@@ -70,13 +70,11 @@ fun! Qmenu(cmd)
 endfun
 nno <expr> q Qmenu(g:Qnrm)
 vno <expr> q Qmenu(g:Qvis)
-fun! PrintTime(e,t) "%e crashes Windows!
-	retu eval(strftime('printf("%%d%%s%%d/%%d:%M %%s%%d:%%02d ",%m,''SMTWRFA''[%w],%d,%I,g:logdic.L[-1][1],a:e/3600,a:e/60%%60)',a:t))
-endfun
-try | let Qnrm.msg="ec PrintTime(localtime()-g:logdic.L[-1][0],localtime()).line('.').'.'.col('.').'/'.line('$')"
-catch | let Qnrm.msg="ec '*Log Error* '.line('.').'.'.col('.').'/'.line('$')" | endtry
+try | let Qnrm.msg="ec printf('%-23.23s %'.string(&columns-26).'s',eval(strftime('printf(\" %%d%%s%%d %%d:%M %%s%%.2f\",%m,\"SMTWRFA\"[%w],%d,%I,g:logdic.L[-1][1],(localtime()-g:logdic.L[-1][0])/3600.0)',localtime())),expand('%').' ('.join(getpos('.')[1:2],',').') $'.line('$'))"
+cat | let Qnrm.msg="ec line('.').','.col('.').'/'.line('$')"
+endtry
+let Qvis.msg=Qnrm.msg
 
-let Qvis.msg="ec expand('%:t').' '.line('.').'/'.line('$').' '.(exists(\"g:logdic\")? PrintTime(localtime()-g:logdic.L[-1][0],localtime()).g:logdic.L[-1][1] : \"\")"
 let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
 
@@ -137,7 +135,7 @@ if g:EscChar!="\e"
    	exe 'no!' g:EscChar '<Esc>'
    	exe 'cno' g:EscChar '<C-C>'
 en
-let Qnrm[EscAsc]="\<esc>"
+let Qnrm[EscAsc]="\e"
 let Qvis[EscAsc]=""
 
 nno <space> <c-e>
@@ -279,7 +277,7 @@ fun! Writeroom(margin)
 	exe 'topleft' (a:margin*&columns/100) 'vsp blank'
 	wincmd l
 endfun
-let [Qnrm.87,Qnhelp.W]=[":if winwidth(0)==&columns | silent call Writeroom(exists(''g:OPT_WRITEROOMWIDTH'')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en\<cr>","Writeroom mode"]
+let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | silent call Writeroom(exists('g:OPT_WRITEROOMWIDTH')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en\<cr>","Writeroom mode"]
 
 fun! ReltimeLT(t1,t2)
 	return a:t1[0]<a:t2[0] || a:t1[0]==a:t2[0] && a:t1[1]<a:t2[1]
@@ -474,16 +472,6 @@ fun! New(class,...)
 	let newclass={'cons':function('Init'.a:class)}
 	exe 'call newclass.cons('.join(map(range(a:0),'"a:".(1+v:val)'),',').')'
 	return newclass
-endfun
-
-fun! Ec(...)
-	echoh MatchParen
-	if a:0>1 && a:000[-1][-2:]=='00'
-		redr| echom join(map(copy(a:000[:-2]),'string(v:val)'),'; ')
-		exe 'sleep' a:000[-1].'m'
-	el| redr| echom join(map(copy(a:000),'string(v:val)'),'; ') |en
-	echoh None
-	return a:1
 endfun
 
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
@@ -762,11 +750,11 @@ if opt_device=='droid4' | let [Qnrm.73,Qnhelp.I]=["R","Replace mode"] | en
 if !exists('firstrun')
 	let firstrun=0
 	if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
-		cal Ec('Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME)
+		ec 'Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME
 		let Working_Dir=$HOME |en
 	for file in ['abbrev','pager']
 		if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
-		el| call Ec('Error: '.Working_Dir.'/'.file.' unreadable')|en
+		el| ec 'Error:' Working_Dir.'/'.file 'unreadable'|en
 	endfor
 	if !argc() && isdirectory(Working_Dir)
 		if opt_device=~?'cygwin'
