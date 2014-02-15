@@ -94,8 +94,7 @@ fun! RmHist(ix)
 	return split(remove(g:histL,a:ix),'\$')[1]
 endfun
 fun! InsHist(name,lnum,cnum)
-	if a:name==''|retu|en
-	call RmHist(match(g:histL,'\V'.escape(a:name,'\').'$'))
+	if a:name=='' || a:name=~$VIMRUNTIME |retu|en
 	call insert(g:histL,a:name.'$'.a:lnum.'|'.a:cnum)
 	if len(g:histL)>=len(g:HLb)-8
 		let g:histL=g:histL[:len(g:HLb)-16] | call InitHist()
@@ -312,36 +311,36 @@ let s:Dashes=repeat('-',200)|let s:Pad=repeat(' ',200)
 let g:OnTouch='IniScroll'
 se wiw=1
 fun! IniScroll()
-let s:vesave=&ve
-se ve=all
-let s:pP=[winnr(),winline(),0]
-call getchar()
-let s:pP[2]=v:mouse_col
-let g:OnTouch='ScrollR'
+	let s:vesave=&ve
+	se ve=all
+	let s:pP=[winnr(),winline(),0]
+	call getchar()
+	let s:pP[2]=v:mouse_col
+	let g:OnTouch='ScrollR'
 endfun
 fun! ScrollR()
-let s:cP=[winnr(),winline(),wincol()]
-if s:cP[0]!=s:pP[0]
-let g:OnTouch='OnResize'
-call OnResize()
-retu
-en
-if s:cP[2]-s:pP[2]>5 || s:pP[2]-s:cP[2]>5
-let g:OnTouch='ScrollRC'
-retu
-en
-exe 'norm! '.(s:cP[1]>s:pP[1]? (s:cP[1]-s:pP[1])."\<C-Y>" : s:pP[1]>s:cP[1]? (s:pP[1]-s:cP[1])."\<C-E>" : 'z')
-let s:pP=s:cP
+	let s:cP=[winnr(),winline(),wincol()]
+	if s:cP[0]!=s:pP[0]
+    	let g:OnTouch='OnResize'
+		call OnResize()
+		retu
+	en
+	if s:cP[2]-s:pP[2]>5 || s:pP[2]-s:cP[2]>5
+		let g:OnTouch='ScrollRC'
+		retu
+	en
+	exe 'norm! '.(s:cP[1]>s:pP[1]? (s:cP[1]-s:pP[1])."\<C-Y>" : s:pP[1]>s:cP[1]? (s:pP[1]-s:cP[1])."\<C-E>" : 'z')
+	let s:pP=s:cP
 endfun
 fun! ScrollRC()
-let s:cP=[winnr(),winline(),wincol()]
-if s:cP[0]!=s:pP[0]
-let g:OnTouch='OnResize'
-call OnResize()
-retu
-en
-exe 'norm! '.(s:cP[2]>s:pP[2]? (s:cP[2]-s:pP[2])."zh" : s:pP[2]>s:cP[2]? (s:pP[2]-s:cP[2])."zl" : '').(s:cP[1]>s:pP[1]? (s:cP[1]-s:pP[1])."\<C-Y>" : s:pP[1]>s:cP[1]? (s:pP[1]-s:cP[1])."\<C-E>" : '')
-let s:pP=s:cP
+	let s:cP=[winnr(),winline(),wincol()]
+	if s:cP[0]!=s:pP[0]
+		let g:OnTouch='OnResize'
+		call OnResize()
+		retu
+	en
+	exe 'norm! '.(s:cP[2]>s:pP[2]? (s:cP[2]-s:pP[2])."zh" : s:pP[2]>s:cP[2]? (s:pP[2]-s:cP[2])."zl" : '').(s:cP[1]>s:pP[1]? (s:cP[1]-s:pP[1])."\<C-Y>" : s:pP[1]>s:cP[1]? (s:pP[1]-s:cP[1])."\<C-E>" : '')
+	let s:pP=s:cP
 endfun
 fun! OnVisual()
 	let cdiff=virtcol("'v")-wincol()
@@ -569,16 +568,16 @@ fun! SetOpt(options)
 \101:":call Edit(expand('<cWORD>'))\<CR>",
 \103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"^y$:\<C-R>\"\<CR>",
 \115:":let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
-\48:":call Edit(g:histL[0])\<CR>",
-\50:":call Edit(g:histL[2])\<CR>",
-\51:":call Edit(g:histL[3])\<CR>",
+\49:":call Edit(g:histL[0])\<CR>",
+\50:":call Edit(g:histL[1])\<CR>",
+\51:":call Edit(g:histL[2])\<CR>",
 \42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \111:":call SetOpt(\<C-R>=g:INPUT_METH==?'thumb'? \"'key'\" : \"'thumb'\"\<CR>)\<CR>
 \:ec 'Current input is '.g:INPUT_METH\<CR>",
 \'help':'b[12] [e]d [g]:h [l]og [n]ohl t[o]gglekbd [p]nt l[s] [r]mswp [w]a e[X]e s/[*#]',
 \'msg':"line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])
-\.'('.join(map(g:histLb[:4],'v:key.v:val[2:5]'),\" \").'):'"}
+\.expand('%:t')"}
 	let g:insD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):"\<Esc>a",96:'`',
 \115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|call Edit(g:histL[qcx])|en\<CR>",
 \49:"\<Esc>:call Edit(g:histL[0])\<CR>",
@@ -607,14 +606,24 @@ fun! FirstRunSetup()
 		\exists('g:DEFIM_'.os)? eval('g:DEFIM_'.os):'thumb','file')
 	exe 'let g:DEFIM_'.os.'=g:INPUT_METH'
 endfun
-
+fun! OnVimEnter()
+	if !exists('g:WORKING_DIR') || !isdirectory(glob(g:WORKING_DIR))
+		call FirstRunSetup() | en
+	call SetOpt(g:INPUT_METH) |  exe 'so '.g:WORKING_DIR.'/abbrev'
+	if !argc() | exe 'cd '.g:WORKING_DIR
+		if len(g:histL)>0 | call Edit(g:histL[0])
+			call RmHist(match(g:histL,'\V'.escape(expand('%'),'\').'$'))
+	en | en
+endfun
 if !exists('do_once') | let do_once=1
 	se viminfo=!,'20,<1000,s10,/50,:50
 		if filereadable($VIMINFO_FILE) | rv $VIMINFO_FILE
 		el| let g:viminfo_file_invalid=1 | rv | en
 	se viminfo=
-	au VimLeavePre * call Write_Viminfo()
+	au VimLeavePre * call InsHist(expand('%'),line('.'),col('.')) | call Write_Viminfo()
+	au BufWinEnter * call RmHist(match(g:histL,'\V'.escape(expand('%'),'\').'$'))
 	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
+	au VimEnter * call OnVimEnter()
 	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
 	se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
 	se wildmode=list:longest,full display=lastline modeline t_Co=256
@@ -637,12 +646,4 @@ if !exists('do_once') | let do_once=1
 	el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
 	let histL=exists('HISTL') ? split(HISTL,"\n") : [] | call InitHist()
 	call IniQuote("'")
-	if !exists('g:WORKING_DIR') || !isdirectory(glob(g:WORKING_DIR))
-		au VimEnter * call FirstRunSetup() 
-	en
-	au VimEnter * call SetOpt(g:INPUT_METH) |  exe 'so '.g:WORKING_DIR.'/abbrev'
-	if !argc() | exe 'cd '.g:WORKING_DIR
-		if len(histL)>1 | au VimEnter * call Edit(histL[0])
-en|en|en
-"no help files, or separate help browswe
-"check for absolute equivalence in histlb!
+en
