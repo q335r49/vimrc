@@ -1,9 +1,8 @@
-se nocompatible
 redir => g:StartupErr
 
 let opt_autocap=0
 if !exists('opt_device')
-	echom "Warning: opt_device is undefined, device specific settings will not be loaded."
+	echom "Warning: opt_device is undefined."
 	let opt_device='' | en
 if opt_device=~?'cygwin'
 	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
@@ -18,8 +17,8 @@ if opt_device=~?'cygwin'
 	let opt_LongPressTimeout=[99999,99999]
 	let Viminfo_File= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings/viminfo'
 	let Cyg_Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings'
-	let Working_Dir= 'C:/Users/q335r49/Desktop/Dropbox/q335writings'
-	en
+	let Working_Dir= 'C:/Users/q335r49/Desktop/Dropbox/q335writings' | en
+	nno <MiddleMouse> <LeftMouse>:q<cr>
 if opt_device=~?'notepad'
 	se noswapfile
 	nno <c-s> :wa<cr>
@@ -28,6 +27,7 @@ if opt_device=~?'notepad'
 	nno <c-q> <c-v> 
 	let opt_colorscheme='notepad' | en
 if opt_device=~?'droid4'
+	exe "ino <c-[>OQ @"
 	exe "map \<c-v>\eOP !" | exe "map! \<c-v>\eOP !"
 	exe "map \<c-v>\eOQ @" | exe "map! \<c-v>\eOQ @"
 	exe "map \<c-v>\eOR #" | exe "map! \<c-v>\eOR #"
@@ -38,8 +38,8 @@ if opt_device=~?'droid4'
 	exe "map \<c-v>\[19~ *" | exe "map! \<c-v>\[19~ *"
 	exe "map \<c-v>\[20~ (" | exe "map! \<c-v>\[20~ ("
 	exe "map \<c-v>\[21~ )" | exe "map! \<c-v>\[21~ )"
-	let Viminfo_File='/mnt/sdcard/q335writings/viminfo'
-	let Working_Dir='/mnt/sdcard/q335writings'
+	let Viminfo_File='/sdcard/q335writings/viminfo'
+	let Working_Dir='/sdcard/q335writings'
 	let EscChar='@'
 	let opt_autocap=1
 	ino <c-b> <c-w>
@@ -55,12 +55,14 @@ if has("gui_running")
 	colorscheme slate
 	hi ColorColumn guibg=#222222 
 	hi Vertsplit guifg=grey15 guibg=grey15
-	se guioptions-=T
-en
+	se guioptions-=T | en
 
 nno Q q
 vno Q q
-let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
+if !exists('Qnrm') | let Qnrm={} | en
+if !exists('Qnhelp') | let Qnhelp={} | en
+if !exists('Qvis') | let Qvis={} | en
+if !exists('Qvhelp') | let Qvhelp={} | en
 let [Qnrm.81,Qnhelp.Q,Qvis.81,Qvhelp.Q]=["Q","Ex mode","Q","Ex mode"]
 fun! Qmenu(cmd)
 	exe a:cmd.msg
@@ -73,26 +75,16 @@ let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
 
 fun! PrintDic(dict,width)
-	let ec=""
-	let cols=min([(&columns-1)/a:width,18])
-	let keys=sort(keys(a:dict),"CIcompare")
-	let L=len(keys)
-	let rows=len(keys)/cols+(len(keys)%cols!=0)
-	let printfexpr='let ec.="\n".printf("'.join(map(range(cols),'"%-".a:width.".".a:width."s"'),'').'",'.join(map(range(cols),"'cell'.v:val.''"),',').')'
-	for i in range(rows)
-		for [j,n] in map(range(cols),'[v:val*rows+i,v:key]')
-			let cell{n}=j>=L? '' : keys[j].'  '.(type(a:dict[keys[j]])<=1? a:dict[keys[j]] : string(a:dict[keys[j]]))
-		endfor
-		exe printfexpr
-	endfor
-	return ec
+	let [L,cols,keys]=[len(a:dict),min([(&columns-1)/a:width,18]),sort(keys(a:dict))]
+	let rows=L/cols+(L%cols!=0)
+	return join(map(map(range(rows),"map(range(v:val,cols*rows-1+v:val,rows),'v:val>=L? \"\" : keys[v:val].\" \".(type(a:dict[keys[v:val]])<=1? a:dict[keys[v:val]] : string(a:dict[keys[v:val]]))')"),'printf("'.join(map(range(cols),'"%-".a:width.".".a:width.(v:version>703? "S":"s")'),'').'",'.join(map(range(cols),"'v:val['.v:val.']'"),',').')'),"\n")
 endfun
 
 let asciidic={}
 for i in range(1,256)
 	let asciidic[printf("%3d",i)]=strtrans(nr2char(i))
 endfor
-let [Qnrm.103,Qnhelp.g]=[":ec PrintDic(asciidic,11)\<cr>","Show Ascii"]
+let [Qnrm.103,Qnhelp.g]=[":ec PrintDic(asciidic,7)\<cr>","Show Ascii"]
 
 fun! Scrollbind()
 	norm! mtHmu
@@ -129,7 +121,7 @@ if g:EscChar!="\e"
    	exe 'no!' g:EscChar '<Esc>'
    	exe 'cno' g:EscChar '<C-C>'
 en
-let Qnrm[EscAsc]="\e"
+let Qnrm[EscAsc]="g\e"
 let Qvis[EscAsc]=""
 
 nno <space> <c-e>
@@ -221,6 +213,8 @@ endfunction
 com! -range -nargs=+ SS call SafeSearchCommand(<line1>, <line2>, <q-args>)
 com! -range -nargs=* S call SafeSearchCommand(<line1>, <line2>, 's' . <q-args>)
 
+vn j gj
+vn k gk
 nn j gj
 nn k gk
 let gnmap=map(range(256),'"g".nr2char(v:val)')
@@ -228,6 +222,8 @@ let gvmap=copy(gnmap)
 let gnmap[char2nr('p')]=":exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'\<cr>"
 let gnmap[char2nr('j')]='j'
 let gnmap[char2nr('k')]='k'
+let gvmap[char2nr('j')]='j'
+let gvmap[char2nr('k')]='k'
 let gnmap[char2nr('$')]="G:call search('^.*\\S.*$','Wcb')\<cr>"
 let gnmap[char2nr('A')]="A"
 let gnmap[char2nr('{')]="{"
@@ -237,25 +233,22 @@ let gvmap[char2nr('p')]="\<esc>:call search('\\S\\n\\s*.\\|\\n\\s*\\n\\s*.\\|\\%
 nn <expr> g gnmap[getchar()]
 vn <expr> g gvmap[getchar()]
 
-nno <MiddleMouse> <LeftMouse>:q<cr>
-
 fun! SoftCapsLock()
+	norm! i^
+	redr!
 	let key=getchar()
 	while key!=g:EscAsc
 		if key=="\<backspace>"
-			norm! x
-		el| exe "norm! a".toupper(nr2char(key)) |en
+			undoj | norm! X
+		el | undoj | exe "norm! i".toupper(nr2char(key))."\el" |en
 		redraw!
 		let key=getchar()
 	endwhile
+	undojoin | norm! x
 endfun
 let [Qnrm.99,Qnhelp.c]=[":call SoftCapsLock()\<cr>","Caps lock"]
 
 let Pad=repeat(' ',200)
-fun! FoldTextPara()
-	let l=getline(v:foldstart)
-	return l[0]==#l[1]? l[:match(l,'[?!\.]\s\|\zs -')] : ' - '.l[:match(l,'[?!\.]\s\|\zs -')]
-endfun
 fun! FoldText()
 	let l=getline(v:foldstart)
 	let p=stridx(l,'{{{')
@@ -523,22 +516,8 @@ fun! MLnf(char)
     call search('\C\V'.nr2char(a:char),'W')
 	return 'f'
 endfun
-let ftfuncD={"f":function("MLf"),
-\"t":function("MLt"),
-\"F":function("MLF"),
-\"T":function("MLT"),
-\"nf":function("MLnf"),
-\"nt":function("MLnt"),
-\"nF":function("MLnF"),
-\"nT":function("MLnT")}
-let invftD={"f":"F",
-\"F":"f",
-\"t":"T",
-\"T":"t",
-\"nf":"nF",
-\"nt":"nT",
-\"nF":"nf",
-\"nT":"nt"}
+let ftfuncD={"f":function("MLf"),"t":function("MLt"),"F":function("MLF"),"T":function("MLT"),"nf":function("MLnf"),"nt":function("MLnt"),"nF":function("MLnF"),"nT":function("MLnT")}
+let invftD={"f":"F","F":"f","t":"T","T":"t","nf":"nF","nt":"nT","nF":"nf","nT":"nt"}
 
 let g:charL=[]
 fun! CapWait(prev)
@@ -565,7 +544,7 @@ fun! CapHere()
 	return col(".")==1 ? (b:CapSeparators!=' '? CapWait("\r") : "\<del>")
 	\ : (trunc=~'[?!.]\s*$\|^\s*$' && trunc!~'\.\.\s*$') ? (CapWait(trunc[-1:-1])) : "\<del>"
 endfun
-fun! CheckFormatted()
+fun! LoadFormatting()
 	let options=getline(1)
 	if options=~?'foldmark'
 		exe "ab <buffer> /f {{{\<cr>\<cr>\<cr>\}}}\<esc>3k$a\<c-o>"
@@ -578,18 +557,16 @@ fun! CheckFormatted()
 		nn <buffer> <rightmouse> <leftmouse>za
 		setl fdm=expr
 		setl foldexpr=getline(v:lnum)=~'^\\s*$'&&getline(v:lnum+1)=~'\\S'?'<1':1
-		setl fdt=FoldTextPara()
-	en
+		setl fdt=getline(v:foldstart) | en
 	if options=~?'hardwrap'
 		setl nowrap fo=aw
 		let number=matchstr(options,'hardwrap\zs\d*') 
-		if !empty('number')
-			exe "setl tw=".number." wiw=".(number+2)
-		el| setl tw=70 wiw=72
-		en
+		exe "setl tw=".(empty(number)? 70 : number)
 		nn <buffer>	<cr> za
 		nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
 		nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
+	elseif options=~?'prose' |  setl wrap | en
+	if &fo=~#'a'
 		if &fo=~#'w'	
 			nn <buffer> <silent> { :call search('\S\n\s*.\\|\n\s*\n\s*.\\|\%^','Wbe')<CR>
 			nn <buffer> <silent> } :call search('\S\n\\|\s\n\s*\n\\|\%$','W')<CR>
@@ -597,9 +574,7 @@ fun! CheckFormatted()
 			nn <buffer> <silent> A :call search('\S\n\\|\s\n\s*\n\\|\%$','W')<CR>a
 		el| nn <buffer> <silent> I :call search('^\s*\n\s*\S\\!\%^','Wbec')<CR>i
 			nn <buffer> <silent> A :call search('\S\s*\n\s*\n\\|\%$','Wc')<CR>a
-		en
-	elseif options=~?'prose' |  setl wrap
-	en
+		en|en
 	if options=~?'prose'
 		setl noai
 		ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
@@ -647,7 +622,7 @@ fun! CheckFormatted()
 endfun
 
 fun! RestoreSavedVars()
-	exe "norm! :let v=g:SAVED_\<c-a>'\<c-b>\<right>\<right>\<right>\<right>\<right>\<right>'\<cr>"
+	silent exe "norm! :let v=g:SAVED_\<c-a>'\<c-b>\<right>\<right>\<right>\<right>\<right>\<right>'\<cr>"
 	if exists('v') && len(v)>8
 		for var in split(v)
 			unlet! {'g:'.var[8:]}
@@ -655,8 +630,7 @@ fun! RestoreSavedVars()
 		endfor | en
 	if !exists('g:LOGDIC') | let g:logdic=New('Log') | let g:LOGDIC=g:logdic.L
 	el| let g:logdic=New('Log',g:LOGDIC) | en
-	if !exists('g:TODO') | let g:TODO=[] |en
-	let g:todo=New('NestedList',g:TODO)	
+	call g:logdic.setcursor(len(g:LOGDIC)-1)
 	if !exists('g:MRUF') | let g:MRUF={} | en
 	let g:mruf=New('FileList',g:MRUF)	
 	call g:mruf.prune(60)
@@ -667,19 +641,18 @@ fun! RestoreSavedVars()
 	if exists('g:opt_colorscheme') && has_key(g:SCHEMES,g:opt_colorscheme)
 		call CSLoad(g:SCHEMES[g:opt_colorscheme])
 	el| call CSLoad(g:SCHEMES.current) | en
-	let g:Qnrm.msg="ec printf('%-23.23s %'.(&columns-26).'s',eval(strftime('printf(\" %%d%%s%%d %%d:%M %%s%%.2f\",%m,\"smtwrfa\"[%w],%d,%I,g:logdic.L[-1][1],(localtime()-g:logdic.L[-1][0])/3600.0)',localtime())),(expand('%').' ('.join(getpos('.')[1:2],',').') $'.line('$'))[-&columns+26:])"
+	"windows doesn't support %s
+	let g:Qnrm.msg="ec printf('%-17.17s %'.(&columns-19).'s',eval(strftime('%m.\"smtwrfa\"[%w].%d.\" \".%l.\":%M \".g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60')),(expand('% ').' '.line('.').'-'.col('.').'/'.line('$'))[-&columns+19:])"
 	try | silent exe g:Qnrm.msg
 	catch | let g:Qnrm.msg="ec line('.').','.col('.').'/'.line('$')" | endtry
 	let g:Qvis.msg=g:Qnrm.msg
 endfun
-fun! WriteVimState(file) "empty file means, execute exit routine
-	echoh ErrorMsg
-		if empty('a:file') && g:StartupErr=~?'error' && input("Startup errors were encountered! ".g:StartupErr."\nSave settings anyways?")!~?'^y'
-			retu|en
-	echoh None
+fun! WriteVimState(file)
+	if g:StartupErr=~?'error' && input("Startup errors were encountered! ".g:StartupErr."\nSave settings anyways?")!~?'^y'
+		return |en
 	sil exe "norm! :unlet! g:SAVED_\<c-a>\<cr>"
 	sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
-	let removeOriginal=empty(a:file) && (v:version>703 || (v:version==703 && has("patch30")))
+	let removeOriginal=(a:file==#'exit') && (v:version>703 || (v:version==703 && has("patch30")))
 	for name in split(v)  
 		if name[2:]==#toupper(name[2:])	
 			if "000110"[type({name})]
@@ -690,7 +663,7 @@ fun! WriteVimState(file) "empty file means, execute exit routine
 		en | en
 	endfor
 	if has("gui_running") | let g:S_GUIFONT=&guifont |en
-	if empty(a:file)
+	if a:file==#'exit'
 		"curdir is necessary to retain relative path
 		exe 'cd '.(g:opt_device=~?'cygwin'? g:Cyg_Working_Dir : g:Working_Dir)
 		se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
@@ -702,12 +675,13 @@ fun! WriteVimState(file) "empty file means, execute exit routine
 		wv! |en
 endfun
 
-let [Qnrm.46,Qnhelp['.']]=["g;","Next edit"]
-let [Qnrm.44,Qnhelp[',']]=["g;","Prev edit"]
+let [Qnrm.102,Qnhelp['f']]=["g;","foward edit"]
+let [Qnrm.98,Qnhelp['b']]=["g;","back edit"]
 let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.116,Qnhelp.t]=[":let &showtabline=!&showtabline\<cr>","Tabline toggle"]
 let [Qnrm.118,Qnhelp.v]=[":if empty(&ve) | se ve=all | el | se ve= | en\<cr>","Virtual edit toggle"]
-let [Qnrm.76,Qnhelp.L]=[":se invlist\<cr>","List invisible chars"]
+let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
+let [Qnrm.76,Qnhelp.L]=[":exe colorD.76\<cr>","Load Colorscheme"]
 let [Qnrm.115,Qnhelp.s]=[":let &ls=&ls>1? 0:2\<cr>","Status line toggle"]
 let [Qnrm.119,Qnhelp.w]=[":exe 'wincmd w'.(&scb? '|'.line('.') : '')\<cr>","Next Window"]
 let [Qnrm.87,Qnhelp.W]=[":exe 'wincmd W'.(&scb? '|'.line('.') : '')\<cr>","Prev Window"]
@@ -731,26 +705,37 @@ let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy
 let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
 let [Qnrm.108,Qnhelp.l]=[":cal g:logdic.show()\<cr>","Show log files"]
 let [Qnrm.72,Qnhelp.H]=[":call mruf.show()\<cr>","Show recent files"]
-let [Qnrm.32,Qnhelp['<space>']]=[":call todo.show()\<cr>","Todo list"]
 if opt_device=='droid4' | let [Qnrm.73,Qnhelp.I]=["R","Replace mode"] | en
+let [Qnrm.86,Qnhelp['V']]=[":call WriteVimState(input('Name of file to write: ',Viminfo_File,'file'))\n","Write viminfo"]
 
 if !exists('firstrun')
 	let firstrun=0
 	if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
-		ec 'Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME
+		ec 'Warning: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME
 		let Working_Dir=$HOME |en
-	for file in ['abbrev','pager']
+	for file in ['abbrev','pager','lab.vim']
 		if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
-		el| ec 'Error:' Working_Dir.'/'.file 'unreadable'|en
+		el| ec 'Warning:' Working_Dir.'/'.file 'unreadable'|en
 	endfor
 	if !argc() && isdirectory(Working_Dir)
 		if opt_device=~?'cygwin'
 			exe 'cd '.Cyg_Working_Dir
 		el| exe 'cd '.Working_Dir | en | en
+	let setViExpr="se viminfo=!,'120,<100,s10,/50,:500,h,n"
 	if !exists('g:Viminfo_File')
-		cal Ec("Error: g:Viminfo_File undefined, falling back to default")
-	el
-		exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
+		ec "Warning: g:Viminfo_File undefined, falling back to default"
+		exe setViExpr[:-3]
+	el| let viminfotime=strftime("%Y-%m-%d-%H-%M-%S",getftime(glob(g:Viminfo_File)))
+		let conflicts=sort(split(glob(g:Viminfo_File.' (conflicted*'),"\n"))
+		if !empty(conflicts)
+			let latest_date=matchstr(conflicts[-1],'conflicted copy \zs.*\ze)')
+			if latest_date>viminfotime
+				if input("\nA more recent viminfo has been found!\nLoad ".conflicts[-1]."? (yes / no)")=~?'^y'
+					echo "Loading" conflicts[-1] "...\nUse :wv to overrite current viminfo."
+					exe setViExpr.conflicts[-1]
+				el| exe setViExpr.g:Viminfo_File | en
+			el| exe setViExpr.g:Viminfo_File | en
+		el| exe setViExpr.g:Viminfo_File | en
 	en
 	au VimEnter * call RestoreSavedVars() 
 	au VimEnter * au BufWinEnter * call mruf.restorepos(expand('%')) 
@@ -758,8 +743,7 @@ if !exists('firstrun')
 	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
 	se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
 	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
-	se whichwrap+=b,s,h,l,<,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-	se stl=\ %l.%02c/%L\ %<%f%=\ 
+	se whichwrap+=b,s,h,l,,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 	se fcs=vert:\  showbreak=.\  
 	se term=screen-256color
 	if opt_device=~?'cygwin'
@@ -768,8 +752,8 @@ if !exists('firstrun')
 		let &t_EI.="\e[2 q"
 		let &t_te.="\e[0 q"
 		se noshowmode | en
-	au BufWinEnter * call CheckFormatted()
-	au VimLeavePre * call WriteVimState('')
+	au BufWinEnter * call LoadFormatting()
+	au VimLeavePre * call WriteVimState('exit')
 	redir END
 	if !argc() && filereadable('.lastsession')
 		so .lastsession | en
