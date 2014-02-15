@@ -1,7 +1,10 @@
 se nocompatible
 redir => g:StartupErr
+
+if !exists("firstrun") | let firstrun=1 | en
+
 if !exists("g:EscChar") | let g:EscChar="\e" | let g:EscAsc=27
-el|let g:EscAsc=char2nr(g:EscChar) |en
+el | let g:EscAsc=char2nr(g:EscChar) |en
 if g:EscChar!="\e"
 	exe 'no <F2> '.g:EscChar
 	exe 'no '.g:EscChar.' <Esc>'
@@ -9,14 +12,16 @@ if g:EscChar!="\e"
    	exe 'cno '.g:EscChar.' <C-C>'
 en
 
-if !exists('Cur_Device')
-	echom "Warning: Cur_Device is undefined, device specific settings may not be loaded."
-	let Cur_Device=''
+let opt_autocap=0
+if !exists('opt_device')
+	echom "Warning: opt_device is undefined, device specific settings will not be loaded."
+	let opt_device=''
 en
-if !exists('Cur_RunAs')
-	let Cur_RunAs=''
-en
-if Cur_Device=='cygwin'
+if opt_device=~?'cygwin'
+	nno <space> <c-e>
+	nno <backspace> <c-y>
+	nno <c-i> <c-y>
+
 	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
 	cno <c-h> <left>
 	cno <c-j> <down>
@@ -32,29 +37,34 @@ if Cur_Device=='cygwin'
 	let Cyg_Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings'
 	let Working_Dir= 'C:/Users/q335r49/Desktop/Dropbox/q335writings'
 	let EscChar="\e"
-	if Cur_RunAs=='notepad'
-		se noswapfile
-		nno <c-s> :wa<cr>			
-		nno <c-w> :wqa<cr>
-		nno <c-v> "*p
-		nno <c-q> <c-v> 
-		let opt_colorscheme='notepad'
-	en
-elseif Cur_Device=='droid4'
-	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
+en
+if opt_device=~?'notepad'
+	se noswapfile
+	nno <c-s> :wa<cr>			
+	nno <c-w> :wqa<cr>
+	nno <c-v> "*p
+	nno <c-q> <c-v> 
+	let opt_colorscheme='notepad'
+en
+if opt_device=~?'droid4'
 	let opt_autocap=1
+	ino <c-b> <c-w>
+	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
 	let opt_TmenuKey="_"
 	let opt_LongPressTimeout=[0,500000]
 	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
 	let opt_colorscheme='d4-default'
-el
+	nn R <c-r>
+	nn <c-r> <nop>
+en
+if empty(opt_device)
 	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
 	let opt_TmenuKey="`"
 	let opt_LongPressTimeout=[0,500000]
 en
 let opt_TmenuAsc=char2nr(opt_TmenuKey)
 
-if has('signs')
+if has('signs') "{{{
 sign define scrollbox texthl=Visual text=[]
 fun! ScrollbarGrab()
 	if getchar()=="\<leftrelease>" || v:mouse_col!=1
@@ -94,7 +104,6 @@ fun! ToggleScrollbar()
 		exe "sign place 788 line=1".b:scrollexpr
 	en
 endfun
-
 for mark in map(range(97,122)+range(65,90),'nr2char(v:val)')
 	exe 'sign define bkmrk'.mark.' texthl=Visual text='.mark.'-'
 endfor
@@ -129,7 +138,7 @@ fun! ToggleBookmarks()
 		en
 	endfor
 endfun
-en
+en "}}}
 
 function! SafeSearchCommand(line1, line2, theCommand)
   let search = @/
@@ -141,18 +150,19 @@ com! -range -nargs=* S call SafeSearchCommand(<line1>, <line2>, 's' . <q-args>)
 
 nn j gj
 nn k gk
-let gnmap=map(range(1,256),'"g".nr2char(v:val)')
+let gnmap=map(range(256),'"g".nr2char(v:val)')
 let gvmap=copy(gnmap)
-let gnmapD.112=":exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'\<cr>"
-let gnmapD.106='j'
-let gnmapD.107='k'
-let gnmapD.36="G:call search('^.*\\S.*$','Wcb')\<cr>"
-let gnmapD.65="A"
-let gvmapD.85=":S/\\<\\(\\w\\)\\(\\w*\\)\\>/\\u\\1\\L\\2/g\<cr>"
-let gvmapD.112="\<esc>:call search('\\S\\n\\s*.\\|\\n\\s*\\n\\s*.\\|\\%^','Wbe')\<cr>m<:call search('\\S\\n\\|\\s\\n\\s*\\n\\|\\%$','W')\<cr>m>gv"
-let gvmapD.112="\<esc>:call search('\\S\\n\\s*.\\|\\n\\s*\\n\\s*.\\|\\%^','Wbe')\<cr>m<:call search('\\S\\n\\|\\s\\n\\s*\\n\\|\\%$','W')\<cr>m>gv"
-vn <expr> g get(g:gvmapD,getchar(),g:gvmapD.default)
-nn <expr> g get(g:gnmapD,getchar(),g:gnmapD.default)
+let gnmap[112]=":exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'\<cr>"
+let gnmap[106]='j'
+let gnmap[107]='k'
+let gnmap[36]="G:call search('^.*\\S.*$','Wcb')\<cr>"
+let gnmap[65]="A"
+let gnmap[123]="{"
+let gnmap[125]="}"
+let gvmap[85]=":S/\\<\\(\\w\\)\\(\\w*\\)\\>/\\u\\1\\L\\2/g\<cr>"
+let gvmap[112]="\<esc>:call search('\\S\\n\\s*.\\|\\n\\s*\\n\\s*.\\|\\%^','Wbe')\<cr>m<:call search('\\S\\n\\|\\s\\n\\s*\\n\\|\\%$','W')\<cr>m>gv"
+nn <expr> g gnmap[getchar()]
+vn <expr> g gvmap[getchar()]
 
 nno <MiddleMouse> <LeftMouse>:q<cr>
 
@@ -227,12 +237,7 @@ fun! GotoNextFold()
 	call search('{{{','W')	
 endfun
 
-ab /f {{{}}}2k$a
-
-if Cur_Device=="droid4"
-	nn R <c-r>
-	nn <c-r> <nop>
-en
+exe "ab /f {{{\<cr>\<cr>\<cr>\}}}\<esc>3k$a\<c-o>"
 
 com! -nargs=+ -complete=var Editlist call New('NestedList',<args>).show()
 com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
@@ -445,7 +450,7 @@ fun! WriteVars(file)
 	return writefile(list,a:file)
 endfun
 fun! OpenLastBackup()
-	if g:Cur_Device=='cygwin'
+	if g:opt_device=~?'cygwin'
 		exe 'cd '.g:Cyg_Working_Dir
 	el
 		exe 'cd '.g:Working_Dir 
@@ -560,7 +565,6 @@ cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
 cnorea <expr> bd! ((getcmdtype()==':' && getcmdpos()<5)? 'let NoMRUsav=1\|bd!':'bd!')
-cnorea <expr> wa ((getcmdtype()==':' && getcmdpos()<4)? "wa\|redr\|ec (WriteVars(Working_Dir.'/saveD')==0? 'vars saved' : 'ERROR!')" :'wa')
 
 let ftfuncD={"f":function("MLf"),
 \"t":function("MLt"),
@@ -613,26 +617,29 @@ fun! CheckFormatted()
 	if options=~?'prose'
 		setl noai
 		ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
-		if options=~#'Prose'
+		if options=~#'Prose' && g:opt_autocap
 			let b:CapStarters=".?!\<nl>\<cr>\<tab>\<space>"
 			let b:CapSeparators="\<nl>\<cr>\<tab>\<space>"
 			nm <buffer> <silent> O O^<Left><C-R>=CapWait("\r")<CR>
 			nm <buffer> <silent> o o^<Left><C-R>=CapWait("\r")<CR>
 			nm <buffer> <silent> cc cc^<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> C C^<Left><C-R>=CapHere()<CR>
 			nm <buffer> <silent> I I^<Left><C-R>=CapHere()<CR>
 			im <buffer> <silent> <CR> <CR>^<Left><C-R>=CapWait("\r")<CR>
 			im <buffer> <silent> <NL> <NL>^<Left><C-R>=CapWait("\n")<CR>
 		el| let b:CapStarters=".?!\<space>"
 			let b:CapSeparators="\<space>" | en
-		im <buffer> <silent> . .^<Left><C-R>=CapHere()<CR>
-		im <buffer> <silent> ? ?^<Left><C-R>=CapWait('?')<CR>
-		im <buffer> <silent> ! !^<Left><C-R>=CapWait('!')<CR>
-		nm <buffer> <silent> a a^<Left><C-R>=CapHere()<CR>
-		nm <buffer> <silent> A $a^<Left><C-R>=CapHere()<CR>
-		nm <buffer> <silent> i i^<Left><C-R>=CapHere()<CR>
-		nm <buffer> <silent> s s^<Left><C-R>=CapHere()<CR>
-		nm <buffer> <silent> cw cw^<Left><C-R>=CapHere()<CR>
-		nm <buffer> <silent> C C^<Left><C-R>=CapHere()<CR>
+		if g:opt_autocap
+			im <buffer> <silent> . .^<Left><C-R>=CapHere()<CR>
+			im <buffer> <silent> ? ?^<Left><C-R>=CapWait('?')<CR>
+			im <buffer> <silent> ! !^<Left><C-R>=CapWait('!')<CR>
+			nm <buffer> <silent> a a^<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> A $a^<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> i i^<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> s s^<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> cw cw^<Left><C-R>=CapHere()<CR>
+			nm <buffer> <silent> C C^<Left><C-R>=CapHere()<CR>
+		en
 		iab <buffer> i I
 		iab <buffer> Id I'd
 		iab <buffer> id I'd
@@ -671,7 +678,7 @@ fun! WriteVimState()
 	if g:StartupErr=~?'error' && input("Startup errors were encountered! "
 	\.g:StartupErr."\nSave settings anyways?")!~?'^y'
 		retu|en
-	if g:Cur_Device=='cygwin'
+	if g:opt_device=~?'cygwin'
 		exe 'cd '.g:Cyg_Working_Dir
 	el
 		exe 'cd '.g:Working_Dir 
@@ -694,7 +701,8 @@ fun! WriteVimState()
 		sil exe '!rm '.g:Viminfo_File |en
 endfun
 
-if !exists('do_once') | let do_once=1 | el|finish|en
+if !firstrun
+	finish|en
 if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
 	cal Ec('Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME)
 	let Working_Dir=$HOME |en
@@ -703,7 +711,7 @@ for file in ['abbrev','pager','saveD']
 	el| call Ec('Error: '.Working_Dir.'/'.file.' unreadable')|en
 endfor
 if !argc() && isdirectory(Working_Dir)
-	if Cur_Device=='cygwin'
+	if opt_device=~?'cygwin'
 		exe 'cd '.Cyg_Working_Dir
 	el
 		exe 'cd '.Working_Dir
@@ -733,17 +741,17 @@ if len(MRUF)>60
 let NoMRUsav=0
 if !exists('SWATCHES') | let SWATCHES={} |en
 if !exists('SCHEMES') | let SCHEMES={'lastscheme':''} | en
-if exists('opt_colorscheme')
+hi clear tabline
+if exists('opt_colorscheme') && has_key(SCHEMES,opt_colorscheme)
 	call CSLoad(SCHEMES[opt_colorscheme])
 else
 	call CSLoad(get(SCHEMES,SCHEMES.lastscheme,{}))
 en
-hi clear tabline
 au BufWinEnter * call RemHist(expand('%')) 
 au BufWinEnter * call CheckFormatted()
 au BufHidden * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
 au VimLeavePre * call WriteVimState()
-se wrap linebreak sidescroll=1 ignorecase smartcase incsearch
+se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch
 se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 se whichwrap+=b,s,h,l,<,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
@@ -751,8 +759,7 @@ se stl=\ %l.%02c/%L\ %<%f%=\
 
 se fcs=vert:\  showbreak=.\  
 se term=screen-256color
-se so=4
-if Cur_Device=='cygwin'
+if opt_device=~?'cygwin'
 	let &t_ti.="\e[2 q"
 	let &t_SI.="\e[6 q"
 	let &t_EI.="\e[2 q"
@@ -765,7 +772,7 @@ if !argc() && filereadable('.lastsession')
 	so .lastsession
 en
 
-let invertD={'msg':"call JustEcho('[b]ookmarks Scroll[B]ar [h]lsearch [l]ist [n]umber [s]tatusl [S]pell [t]abl [v]irtualedit [W]riteroom')",
+let invertD={'msg':"call JustEcho((exists('b:bookmarks_shown')? '+' : ''). '[b]ookmarks '.(exists('b:opt_scrollbar')? '+':'').'Scroll[B]ar '.(&hls? '+':'').'[h]lsearch '.(&list? '+':'').'[l]ist '.(&number? '+':'').'[n]umber '.(&ls!=0? '+':'').'[s]tatusl '.(&spell? '+':'').'[S]pell '.(&stal? '+':'').'[t]abl '.(!empty(&ve)? '+':'').'[v]irtualedit '.(&wrap? '+':'').'[w]rap '.(winwidth(0)!=&columns? '+':'').'[W]riteroom')",
 \'default':"call JustEcho('Undefined command.')",
 \119:'se invwrap',
 \104:'se invhls',
@@ -775,7 +782,7 @@ let invertD={'msg':"call JustEcho('[b]ookmarks Scroll[B]ar [h]lsearch [l]ist [n]
 \110:'se invnumber',
 \87:'if winwidth(0)==&columns | silent call Writeroom(exists(''g:OPT_WRITEROOMWIDTH'')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en',
 \118:'if empty(&ve) | se ve=all | el | se ve= | en',
-\83:'let &spell=!&spell'}
+\83:'se invspell'}
 if has('signs')
 	let invertD[66]='call ToggleScrollbar()'
 	let invertD[99]='call ToggleBookmarks()'
@@ -867,5 +874,4 @@ let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 \83:'let name=input("Save scheme as: ",g:SCHEMES.lastscheme,"customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=g:cs_current | let g:SCHEMES.lastscheme=name | en | let continue=0',
 \76:'let schemek=keys(g:SCHEMES) | let [in,cmd]=QSel(schemek,"scheme: ")|if in!=-1 && cmd!=g:EscAsc | let g:cs_current=g:SCHEMES[schemek[in]] | call CSLoad(g:cs_current) | let g:SCHEMES.lastscheme=schemek[in] | en | let continue=0'}
 
-"obvious mistake -- se color after
-"TODO: redo the gfunction!
+let firstrun=0
