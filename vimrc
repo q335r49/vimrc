@@ -1,21 +1,25 @@
+fun! GetVar(str)
+	exe 'let g:'.input('Store as:','','var')
+	\.'=Ec(map(split(a:str,"\n"),''v:val=~"^\\[.*]$"? eval(v:val):(v:val)''))'
+endfun
+
 fun! PrevHeading()
-	let indent=virtcol('.')-1
-	norm! 0
-	if indent
-		call search('^'.g:Tabs[1:indent/&ts].g:Pad[1:indent%&ts].'\S\|^'.g:Pad[1:indent].'\S','Wb')
-	el| call search('^\S','Wb') | en
+	let indent=virtcol('.') | norm! -
+	while virtcol('.')!=indent && line('.')!=1
+		norm! -
+	endwhile
 endfun
 fun! NextHeading()
-	let indent=virtcol('.')-1
-	if indent
-		call search('^'.g:Tabs[1:indent/&ts].g:Pad[1:indent%&ts].'\S\|'.g:Pad[1:indent].'\S','W')
-	el| call search('^\S','W') | en
+	let indent=virtcol('.') | norm! +
+	while virtcol('.')!=indent && line('.')!=line('$')
+		norm! +
+	endwhile
 endfun
 nn <silent> + ^:call NextHeading()<CR>
 nn <silent> - ^:call PrevHeading()<CR>
 
-fun! Ec(x)
-	echoh LineNr | echom string(a:x) | echoh None | return a:x
+fun! Ec(x,...)
+	echoh LineNr | echom (a:0? (a:1.": "):'').string(a:x) | echoh None | return a:x
 endfun
 
 let Qpairs={'(':')','{':'}','[':']','<':'>'}
@@ -54,6 +58,9 @@ fun! Quote(sel,dr)
 	el|retu g:Qx4[a:dr] | en
 endfun
 fun! QuoteChange(mark)
+	if a:sel==0 | norm! mrhel"tylbh"uyl`r
+		if @u=~"[\[{(\*'\"/]" | call IniQuote(@u)
+		elsei @t=~"[\)}]\*'\"/]" | call IniQuote(@t) | en
 	let mark=has_key(g:QpairsOpp,a:mark)? g:QpairsOpp[a:mark] : a:mark
 	if search(@h,'bc') | let @h=mark | norm! x"hPl
 		if search(@i,'c')
@@ -198,8 +205,8 @@ fun! CheckFormatted()
    	iab <buffer> id I'd
    	iab <buffer> im I'm
    	iab <buffer> Im I'm
-   	nn <buffer> <silent> { :if !search('[^ ]\n\s*.\\|\n\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
-   	nn <buffer> <silent> } :if !search('[^ ]$','W')\|exe'norm!G$'\|en<CR>
+   	nn <buffer> <silent> { :if !search('\S\n\s*.\\|\n\s*\n\s*.','Wbe')\|exe'norm!gg^'\|en<CR>
+   	nn <buffer> <silent> } :if !search('\S\n\\|\s\n\s*\n','W')\|exe'norm!G$'\|en<CR>
    	nm <buffer> A }a
    	nm <buffer> I {i
    	nn <buffer> > :se ai<CR>mt>apgqap't:se noai<CR>
@@ -233,12 +240,18 @@ fun! Log()
 endfun
 
 fun! TMenu(cmd,...)
-	ec a:0==0? eval(a:cmd.msg) : a:cmd[a:1]
-	let key=getchar()|redr!
+	let ec=a:0==0? eval(a:cmd.msg) : a:cmd[a:1]
+	if 1+len(ec)/&columns >= &cmdheight
+		let save=&cmdheight | exe 'se cmdheight='.(1+len(ec)/&columns)
+			ec ec | let key=getchar() | redr!
+		exe 'se cmdheight='.save
+	el| ec ec
+		let key=getchar()|redr! | en
 	retu has_key(a:cmd,key)? a:cmd[key] : TMenu(a:cmd,'help')
 endfun!
 nno <expr> ` TMenu(g:normD)
 ino <expr> ` TMenu(g:insD)
+vno <expr> ` TMenu(g:visD)
 cno <expr> ` eval('TMenu('.g:cmdMode.')')
 
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
@@ -561,15 +574,17 @@ fun! SetOpt(...)
 	let g:INPUT_METH=a:0? a:1 : 'thumb'
 	if g:INPUT_METH==?"THUMB"
 		let op=["@",64,1]
-	el| let op=["\<Esc>",27,0] | en
+	el| let op=["NONE",27,0] | en
 	if exists(g:K_ESC)
 		exe 'unm '.g:K_ESC
 		exe 'unm! '.g:K_ESC
 		exe 'cu '.g:K_ESC | en
 	let g:K_ESC=op[0] | let g:N_ESC=op[1]
-	exe 'no '.g:K_ESC.' <Esc>'
-   	exe 'no! '.g:K_ESC.' <Esc>'
-   	exe 'cno '.g:K_ESC.' <C-C>'
+	if g:K_ESC!=?"NONE"
+		exe 'no <F2> '.g:K_ESC
+		exe 'no '.g:K_ESC.' <Esc>'
+   		exe 'no! '.g:K_ESC.' <Esc>'
+   		exe 'cno '.g:K_ESC.' <C-C>' | en
 	try|exe (op[2]? 'nn <silent> <leftmouse> <leftmouse>:call {OnTouch}()<CR>'
 			\:'nun <leftmouse>')
 		exe (op[2]? 'nn <silent> <leftrelease> <leftmouse>:call OnRelease()<CR>'
@@ -597,19 +612,18 @@ fun! SetOpt(...)
 \(g:N_ESC):"\<C-R>=input(g:logmsg)\<CR>\<CR>",
 \113:"\<C-R>=input(g:logmsg)\<CR>\<CR>",
 \'msg':"PrintTime(localtime()-g:tlog[0][0],g:tlog[0][0]).len(g:tlog).'L:'"}
-	let g:normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',119:":wa\<CR>",
+	let g:normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',122:":wa\<CR>",
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
-\112:":call IniPaint()\<CR>",108:":call Log()\<CR>",
-\103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"^y$:\<C-R>\"\<CR>",
+\80:":call IniPaint()\<CR>",108:":call Log()\<CR>",
+\103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"vip\"zy:@z\<CR>",
 \115:":let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
-\113:"\<Esc>",
-\99:":call QuoteChange(nr2char(getchar()))\<CR>",
-\49:":exe 'e '.g:histL[0][0]\<CR>",
-\50:":exe 'e '.g:histL[1][0]\<CR>",
+\113:"\<Esc>",99:":call QuoteChange(nr2char(getchar()))\<CR>",
+\49:":exe 'e '.g:histL[0][0]\<CR>",50:":exe 'e '.g:histL[1][0]\<CR>",
 \51:":exe 'e '.g:histL[2][0]\<CR>",
+\112:"i\<C-R>=eval(input('Put: ','','var'))\<CR>",
 \42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
-\'help':'b[123] [g]:h [l]og [n]ohl [p]nt [r]mswp l[s] [w]a e[X]e s/[*#]',
+\'help':'b[123] [c]hg" [g]:h [l]og [n]ohl [P]nt [r]mswp l[s] [p]utvar e[X]e [z]:wa s/[*#]',
 \'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])"}
 	let g:insD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):"\<Esc>a",96:'`',
 \115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
@@ -617,8 +631,11 @@ fun! SetOpt(...)
 \50:"\<Esc>:exe 'e '.g:histL[1][0]\<CR>",
 \51:"\<Esc>:exe 'e '.g:histL[2][0]\<CR>",
 \102:"\<C-R>=escape(expand('%'),' ')\<CR>",
-\113:"\<Esc>a",
-\'help':'b[123] [f]ilename [g]etchar l[s]:',
+\113:"\<Esc>a",'help':'b[123] [f]ilename [g]etchar l[s]:',
+\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])"}
+	let g:visD={(g:N_ESC):"\<Esc>", 113:"\<Esc>",
+\103:"y:call GetVar(@\")\<CR>",
+\120:"y:@\"\<CR>",99:"y:\<C-R>\"",'help':'[g]etvar e[x]e 2[c]md:',
 \'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:tlog[-1][0])"}
 	let g:cmdD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):" \<BS>",96:" \<BS>`",
 \115:"\<C-R>=eval(join(repeat([HistMenu()],2),'==-1 ? \"\" : 
@@ -687,6 +704,10 @@ if !exists('do_once') | let do_once=1
 		if exists("WINPOS") | exe WINPOS | en
 	el | syntax off | en
 	hi ColorColumn guibg=#222222 ctermbg=237
+	hi Pmenu ctermbg=26 ctermfg=81
+	hi PmenuSel ctermbg=21 ctermfg=81
+	hi PmenuSbar ctermbg=23
+	hi PmenuThumb ctermfg=81
 	hi ErrorMsg ctermbg=9 ctermfg=15
 	hi Search ctermfg=9 ctermbg=none
 	hi MatchParen ctermfg=9 ctermbg=none
@@ -701,3 +722,5 @@ if !exists('do_once') | let do_once=1
 	call IniQuote("*")
 	nohl
 en
+"palette, generalized color scheme, pastel palette though! 'relational' colors!
+"complement, eg! balance customizability & uniformity
