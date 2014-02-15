@@ -1,6 +1,62 @@
 se nocompatible
 redir => g:StartupErr
-if !exists("firstrun") | let firstrun=1 | en
+
+let opt_autocap=0
+if !exists('opt_device')
+	echom "Warning: opt_device is undefined, device specific settings will not be loaded."
+	let opt_device='' | en
+if opt_device=~?'cygwin'
+	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
+	cno <c-h> <left>
+	cno <c-j> <down>
+	cno <c-k> <up>
+	cno <c-l> <right>
+	vno <c-c> "*y
+	vno <c-v> "*p
+	ino <c-_> <c-w>
+	nno <c-_> db
+	let opt_LongPressTimeout=[99999,99999]
+	let Viminfo_File= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings/viminfo'
+	let Cyg_Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings'
+	let Working_Dir= 'C:/Users/q335r49/Desktop/Dropbox/q335writings'
+	en
+if opt_device=~?'notepad'
+	se noswapfile
+	nno <c-s> :wa<cr>
+	nno <c-w> :wqa<cr>
+	nno <c-v> "*p
+	nno <c-q> <c-v> 
+	let opt_colorscheme='notepad' | en
+if opt_device=~?'droid4'
+	exe "map \<c-v>\eOP !" | exe "map! \<c-v>\eOP !"
+	exe "map \<c-v>\eOQ @" | exe "map! \<c-v>\eOQ @"
+	exe "map \<c-v>\eOR #" | exe "map! \<c-v>\eOR #"
+	exe "map \<c-v>\eOS $" | exe "map! \<c-v>\eOS $"
+	exe "map \<c-v>\[15~ %" | exe "map! \<c-v>\[15~ %"
+	exe "map \<c-v>\[17~ ^" | exe "map! \<c-v>\[17~ ^"
+	exe "map \<c-v>\[18~ *" | exe "map! \<c-v>\[18~ &"
+	exe "map \<c-v>\[19~ *" | exe "map! \<c-v>\[19~ *"
+	exe "map \<c-v>\[20~ (" | exe "map! \<c-v>\[20~ ("
+	exe "map \<c-v>\[21~ )" | exe "map! \<c-v>\[21~ )"
+	let Viminfo_File='/mnt/sdcard/q335writings/viminfo'
+	let Working_Dir='/mnt/sdcard/q335writings'
+	let EscChar='@'
+	let opt_autocap=1
+	ino <c-b> <c-w>
+	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
+	nn <silent> <leftmouse> <leftmouse>:call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
+	nn R <c-r>
+	nn <c-r> <nop> 
+	let opt_LongPressTimeout=[0,500000] | en
+if empty(opt_device)
+	nn <silent> <leftmouse> <leftmouse>:call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
+	let opt_LongPressTimeout=[0,500000] | en
+if has("gui_running")
+	colorscheme slate
+	hi ColorColumn guibg=#222222 
+	hi Vertsplit guifg=grey15 guibg=grey15
+	se guioptions-=T
+en
 
 nno Q q
 vno Q q
@@ -15,16 +71,15 @@ endfun
 nno <expr> q Qmenu(g:Qnrm)
 vno <expr> q Qmenu(g:Qvis)
 fun! PrintTime(e,t) "%e crashes Windows!
-	retu eval(strftime('printf("%%d%%s%%d %%d:%M %%d:%%02d ",%m,''SMTWRFA''[%w],%d,%I,a:e/3600,a:e/60%%60)',a:t))
+	retu eval(strftime('printf("%%d%%s%%d/%%d:%M %%s%%d:%%02d ",%m,''SMTWRFA''[%w],%d,%I,g:logdic.L[-1][1],a:e/3600,a:e/60%%60)',a:t))
 endfun
-let Qnrm.msg="ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).line('.').'/'.line('$').' '.g:LOGDIC.L[-1][1]"
-let Qvis.msg="ec expand('%:t').' '.line('.').'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"
+try | let Qnrm.msg="ec PrintTime(localtime()-g:logdic.L[-1][0],localtime()).line('.').'.'.col('.').'/'.line('$')"
+catch | let Qnrm.msg="ec '*Log Error* '.line('.').'.'.col('.').'/'.line('$')" | endtry
+
+let Qvis.msg="ec expand('%:t').' '.line('.').'/'.line('$').' '.(exists(\"g:logdic\")? PrintTime(localtime()-g:logdic.L[-1][0],localtime()).g:logdic.L[-1][1] : \"\")"
 let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
 
-fun! CIcompare(a,b)
-	return toupper(a:a)<toupper(a:b)? -1:1
-endfun
 fun! PrintDic(dict,width)
 	let ec=""
 	let cols=min([(&columns-1)/a:width,18])
@@ -57,10 +112,11 @@ fun! Scrollbind()
 endfun
 let [Qnrm.83,Qnhelp.S]=[":call Scrollbind()\<cr>","Scrollbind on"]
 
-let opt_DimInactiveWin=0
-hi Inactive ctermfg=235
+if !hlexists('Inactive')
+	hi Inactive ctermfg=235
+en
 fun! ToggleDimInactiveWin()
-	if g:opt_DimInactiveWin
+	if exists('#DimWindows')
 		autocmd! DimWindows
 		windo syntax clear Inactive
 	el| windo syntax region Inactive start='^' end='$'
@@ -70,41 +126,16 @@ fun! ToggleDimInactiveWin()
 			autocmd BufLeave * syntax region Inactive start='^' end='$'
 		augroup end
 	en
-	let g:opt_DimInactiveWin=!g:opt_DimInactiveWin
 endfun
 let [Qnrm.68,Qnhelp.D]=[":call ToggleDimInactiveWin()\<cr>","Dim inactive windows"]
-
-fun! InsHist(name,lnum,cnum,w0)
-	if !empty(a:name) && a:name!~escape($VIMRUNTIME,'\') && !isdirectory(a:name)
-		let g:MRUF[a:name]=[a:lnum,a:cnum,a:w0,localtime()]
-	en
-endfun
-fun! LoadLastPosition(file)
-	let pos=get(g:MRUF,a:file,[])
-	if !empty(pos)
-		exe "norm! ".pos[2]."z\<cr>".(pos[0]>pos[2]? (pos[0]-pos[2]).'j':'').pos[1].'|'
-	en
-endfun
-fun! PruneHistory(num)
-	if len(g:MRUF)<a:num+20
-		return | en
-	let keys=keys(g:MRUF)
-	let cutoff=sort(map(copy(keys),"g:MRUF[v:val][3]"))[a:num]
-	for i in keys
-		if g:MRUF[i]>cutoff	
-			unlet MRUF[i]
-		en
-	endfor
-endfun
-let [Qnrm.72,Qnhelp.H]=[":call New('RecentFiles').show()\<cr>","Show recent files"]
 
 if !exists("g:EscChar") | let g:EscChar="\e" | let g:EscAsc=27
 el | let g:EscAsc=char2nr(g:EscChar) |en
 if g:EscChar!="\e"
-	exe 'no <F2> '.g:EscChar
-	exe 'no '.g:EscChar.' <Esc>'
-   	exe 'no! '.g:EscChar.' <Esc>'
-   	exe 'cno '.g:EscChar.' <C-C>'
+	exe 'no <F2>' g:EscChar
+	exe 'no' g:EscChar '<Esc>'
+   	exe 'no!' g:EscChar '<Esc>'
+   	exe 'cno' g:EscChar '<C-C>'
 en
 let Qnrm[EscAsc]="\<esc>"
 let Qvis[EscAsc]=""
@@ -112,46 +143,6 @@ let Qvis[EscAsc]=""
 nno <space> <c-e>
 nno <backspace> <c-y>
 nno <f1> <c-y>
-
-let opt_autocap=0
-if !exists('opt_device')
-	echom "Warning: opt_device is undefined, device specific settings will not be loaded."
-	let opt_device='' | en
-if opt_device=~?'cygwin'
-	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
-	cno <c-h> <left>
-	cno <c-j> <down>
-	cno <c-k> <up>
-	cno <c-l> <right>
-	vno <c-c> "*y
-	vno <c-v> "*p
-	ino <c-_> <c-w>
-	nno <c-_> db
-	let opt_LongPressTimeout=[99999,99999]
-	let Viminfo_File='~/.viminfo'
-	let Cyg_Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings'
-	let Working_Dir= 'C:/Users/q335r49/Desktop/Dropbox/q335writings'
-	let EscChar="\e" | en
-if opt_device=~?'notepad'
-	se noswapfile
-	nno <c-s> :wa<cr>
-	nno <c-w> :wqa<cr>
-	nno <c-v> "*p
-	nno <c-q> <c-v> 
-	let opt_colorscheme='notepad' | en
-if opt_device=~?'droid4'
-	let [Qnrm.114,Qnhelp.r]=["R","Replace mode"]
-	let opt_autocap=1
-	ino <c-b> <c-w>
-	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
-	let opt_LongPressTimeout=[0,500000]
-	nn <silent> <leftmouse> <leftmouse>:call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
-	nn R <c-r>
-	nn <c-r> <nop>
-	let opt_colorscheme='d4-default' | en
-if empty(opt_device)
-	nn <silent> <leftmouse> <leftmouse>:call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
-	let opt_LongPressTimeout=[0,500000] | en
 
 if has('signs')
 	sign define scrollbox texthl=Visual text=[]
@@ -170,8 +161,8 @@ if has('signs')
 		exe "sign place 789 line=".(line('w0')*winheight(0)/line('$')+line('w0')).b:scrollexpr
 	endfun
 	fun! ToggleScrollbar()
-		if exists('b:opt_scrollbar')
-			unlet b:opt_scrollbar
+		if exists('b:scrollexpr')
+			unlet b:scrollexpr
 			nun <buffer> <leftmouse>
 			iun <buffer> <leftmouse>
 			nun <buffer> <scrollwheelup>
@@ -180,8 +171,7 @@ if has('signs')
 			iun <buffer> <scrollwheeldown>
 			exe "sign unplace 789 file=" . expand("%:p")
 			exe "sign unplace 788 file=" . expand("%:p")
-		el| let b:opt_scrollbar=1
-			nno <silent> <buffer> <leftmouse> <leftmouse>:call ScrollbarGrab()<cr>
+		el| nno <silent> <buffer> <leftmouse> <leftmouse>:call ScrollbarGrab()<cr>
 			ino <silent> <buffer> <leftmouse> <leftmouse><c-o>:call ScrollbarGrab()<cr>
 			nno <buffer> <scrollwheelup> <scrollwheelup>:call UpdateScrollbox()<cr>
 			nno <buffer> <scrollwheelup> <scrollwheelup>:call UpdateScrollbox()<cr>
@@ -233,7 +223,7 @@ en
 
 function! SafeSearchCommand(line1, line2, theCommand)
   let search = @/
-  execute a:line1 . "," . a:line2 . a:theCommand
+  exe a:line1 . "," . a:line2 . a:theCommand
   let @/ = search
 endfunction
 com! -range -nargs=+ SS call SafeSearchCommand(<line1>, <line2>, <q-args>)
@@ -243,7 +233,7 @@ nn j gj
 nn k gk
 let gnmap=map(range(256),'"g".nr2char(v:val)')
 let gvmap=copy(gnmap)
-let gnmap[char2nr('v')]=":exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'\<cr>"
+let gnmap[char2nr('p')]=":exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'\<cr>"
 let gnmap[char2nr('j')]='j'
 let gnmap[char2nr('k')]='k'
 let gnmap[char2nr('$')]="G:call search('^.*\\S.*$','Wcb')\<cr>"
@@ -285,8 +275,8 @@ com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
 
 fun! Writeroom(margin)
 	wa | only
-	exe 'botright '.(a:margin*&columns/100).' vsp blankR'
-	exe 'topleft '.(a:margin*&columns/100).' vsp blank'
+	exe 'botright' (a:margin*&columns/100) 'vsp blankR'
+	exe 'topleft' (a:margin*&columns/100) 'vsp blank'
 	wincmd l
 endfun
 let [Qnrm.87,Qnhelp.W]=[":if winwidth(0)==&columns | silent call Writeroom(exists(''g:OPT_WRITEROOMWIDTH'')? g:OPT_WRITEROOMWIDTH : 25) | else | only | en\<cr>","Writeroom mode"]
@@ -376,16 +366,11 @@ endfun
 let CShst=[[0,7]]
 let [CShix,SwchIx]=[0,0]
 let CSgrp='Normal'
-fun! CSLoad(...)
-	if a:0!=0
-		for k in keys(a:1)
-			exe 'hi '.k.' ctermfg='.a:1[k][0].' ctermbg='.a:1[k][1]
-		endfor
-		let g:SCHEMES.current=deepcopy(a:1)
-	el| for k in keys(g:SCHEMES.current)
-			exe 'hi '.k.' ctermfg='.g:SCHEMES.current[k][0].' ctermbg='.g:SCHEMES.current[k][1]
-		endfor
-	en
+fun! CSLoad(scheme)
+	let g:SCHEMES.current=deepcopy(a:scheme)
+	for k in keys(g:SCHEMES.current)
+		exe 'hi' k 'ctermfg='.g:SCHEMES.current[k][0].' ctermbg='.g:SCHEMES.current[k][1]
+	endfor
 endfun
 fun! CompleteSwatches(Arglead,CmdLine,CurPos)
 	return filter(keys(g:SCHEMES.swatches),'v:val=~a:Arglead')
@@ -405,45 +390,45 @@ fun! CSChooser(...)
 		call add(gName:CShst,[fg,bg])
 	el|retu|en
 	let swatchlist=keys(g:SCHEMES.swatches)
-	exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg | redr
+	exe 'hi' g:CSgrp 'ctermfg='.fg 'ctermbg='.bg | redr
 	let msg=g:CSgrp
-	exe "echoh ".g:CSgrp
+	exe "echoh" g:CSgrp
 	ec msg fg bg
-	let c=getchar()
 	let continue=1
-	while 1
-		exe get(g:colorD,c,'ec ">>>>>> Color chooser commands >>>>>>".PrintDic(g:colorDh,20)|call getchar()')
-		if continue
-			if g:CShix<=len(g:CShst)-1
-				let g:CShst[g:CShix]=[fg,bg]
-			el| call add(g:CShst,[fg,bg])
-				let g:CShix=len(g:CShst)-1 |en
-			exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg |redr
-			exe "echoh ".g:CSgrp
-			ec msg fg bg
-			let msg=g:CSgrp
-			let c=getchar()
-		el| if len(g:CShst)>100
-				let CShst=g:CShix<25? (g:CShst[:50]) : g:CShix>75? (g:CShst[50:])
-				\: g:CShst[g:CShix-25:g:CShix+25] |en
-			echoh None
-			return g:CShst[g:CShix] | en
+	let c=getchar()
+	exe get(g:colorD,c,'ec PrintDic(g:colorDh,20)|call getchar()')
+	while continue
+		if g:CShix<=len(g:CShst)-1
+			let g:CShst[g:CShix]=[fg,bg]
+		el| call add(g:CShst,[fg,bg])
+			let g:CShix=len(g:CShst)-1 |en
+		exe 'hi' g:CSgrp 'ctermfg='.fg 'ctermbg='.bg |redr
+		exe "echoh" g:CSgrp
+		ec msg fg bg
+		let msg=g:CSgrp
+		let c=getchar()
+		exe get(g:colorD,c,'ec PrintDic(g:colorDh,20)|call getchar()')
 	endwhile
+	if len(g:CShst)>100
+		let CShst=g:CShix<25? (g:CShst[:50]) : g:CShix>75? (g:CShst[50:])
+		\: g:CShst[g:CShix-25:g:CShix+25] |en
+	echoh None
 endfun
 let colorD={}
 let colorDh={}
 let [colorD.113,colorDh['q/esc']]=["let continue=0\n
 \if has_key(g:SCHEMES.current,g:CSgrp)\n
-\    exe 'hi '.g:CSgrp.' ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1])|en","Quit"]
+\    exe 'hi' g:CSgrp 'ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1])|en","Quit"]
 let colorD[EscAsc]=colorD.113
-let colorD.10="let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
+let colorD.10="let continue=0 | exe 'hi' g:CSgrp 'ctermfg='.fg.' ctermbg='.bg
 \|let g:SCHEMES.current[g:CSgrp]=[fg,bg]"
 let colorD.13=colorD.10
-let colorD.104='let [fg,g:CShix]=[(fg+255)%256,g:CShix+1]'
-let colorD.108='let [fg,g:CShix]=[(fg+1)%256,g:CShix+1]'
+let [colorD.101,colorDh['e']]=["let [fg,bg]=eval(input('[fg,bg]=',\"[,]\<home>\<right>\"))",'enter color']
+let colorD.104='let [fg,g:CShix]=[fg is "NONE"? 255 : fg is 0? "NONE" : fg-1, g:CShix+1]'
+let colorD.108='let [fg,g:CShix]=[fg is "NONE"? 0 : fg is 255? "NONE" : fg+1,g:CShix+1]'
 let colorDh.hl="cycle fg"
-let colorD.106='let [bg,g:CShix]=[(bg+255)%256,g:CShix+1]'
-let colorD.107='let [bg,g:CShix]=[(bg+1)%256,g:CShix+1]'
+let colorD.106='let [bg,g:CShix]=[bg is "NONE"? 255 : bg is 0? "NONE" : bg-1,g:CShix+1]'
+let colorD.107='let [bg,g:CShix]=[bg is "NONE"? 0 : bg is 255? "NONE" : bg+1,g:CShix+1]'
 let colorDh.jk="cycle bg"
 let colorD.98='let [g:SwchIx,g:CShix]=[(g:SwchIx+len(swatchlist)-1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]'
 let colorD.102='let [g:SwchIx,g:CShix]=[(g:SwchIx+1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" ".swatchlist[g:SwchIx]'
@@ -457,14 +442,15 @@ let colorD.82='let [bg,g:CShix]=[reltime()[1]%256,g:CShix+1]'
 let colorDh['rR*']="Random"
 let [colorD.105,colorDh.i]=['let [fg,bg]=[bg,fg]',"invert"]
 let [colorD.103,colorDh.g]=["let in=input('Group: ','','highlight')\n
+\if !empty(in)\n
 \if has_key(g:SCHEMES.current,in)\n
 \     let [fg,bg]=g:SCHEMES.current[in]\n
 \en\n
 \if has_key(g:SCHEMES.current,g:CSgrp)\n
-\    exe 'hi '.g:CSgrp.' ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1])\n
+\    exe 'hi' g:CSgrp 'ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1])\n
 \en\n
 \let g:CSgrp=in\n
-\let msg=g:CSgrp","hl group"]
+\let msg=g:CSgrp | en","hl group"]
 let [colorD.115,colorDh.s]=['let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
 \if !empty(name) | let g:SCHEMES.swatches[name]=[fg,bg] |en','Save swatch']
 let [colorD.83,colorDh.S]=['let name=input("Save scheme as: ","","customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=deepcopy(g:SCHEMES.current) | en | let continue=0','Save Scheme']
@@ -473,6 +459,9 @@ let [colorD.76,colorDh.L]=["let in=get(g:SCHEMES,input('Load scheme: ','','custo
 \    call CSLoad(in) | en\n
 \let continue=0",'Load scheme']
 let [Qnrm.67,Qnhelp.C]=[":call CSChooser()\<cr>","Customize colors"]
+let [Qnrm.7,Qnhelp['^G']]=[":ec 'hi<' . synIDattr(synID(line('.'),col('.'),1),'name') . '> trans<'
+\ . synIDattr(synID(line('.'),col('.'),0),'name') . '> lo<'
+\ . synIDattr(synIDtrans(synID(line('.'),col('.'),1)),'name') . '>'\<cr>","Get highlight"]
 
 fun! GetCompletion()
 	let c=col('.')
@@ -491,7 +480,7 @@ fun! Ec(...)
 	echoh MatchParen
 	if a:0>1 && a:000[-1][-2:]=='00'
 		redr| echom join(map(copy(a:000[:-2]),'string(v:val)'),'; ')
-		exe 'sleep '.a:000[-1].'m'
+		exe 'sleep' a:000[-1].'m'
 	el| redr| echom join(map(copy(a:000),'string(v:val)'),'; ') |en
 	echoh None
 	return a:1
@@ -598,12 +587,12 @@ fun! CheckFormatted()
 	let options=getline(1)
 	if options=~?'foldmark'
 		exe "ab <buffer> /f {{{\<cr>\<cr>\<cr>\}}}\<esc>3k$a\<c-o>"
-		nn <buffer>	<cr> za
+		nn <buffer>	<lf> za
 		nn <buffer> <rightmouse> <leftmouse>za
 		setl fdm=marker
 		setl fdt=FoldText()
 	elseif options=~?'foldpara'
-		nn <buffer>	<cr> za
+		nn <buffer>	<lf> za
 		nn <buffer> <rightmouse> <leftmouse>za
 		setl fdm=expr
 		setl foldexpr=getline(v:lnum)=~'^\\s*$'&&getline(v:lnum+1)=~'\\S'?'<1':1
@@ -675,50 +664,66 @@ fun! CheckFormatted()
 	en
 endfun
 
-fun! WriteVars()
+fun! RestoreSavedVars()
+	sil exe "norm! :let g:SAVED_\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
+	if len(v)>8
+		for var in split(v)
+			unlet! {'g:'.var[8:]}
+			let {'g:'.var[8:]}=eval({var})	
+		endfor | en
+	if !exists('g:LOGDIC') | let g:logdic=New('Log') | let g:LOGDIC=g:logdic.L
+	el| let g:logdic=New('Log',g:LOGDIC) | en
+	if !exists('g:TODO') | let g:TODO=[] |en
+	let g:todo=New('NestedList',g:TODO)	
+	if !exists('g:MRUF') | let g:MRUF={} | en
+	let g:mruf=New('FileList',g:MRUF)	
+	call g:mruf.prune(60)
+	if !exists('g:SCHEMES') | let g:SCHEMES={'swatches':{},'current':{}} | en
+	if !has_key(g:SCHEMES,'swatches')
+		let g:SCHEMES.swatches={} |en
+	hi clear tabline
+	if exists('g:opt_colorscheme') && has_key(g:SCHEMES,g:opt_colorscheme)
+		call CSLoad(g:SCHEMES[g:opt_colorscheme])
+	el| call CSLoad(g:SCHEMES.current) | en
+	au BufWinEnter * call mruf.restorepos(expand('%')) 
+	au BufLeave * call mruf.insert(expand('<afile>'),line('.'),col('.'),line('w0'))
+endfun
+fun! WriteVimState(file) "empty file means, execute exit routine
+	echoh ErrorMsg
+		if empty('a:file') && g:StartupErr=~?'error' && input("Startup errors were encountered! ".g:StartupErr."\nSave settings anyways?")!~?'^y'
+			retu|en
+	echoh None
+	sil exe "norm! :unlet! g:SAVED_\<c-a>\<cr>"
 	sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
-	let i=0
+	let removeOriginal=empty(a:file) && (v:version>703 || (v:version==703 && has("patch30")))
 	for name in split(v)  
 		if name[2:]==#toupper(name[2:])	
-			let type=eval("type(".name.")")
-			if type>1
-				let g:VARSAV_{i}=substitute("let ".name."=".eval("string(".name.")"),"\n",'''."\\n".''',"g")
-				let i+=1
-				if type==4 && eval("has_key(".name.",'reinit')")
-					let g:VARSAV_{i}="call ".name.".reinit()"
-					let i+=1
+			if "000110"[type({name})]
+				let {"g:SAVED_".name[2:]}=substitute(string({name}),"\n",'''."\\n".''',"g")
+				if removeOriginal "eliminates duplicates when vim already writes lists / dics
+					exe "unlet!" name
 				en
-			en
-		en
+		en | en
 	endfor
-	if i<g:VARSAVES
-		exe "unlet! ".join(map(range(i,g:VARSAVES),"'g:VARSAV_'.v:val")) | en
-	let g:VARSAVES=i
-endfun
-fun! WriteVimState()
-	exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
-	echoh ErrorMsg
-	if g:StartupErr=~?'error' && input("Startup errors were encountered! ".g:StartupErr."\nSave settings anyways?")!~?'^y'
-		retu|en
-	exe 'cd '.(g:opt_device=~?'cygwin'? g:Cyg_Working_Dir : g:Working_Dir)
-	call WriteVars()
-	if has("gui_running")
-		let g:S_GUIFONT=&guifont |en
-	"curdir is necessary to retain relative path
-	se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
-	if argc() | argd *
-	el | mksession! .lastsession | en
-	if exists('g:RemoveBeforeWriteViminfo')
-		sil exe '!rm '.g:Viminfo_File |en
+	if has("gui_running") | let g:S_GUIFONT=&guifont |en
+	if empty(a:file)
+		"curdir is necessary to retain relative path
+		exe 'cd '.(g:opt_device=~?'cygwin'? g:Cyg_Working_Dir : g:Working_Dir)
+		se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
+		if argc() | argd *
+		el | mksession! .lastsession | en
+		sil exe '!mv '.g:Viminfo_File.' '.g:Viminfo_File.'.bak'
+		exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
+	el| exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".a:file
+		wv! |en
 endfun
 
-fun! NextWindow()
-	if &scb
-		exe "wincmd w".(&scb? "|norm! ".line(".")."G" : "")
-endfun
+let [Qnrm.46,Qnhelp['.']]=["g;","Next edit"]
+let [Qnrm.44,Qnhelp[',']]=["g;","Prev edit"]
+let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.116,Qnhelp.t]=[":let &showtabline=!&showtabline\<cr>","Tabline toggle"]
 let [Qnrm.118,Qnhelp.v]=[":if empty(&ve) | se ve=all | el | se ve= | en\<cr>","Virtual edit toggle"]
-let [Qnrm.108,Qnhelp.l]=[":se invlist\<cr>","List invisible chars"]
+let [Qnrm.76,Qnhelp.L]=[":se invlist\<cr>","List invisible chars"]
 let [Qnrm.115,Qnhelp.s]=[":let &ls=&ls>1? 0:2\<cr>","Status line toggle"]
 let [Qnrm.119,Qnhelp.w]=[":exe 'wincmd w'.(&scb? '|'.line('.') : '')\<cr>","Next Window"]
 let [Qnrm.87,Qnhelp.W]=[":exe 'wincmd W'.(&scb? '|'.line('.') : '')\<cr>","Prev Window"]
@@ -727,8 +732,6 @@ let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
 let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
 let [Qnrm.101,Qnhelp.e]=[":noh\<cr>","No highlight search"]
 let [Qnrm.78,Qnhelp.N]=[":se invnumber\<cr>","Line number toggle"]
-let [Qnrm.76,Qnhelp.L]=[":cal g:LOGDIC.show()\<cr>","Show log files"]
-let [Qnrm.32,Qnhelp['<space>']]=[":call TODO.show()\<cr>","Todo list"]
 let [Qnrm.104,Qnhelp.h]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>","Help word under cursor"]
 let Qnrm.49=":tabn1\<cr>"
 let Qnrm.50=":tabn2\<cr>"
@@ -751,68 +754,45 @@ let [Qnrm.120,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","So
 let [Qvis.120,Qvhelp.x]=["y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source selection"]
 let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy to clipboard"]
 let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
+let [Qnrm.108,Qnhelp.l]=[":cal g:logdic.show()\<cr>","Show log files"]
+let [Qnrm.72,Qnhelp.H]=[":call mruf.show()\<cr>","Show recent files"]
+let [Qnrm.32,Qnhelp['<space>']]=[":call todo.show()\<cr>","Todo list"]
+if opt_device=='droid4' | let [Qnrm.73,Qnhelp.I]=["R","Replace mode"] | en
 
-if !firstrun
-	finish|en
-let firstrun=0
-if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
-	cal Ec('Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME)
-	let Working_Dir=$HOME |en
-for file in ['abbrev','pager']
-	if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
-	el| call Ec('Error: '.Working_Dir.'/'.file.' unreadable')|en
-endfor
-if !argc() && isdirectory(Working_Dir)
+if !exists('firstrun')
+	let firstrun=0
+	if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
+		cal Ec('Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME)
+		let Working_Dir=$HOME |en
+	for file in ['abbrev','pager']
+		if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
+		el| call Ec('Error: '.Working_Dir.'/'.file.' unreadable')|en
+	endfor
+	if !argc() && isdirectory(Working_Dir)
+		if opt_device=~?'cygwin'
+			exe 'cd '.Cyg_Working_Dir
+		el| exe 'cd '.Working_Dir | en | en
+	exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
+	if !exists('g:Viminfo_File')
+		cal Ec("Error: g:Viminfo_File undefined, falling back to default")
+	el| exe "rv ".g:Viminfo_File | en
+	au VimEnter * call RestoreSavedVars()
+	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
+	se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
+	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
+	se whichwrap+=b,s,h,l,<,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
+	se stl=\ %l.%02c/%L\ %<%f%=\ 
+	se fcs=vert:\  showbreak=.\  
+	se term=screen-256color
 	if opt_device=~?'cygwin'
-		exe 'cd '.Cyg_Working_Dir
-	el| exe 'cd '.Working_Dir | en | en
-exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
-if !exists('g:Viminfo_File')
-	cal Ec("Error: g:Viminfo_File undefined, falling back to default")
-	rv
-el| exe "rv ".g:Viminfo_File | en
-if exists("g:VARSAVES")
-	for i in range(g:VARSAVES)
-		exe VARSAV_{i}
-	endfor | en
-if has("gui_running")
-	colorscheme slate
-	hi ColorColumn guibg=#222222 
-	hi Vertsplit guifg=grey15 guibg=grey15
- 	se guioptions-=T
-	if !exists('S_GUIFONT')
-		"se guifont=Envy\ Code\ R\ 10 
-		se guifont=Envy_Code_R:h10 
-		let S_GUIFONT=&guifont
-	el| exe 'se guifont='.S_GUIFONT |en |en
-if !exists('LOGDIC') | let LOGDIC=New('Log') |en
-if !exists('MRUF')
-	let MRUF={} | en
-call PruneHistory(60)
-if !exists('SCHEMES') | let SCHEMES={'swatches':{},'current':{}} | en
-if !has_key(SCHEMES,'swatches')
-	let SCHEMES.swatches={} |en
-hi clear tabline
-if exists('opt_colorscheme') && has_key(SCHEMES,opt_colorscheme)
-	call CSLoad(SCHEMES[opt_colorscheme])
-el| call CSLoad() | en
-au BufLeave * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
-au BufWinEnter * call LoadLastPosition(expand('%')) 
-au BufWinEnter * call CheckFormatted()
-au VimLeavePre * call WriteVimState()
-se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
-se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
-se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
-se whichwrap+=b,s,h,l,<,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-se stl=\ %l.%02c/%L\ %<%f%=\ 
-se fcs=vert:\  showbreak=.\  
-se term=screen-256color
-if opt_device=~?'cygwin'
-	let &t_ti.="\e[2 q"
-	let &t_SI.="\e[6 q"
-	let &t_EI.="\e[2 q"
-	let &t_te.="\e[0 q"
-	se noshowmode | en
-redir END
-if !argc() && filereadable('.lastsession')
-	so .lastsession | en
+		let &t_ti.="\e[2 q"
+		let &t_SI.="\e[6 q"
+		let &t_EI.="\e[2 q"
+		let &t_te.="\e[0 q"
+		se noshowmode | en
+	au BufWinEnter * call CheckFormatted()
+	au VimLeavePre * call WriteVimState('')
+	redir END
+	if !argc() && filereadable('.lastsession')
+		so .lastsession | en
+en
