@@ -6,7 +6,7 @@ if opt_device=~?'windows'
 	let Working_Dir='C:\Users\q335r49\Desktop\Dropbox\q335writings'
 	let Viminfo_File='C:\Users\q335r49\Desktop\Dropbox\q335writings\viminfo' | en
 if opt_device=~?'cygwin'
-	"se timeout ttimeout timeoutlen=100 ttimeoutlen=100
+	let opt_mousepan=1
 	cno <c-h> <left>
 	cno <c-j> <down>
 	cno <c-k> <up>
@@ -295,34 +295,33 @@ let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | silent call Writeroom(e
 
 if exists('opt_mousepan') && opt_mousepan
 	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (MousePan()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
-	let glidestep=[99999999]+map(range(11),'11*(11-v:val)*(11-v:val)')+repeat([1],40)
+	let MpanRedr=opt_device==?'droid4'? 'redr!' : 'redr'
+	let glidestep=[99999999]+map(range(11),'11*(11-v:val)*(11-v:val)')
 	fun! MousePan()
 		if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1) || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) || v:mouse_lnum==line('$')
 			if line('$')==line('w0') | exe "keepj norm! \<c-y>" |en
 			return 1 | en
 		exe "norm! \<leftmouse>"
-		let [veon,frame,tl,dvl,dhl]=[&ve==?'all',-1,repeat([reltime()],4),[0,0,0,0],[0,0,0,0]]
-		let v=winsaveview()
-		let [v.col,v.coladd]=[0,v.curswant]
+		let [veon,fr,tl,v]=[(&ve==?'all')*9999999,-1,repeat([[reltime(),0,0]],4),winsaveview()]
+		let [v.col,v.coladd]=[0,v:mouse_col-1]
 		while getchar()=="\<leftdrag>"
-			let [dV,dH]=[v:mouse_lnum-v.lnum, veon*(v:mouse_col-v.coladd-1)]
-			let [v.lnum,v.coladd,v.curswant]=[v:mouse_lnum,v:mouse_col-1,v:mouse_col-1]
-			let [dV,dH,frame]=[dV>v.topline-1? v.topline-1 : dV, dH>v.leftcol? v.leftcol : dH,(frame+1)%4]
-			let [v.topline,v.leftcol,v.lnum,v.coladd,tl[frame],dvl[frame],dhl[frame]]=[v.topline-dV,v.leftcol-dH,v.lnum-dV,v.curswant-dH,reltime(),dV,dH]
+			let [dV,dH,fr]=[min([v:mouse_lnum-v.lnum,v.topline-1]), min([veon,v:mouse_col-v.coladd-1,v.leftcol]),(fr+1)%4]
+			let [v.topline,v.leftcol,v.lnum,v.coladd,tl[fr]]=[v.topline-dV,v.leftcol-dH,v:mouse_lnum-dV,v:mouse_col-1-dH,[reltime(),dV,dH]]
 			call winrestview(v)
-			if !(frame%2) | redr! | en
+			exe g:MpanRedr
 		endwhile
-		let [sv,sh]=[dvl[0]+dvl[1]+dvl[2]+dvl[3],dhl[0]+dhl[1]+dhl[2]+dhl[3]]
-		let [cmd,sv]=sv>2? ["\<c-y>",sv+10] : sv<-2? ["\<c-e>",-sv+10] : ["\<c-e>",0]
-		let [cmd,sh,vc,hc]=sh>2? [cmd."zh",sh+10,0,0] : sh<-2? [cmd."zl",-sh+10,0,0] : [cmd.'zl',0,0,0]
-		if !eval(join(reltime(tl[(frame+1)%4]),' || 20000<')) || !sv && !sh | return | en
-		while !getchar(1) && sv+sh>0
-			let [y,x]=[vc>g:glidestep[sv],hc>g:glidestep[sh]]
-			let [sv,sh,vc,hc]=[sv-y,sh-x,!y*vc+!y,!x*hc+!x]
-			if !y<=2*x
-				exe 'norm!' cmd[!y :2*x] | redr
-			en
-		endw
+		if str2float(reltimestr(reltime(tl[(fr+1)%4][0])))<0.2
+			let [glv,glh,vc,hc]=[tl[0][1]+tl[1][1]+tl[2][1]+tl[3][1],tl[0][2]+tl[1][2]+tl[2][2]+tl[3][2],0,0]
+			let [tlx,lnx,glv,lcx,cax,glh]=(glv>3? ['y*v.topline>1','y*v.lnum>1',glv*glv] : glv<-3? ['-(y*v.topline<'.line('$').')','-(y*v.lnum<'.line('$').')',glv*glv] : [0,0,0])+(glh>3? ['x*v.leftcol>0','x*v.coladd>0',glh*glh] : glh<-3? ['-x','-x',glh*glh] : [0,0,0])
+			while !getchar(1) && glv+glh
+				let [y,x,vc,hc]=[vc>get(g:glidestep,glv,1),hc>get(g:glidestep,glh,1),vc+1,hc+1]
+				if y||x
+					let [v.topline,v.lnum,v.leftcol,v.coladd,glv,vc,glh,hc]-=[eval(tlx),eval(lnx),eval(lcx),eval(cax),y,y*vc,x,x*hc]
+					call winrestview(v)
+					exe g:MpanRedr
+				en
+			endw
+		en
 	endfun
 en
 
