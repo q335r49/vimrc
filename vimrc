@@ -1,5 +1,7 @@
 redir => g:StartupErr
 
+ab /f {{{}}}2k$a
+
 nn j gj
 nn k gk
 nn gj j
@@ -12,11 +14,12 @@ nn <expr> gp '`['.getregtype().'`]'
 com! -nargs=+ -complete=var Editlist call New('NestedList',<args>).show()
 com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
 
+let g:LParentheses=repeat('(',20)
+let g:RParentheses=repeat(')',20)
 let Pad=repeat(' ',200)
 fun! FoldText()
 	let l=getline(v:foldstart)
-	let [z,e]=[stridx(l,'  '),stridx(l,'{{{')]
-	retu z>0? v:folddashes[1:].l[:z-1].g:Pad[z+v:foldlevel-2:max([0,(&columns-e+z+2)/2])].l[z+2:e-1] : v:folddashes[1:].g:Pad[v:foldlevel-1:max([0,(&columns-e+1)/2])].l[:e-1]
+	return g:Pad[v:foldlevel].'( '.l[:stridx(l,'{{{')-1].' )'
 endfun
 
 fun! ReltimeLT(t1,t2)
@@ -96,6 +99,7 @@ fun! Mscroll()
 	en
 endfun
 
+let maxQselsize=&lines*&columns-2
 fun! QSel(list,msg)
 	let [inp,c]=['','']
 	while c!=g:EscAsc && (c==0 || c>30)
@@ -110,7 +114,7 @@ fun! QSel(list,msg)
 				let [match,matchpos,qual]=[e,pos,thisqual]
 			el| let qual{thisqual}.=a:list[e].' ' |en
 			let lenmatch+=len(a:list[e])+1
-			if lenmatch>2*&columns | break|en
+			if lenmatch>g:maxQselsize | break|en
 		endfor
 		redr!
 		if qual==1
@@ -462,7 +466,12 @@ for file in ['abbrev','pager','saveD']
 	el| call Ec('Error: '.Working_Dir.'/'.file.' unreadable')|en
 endfor
 if !argc() && isdirectory(Working_Dir)
-	exe 'cd '.Working_Dir |en
+	if Cur_Device=='cygwin'
+		exe 'cd '.Cyg_Working_Dir
+	el
+		exe 'cd '.Working_Dir
+	en
+en
 se viminfo=!,'120,<100,s10,/50,:500,h
 if !exists('g:Viminfo_File')
 	cal Ec("Error: g:Viminfo_File undefined, falling back to default")
@@ -485,9 +494,14 @@ if len(MRUF)>60
 	let MRUF=MRUF[:40]
 	let MRUL=MRUL[:40] |en
 let NoMRUsav=0
-if !exists('CURCS') | let CURCS={} | el | call CSLoad(CURCS) |en
+if !exists('CURCS')
+	let CURCS={}
+el
+	call CSLoad(CURCS)
+en
 if !exists('SWATCHES') | let SWATCHES={} |en
 if !exists('SCHEMES') | let SCHEMES={} |en
+if !exists('CS_LASTSCHEME') | let CS_LASTSCHEME='' |en
 au BufWinEnter * call RemHist(expand('%'))
 au BufRead * call CheckFormatted()
 au BufHidden * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
@@ -496,7 +510,8 @@ se wrap linebreak sidescroll=1 ignorecase smartcase incsearch
 se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-se stl=\ %l.%02c/%L\ %<%f%=\ } fcs=vert:\  showbreak=·\ 
+se stl=\ %l.%02c/%L\ %<%f%=\ 
+se fcs=vert:\  showbreak=.\  
 se term=screen-256color
 "se noshowmode
 redir END
@@ -505,8 +520,8 @@ if !argc() && filereadable('.lastsession')
 en
 
 let normD={95:"_",96:'`',48:"@",
-\110:":se invhls\<cr>",(g:EscAsc):"\<esc>",122:":wa\<cr>",9:":call TODO.show()\<cr>",
-\82:"R",67:":call CSChooser()\<cr>",116:":call TODO.show()\<cr>",
+\110:":se invhls\<cr>",(g:EscAsc):"\<esc>",122:":wa\<cr>",32:":call TODO.show()\<cr>",
+\82:"R",99:":call CSChooser()\<cr>",116:":call TODO.show()\<cr>",
 \114:":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*",
 \80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
 \107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:nohl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
@@ -517,7 +532,7 @@ let normD={95:"_",96:'`',48:"@",
 \42:":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \35:":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>",
-\'help':'123:buff C/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap z:wa *#:sub',
+\'help':'123:buff c/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap z:wa *#:sub',
 \'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
 \.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]",
 \111:":call LOGDIC.111(1)\<cr>",
@@ -570,9 +585,8 @@ let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 \| en | let g:CSgrp=hi[in] | let msg=g:CSgrp | en',
 \115:'let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
 \if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en',
-\83:'let name=input("Save scheme as: ","","customlist,CompleteSchemes") |
-\if !empty(name) | let g:SCHEMES[name]=g:CURCS |en',
-\76:'let schemek=keys(g:SCHEMES) | let [in,cmd]=QSel(schemek,"scheme: ")|if in!=-1 && cmd!=g:EscAsc | let g:CURCS=g:SCHEMES[schemek[in]] | call CSLoad(g:CURCS) |en'}
+\83:'let name=input("Save scheme as: ",g:CS_LASTSCHEME,"customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=g:CURCS | let g:CS_LASTSCHEME=name | en',
+\76:'let schemek=keys(g:SCHEMES) | let [in,cmd]=QSel(schemek,"scheme: ")|if in!=-1 && cmd!=g:EscAsc | let g:CURCS=g:SCHEMES[schemek[in]] | call CSLoad(g:CURCS) | let g:LASTSCHEME=schemek[in] | en'}
 
 "Added changelog
 "Added shortcuts to log functions in normD command
@@ -623,4 +637,10 @@ let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 "curdevice for device specific settings
 "changed tmenu trigger to _
 "changed autocap cursor to ^
-"Added [S]ave and [L]oad colorscheme
+"added option to [S]ave and [L]oad color schemes
+"last scheme name default entry for load color scheme
+"change color chooser from C to c
+"autocomplete {{{
+"added () to distinguish folds, removed fold centering
+"variable maxQselsize for Qsel list length
+"added cygwin customizations (must define Cyg_Working_Dir)
