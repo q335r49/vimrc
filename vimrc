@@ -2,7 +2,7 @@ se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
 se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256
 se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-se stl=\ %l.%02c/%L\ %<%f%=\ %{FmtTm(localtime()-g:TLOG[0:9])}\ 
+se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-g:llog[-1][0])}
 se guifont=Envy\ Code\ R:h12:cANSI guioptions-=T
 if has("gui_running") | colorscheme slate
 el | syntax off | en
@@ -35,46 +35,45 @@ if exists('OPT_THUMBOARD')
 	nn   <F9> <C-O>
 	nn   <F10> <C-I>
 el | let K_ESC="\<Esc>" | let N_ESC=27 | en
-fun! FmtTm(s)
-	return strftime('%m/%d %H:%M [')
-	\.(a:s>3600? (a:s/3600.(a:s%3600<600? ':0' : ':')) : '').(a:s%3600/60).']'
-endfun
-if !exists('g:TLOG') | let g:TLOG=localtime().'> '.FmtTm(0)."\n" | en
-let g:histL=exists('g:FHIST') ? split(g:FHIST,"\n") : []
 if !exists('do_once')
 	let do_once=1
+	if !exists('TLOG') | let llog=[[localtime(),'0000']]
+	el | let llog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
+	let g:histL=exists('FHIST') ? split(FHIST,"\n") : []
 	if !exists('g:MAIN_DIRECTORY') || !isdirectory(g:MAIN_DIRECTORY)
 		echoerr 'Set MAIN_DIRECTORY!'
 	elseif !argc()
 		exe 'cd '.g:MAIN_DIRECTORY
-		so abbrev | e main.txt | en
+		so abbrev | silent e main.txt | en
 	au VimEnter * se viminfo=!,'20,<1000,s10,/50,:50 | call InitHist()
 	au BufRead *.txt call InitTextFile()
 	au BufNewFile *.txt call InitTextFile() | exe "norm! i".localtime()." "
-	\ .strftime('%y%m%d')." vim: set nowrap ts=4 tw=62 fo=aw:"
+	\.strftime('%y%m%d')." vim: set nowrap ts=4 tw=62 fo=aw:"
 	au BufWinEnter * let ix=match(g:histL,'\V'.expand('%').'$')
 	\|call cursor((ix>=0? g:histL[ix][match(g:histL[ix],'\$')+1:] : 1),1)
 	au BufWinLeave * call InsHist(expand('%'),line('.'))
 	au VimLeavePre * let g:FHIST=join(g:histL,"\n")
+	\|let g:TLOG=join(map(g:llog,'v:val[0]."|".v:val[1]'),"\n")
 en
 
-fun! Log(...)
-	let ent=input(g:TLOG[:match(g:TLOG,'\n',0,6)].FmtTm(localtime()-g:TLOG[0:9])
-	\.(a:0==0? " LOG:" : ' [R:]ename [S:]till [X]Delete [Q]uit:'))
+fun! PrintTime(s,...)
+	return strftime('%m/%d %H:%M [',a:0>0? (a:1) : localtime())
+	\.(a:s>3600? (a:s/3600.(a:s%3600<600? ':0' : ':')) : '').(a:s%3600/60).'] '
+endfun
+fun! Log()
+	let msg='' | for i in range(len(g:llog)>5 ? len(g:llog)-5:0,len(g:llog)-1)
+		let msg.=PrintTime(g:llog[i][0]-(i>0? g:llog[i-1][0] : 0),g:llog[i][0])
+		\.g:llog[i][1]."\n" | endfor
+	redr | let ent=input(msg.PrintTime(localtime()-g:llog[-1][0]))
 	if ent[0:1]==?'R:'
-		let g:TLOG=g:TLOG[:match(g:TLOG,' ')].ent[2:]
-		\."\n".g:TLOG[match(g:TLOG,'\n')+1:] | redr | call Log()
+		let g:llog[-1][1]=ent[2:]
 	elseif ent[0:1]==?'S:'
-		let g:TLOG=g:TLOG[match(g:TLOG,'\n')+1:]
-		let g:TLOG=localtime()." ".FmtTm(localtime()-g:TLOG[0:9])
-		\." ".ent[2:]."\n".g:TLOG | redr | call Log()
+		let g:llog[-1]=[localtime(),len(ent)>2? ent[2:] : g:llog[-1][1]]
 	elseif ent==?'X'
-		let g:TLOG=g:TLOG[match(g:TLOG,'\n')+1:] | redr | call Log()
-	elseif ent==?'?'
-		redr | call Log(1)
-	elseif ent!='Q' && ent!=''
-		let g:TLOG=localtime()." ".FmtTm(localtime()-g:TLOG[0:9])
-		\." ".ent."\n".g:TLOG | redr | call Log() | en
+		call remove(g:llog,-1)
+	elseif ent!=?'Q' && ent!=''
+		call extend(g:llog,[[localtime(),ent]])
+	else | retu|en | call Log()
 endfun
 
 let normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',119:":wa\<CR>",
@@ -101,12 +100,12 @@ fun! TMenu(msg,cmd)
 	ec a:msg|let key=getchar()|redr!
 	return has_key(a:cmd,key)? a:cmd[key] : TMenu(a:cmd[0],a:cmd)
 endfun!
-nno <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' '.FmtTm(localtime()-
-\g:TLOG[0:9]).' '.expand('%:t').':',g:normD)
-cno <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' '.FmtTm(localtime()-
-\g:TLOG[0:9]).' '.expand('%:t').':',g:cmdD)
-ino <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' '.FmtTm(localtime()-
-\g:TLOG[0:9]).' '.expand('%:t').':',g:insD)
+nno <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' '
+\.PrintTime(localtime()-g:llog[-1][0]).expand('%:t').':',g:normD)
+cno <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' '
+\.PrintTime(localtime()-g:llog[-1][0]).expand('%:t').':',g:cmdD)
+ino <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' '
+\.PrintTime(localtime()-g:llog[-1][0]).expand('%:t').':',g:insD)
 
 let HLb=split('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ','\zs')
 let Asc2HLb=repeat([-1],256) | for i in range(len(HLb))
@@ -329,7 +328,7 @@ fun! OnScroll()
 		let difR=s:cP[1]-s:pP[1]
     	let s:pP=s:cP
 		let cmd=(difC>0? difC."z\<left>":difC<0? (-difC)."z\<right>":'')
-		\ .(difR>0? s:Speed[difR]."\<C-Y>":difR<0? s:Speed[-difR]."\<C-E>":'')
+		\.(difR>0? s:Speed[difR]."\<C-Y>":difR<0? s:Speed[-difR]."\<C-E>":'')
 		if cmd
 			exe 'norm! '.cmd
 	    	redraw | echo s:Dashes[2:line('w0')*&columns/line('$')]
@@ -345,7 +344,7 @@ fun! OnVisual()
 	let cdiff=virtcol("'v")-wincol()
 	let rdiff=line("'v")-line(".")
 	echo rdiff.(s:Pad[1:(cdiff>0? wincol():virtcol("'v"))]
-	\ .s:Dashes[1:abs(cdiff)])[len(rdiff):]
+	\.s:Dashes[1:abs(cdiff)])[len(rdiff):]
 	if line('.')==line('w$')
 		exe "norm! \<C-E>"
 	elseif line('.')==line('w0')
