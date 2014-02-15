@@ -1,5 +1,97 @@
 redir => g:StartupErr
 
+let cstest_hist=[[0,7]]
+fun! CSTest(...)
+	let msg=""
+	let dictmode=0
+	if a:0==0
+		let newfg=g:cstest_hist[-1][0]
+		let newbg=g:cstest_hist[-1][1]
+	elseif a:0==2
+		let newfg=a:1
+		let newbg=a:2
+		call add(g:cstest_hist,[newfg,newbg])
+	elseif a:0==1 && type(a:1)==1
+		let [newfg,newbg]=SwatchDic[a:1]
+		call add(g:cstest_hist,[newfg,newbg])
+	elseif a:0==1 && type(a:1)==4
+		let dictmode=1
+	el| retu|en
+	if dictmode
+		let list=keys(a:1)
+		let histix=0
+		let [newfg,newbg]=a:1[list[histix]]
+	el| let list=g:cstest_hist
+		let histix=len(g:cstest_hist)-1 | en
+	exe 'hi Normal ctermfg='.newfg.' ctermbg='.newbg
+	redr
+	let c=getchar()
+	while c!=g:EscAsc && c!=113
+		if c==104 && newfg > 0 && !dictmode
+			let newfg-=1
+			let histix+=1
+		elseif c==108 && newfg < 255 && !dictmode
+			let newfg+=1
+			let histix+=1
+		elseif c==106 && newbg > 0 && !dictmode
+			let newbg-=1
+			let histix+=1
+		elseif c==107 && newbg < 255 && !dictmode
+			let newbg+=1
+			let histix+=1
+		elseif c==112 && histix > 0
+			let histix-=1
+			let [newfg,newbg]=dictmode? a:1[list[histix]] : list[histix]
+		elseif c==110 && histix < len(list)-1
+			let histix+=1
+			[newfg,newbg]=dictmode? a:1[list[histix]] : list[histix]
+		elseif c==114 && !dictmode
+			let histix+=1
+			let newfg=system("echo $RANDOM")%256
+			let newbg=system("echo $RANDOM")%256
+		elseif c==115 && !dictmode
+			let name=input("Swatch name:")
+			exe 'let g:SwatchDic["'.name.'"]=['.newfg.','.newbg.']'
+		el| let msg=dictmode? "[n]ext [p]rev" :
+			\ "[hl]scrollfg [jk]scrollbg [n]ext [p]rev [r]and [s]aveswatch"
+		en
+		if !dictmode
+			if histix<=len(g:cstest_hist)-1
+				let list[histix]=[newfg,newbg]
+			el| call add(list,[newfg,newbg])
+				let histix=len(list)-1 |en
+		en
+		exe 'hi Normal ctermfg='.newfg%256.' ctermbg='.newbg%256 | redr
+		if msg=="" | ec list[histix]
+		el| ec msg | let msg="" |en
+		let c=getchar()
+	endwhile
+	exe 'hi Normal ctermfg='.(g:CurColors.Normal[0]).' ctermbg='.(g:CurColors.Normal[1])
+	if len(g:cstest_hist)>100
+		if histix<25 | let g:cstest_hist=g:cstest_hist[:50]
+		elseif histix>75 | let g:cstest_hist=g:cstest_hist[50:]
+		el| let g:cstest_hist=g:cstest_hist[histix-25:histix+25] |en
+	en |return g:cstest_hist[-1]
+endfun
+fun! CSNew(name)
+	exe 'let g:'.a:name.'=deepcopy(g:CurColors)'
+	call Save(a:name)
+endfun
+fun! CSLoad(settings)
+	let g:CurColors=a:settings
+	for k in keys(g:CurColors)
+		exe 'hi '.k.' ctermfg='.(g:CurColors[k][0]%256).' ctermbg='.(g:CurColors[k][1]%256)
+	endfor
+endfun
+fun! CSSet(name,...)
+	if a:0==2 | let g:CurColors[a:name]=[a:1%256,a:2%256]
+		exe 'hi '.a:name.' ctermfg='.(a:1%256).' ctermbg='.(a:2%256)
+	el| let g:CurColors[a:name]=g:SwatchDic[a:1]
+		exe 'hi '.a:name.' ctermfg='.(g:SwatchDic[a:1][0]%256)
+		\.' ctermbg='.(g:SwatchDic[a:1][1]%256) |en
+endfun
+
+let g:Pad=repeat(' ',200)
 fun! CenterLine()
 	let line=matchstr(getline('.'),'^\s*\zs.*\S\ze\s*$')
 	call setline(line('.'),g:Pad[:(&columns-strdisplaywidth(line))/2].line)
@@ -12,6 +104,13 @@ fun! Unsave(name)
 	exe 'unlet g:'.toupper(a:name)
 	exe 'unlet g:'.a:name
 	unlet g:SaveD[a:name]
+endfun
+fun! BackupSaveD(filename)
+	let list=[]
+	for key in keys(g:SaveD)
+		call add(list,'let '.key.'='.eval('g:'.g:SaveD[key]))
+	endfor
+	call writefile(list,a:filename)
 endfun
 
 fun! PrintTime(s,...) "%e crashes Windows!
@@ -95,7 +194,7 @@ vn <expr> - '^'.PrevHeading(&ts*v:count).'Gzz'
 
 let EcList=[]
 fun! Ec(...)
-	echoh Directory
+	echoh MatchParen
 	if a:0>1 && a:000[a:0-1]=~'00m$'
 		redr| echom join(map(copy(a:000[:-2]),'string(v:val)'),'; ')
 		exe 'sleep '.a:000[a:0-1]
@@ -304,68 +403,6 @@ fun! InitCap()
 	nm <buffer> <silent> C C_<Left><C-R>=CapHere()<CR>
 endfun
 
-fun! SetOpt(...)
-	let g:Input_Meth=a:0? a:1 : 'thumb'
-	if g:Input_Meth==?"THUMB"
-		let op=["@",64,1]
-	el| let op=["\e",27,0] | en
-	if !exists("g:EscChar") | let g:EscChar=op[0] |en
-	if !exists("g:EscAsc") | let g:EscAsc=op[0] |en
-	if exists(g:EscChar)
-		exe 'unm '.g:EscChar
-		exe 'unm! '.g:EscChar
-		exe 'cu '.g:EscChar | en
-	if g:EscChar!=?"\e"
-		exe 'no <F2> '.g:EscChar
-		exe 'no '.g:EscChar.' <Esc>'
-   		exe 'no! '.g:EscChar.' <Esc>'
-   		exe 'cno '.g:EscChar.' <C-C>' | en
-	try|exe (op[2]? 'map <C-J> <C-M>' : 'unm <C-J>')
-		exe (op[2]? 'map! <C-J> <C-M>' : 'unm! <C-J>')
-		exe (op[2]? 'no OQ @' :'unm OQ')
-		exe (op[2]? 'no! OQ @' :'unm! OQ')
-		exe (op[2]? 'no <F7> <PageDown>' : 'unm <F7>')
-		exe (op[2]? 'no! <F7> <PageDown>' : 'unm! <F7>')
-		exe (op[2]? 'no <F8> <PageUp>' : 'unm <F8>')
-		exe (op[2]? 'no! <F8> <PageUp>' : 'unm! <F8>')
-		exe (op[2]? 'ino <F9> <Home>' : 'iu <F9>')
-		exe (op[2]? 'ino <F10> <End>' : 'iu <F10>')
-		exe (op[2]? 'nn <F9> <C-O>' : 'nun <F9>')
-		exe (op[2]? 'nn <F10> <C-I>' : 'nun <F10>')
-	catch | endtry
-	let g:normD={110:":noh\<CR>",(g:EscAsc):"\<Esc>",96:'`',122:":wa\<CR>",
-	\99:":call Cabinet.show()\<CR>",
-	\114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
-	\80:":call IniPaint()\<CR>",108:":call g:LogDic.show()\<CR>",
-	\101:":call CenterLine()\<CR>",
-	\103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",
-	\115:":let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
-	\49:":exe 'e '.g:histL[0][0]\<CR>",50:":exe 'e '.g:histL[1][0]\<CR>",
-	\113:"\<Esc>",51:":exe 'e '.g:histL[2][0]\<CR>",
-	\112:"i\<C-R>=eval(input('Put: ','','var'))\<CR>",109:":mes\<CR>",
-	\42:":,$s/\<C-R>=expand('<cword>')\<CR>//gc|1,''-&&\<left>\<left>
-	\\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
-	\35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
-	\'help':':b[123] [c]abinet c[e]nter [g]:h [l]og [n]ohl [P]nt [r]mswp l[s]
-	\ :[m]es [p]utvar C-[w]C-w e[X]e [z]:wa s/[*#]',
-	\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '
-	\.line('.').'.'.col('.').'/'.line('$').' '
-	\.PrintTime(localtime()-g:LastTime)"}
-	let g:insD={103:"\<C-R>=getchar()\<CR>",(g:EscAsc):"\<Esc>a",96:'`',
-	\115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
-	\49:"\<Esc>:exe 'e '.g:histL[0][0]\<CR>",
-	\50:"\<Esc>:exe 'e '.g:histL[1][0]\<CR>",
-	\51:"\<Esc>:exe 'e '.g:histL[2][0]\<CR>",
-	\102:"\<C-R>=escape(expand('%'),' ')\<CR>",119:"\<Esc>\<C-W>\<C-W>",
-	\113:"\<Esc>a",'help':'b[123] [f]ilename [g]etchar l[s]:',
-	\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '
-	\.line('.').'.'.col('.').'/'.line('$').' '
-	\.PrintTime(localtime()-g:LastTime)"}
-	let g:visD={(g:EscAsc):"",103:"y:call GetVar(@\")\<CR>",
-	\120:"y:@\"\<CR>",99:"y:\<C-R>\"",'help':'[g]etvar e[x]e 2[c]md:',
-	\'msg':"expand('%:t').' '.line('.').'.'.col('.').'/'.line('$').' '
-	\.PrintTime(localtime()-g:LastTime)"}
-endfun
 fun! Write_Viminfo()
 	if match(g:StartupErr,'\cerror')!=-1
 		let in=input("Startup errors were encountered, write viminfo anyways?")
@@ -387,11 +424,13 @@ fun! Write_Viminfo()
 endfun
 
 if !exists('do_once') | let do_once=1 | el|finish|en
-if !exists('Input_Meth')
-	call Ec('Input_Meth invalid or not defined in .vimrc!')
-	call Ec('...falling back to keyboard')
-	let Input_Meth='keyboard' |en
-call SetOpt(g:Input_Meth)
+if !exists("g:EscChar") | let g:EscChar="\e" | let g:EscAsc=27
+el|let g:EscAsc=char2nr(g:EscChar) |en
+if g:EscChar!="\e"
+	exe 'no <F2> '.g:EscChar
+	exe 'no '.g:EscChar.' <Esc>'
+   	exe 'no! '.g:EscChar.' <Esc>'
+   	exe 'cno '.g:EscChar.' <C-C>' | en
 if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
 	call Ec('Working_Dir='.Working_Dir.' invalid or not defined in .vimrc!')
 	call Ec('...falling back to $HOME')
@@ -406,18 +445,6 @@ if !argc()
 	if isdirectory(Working_Dir)
 		exe 'cd '.Working_Dir |en
 el| let g:FormatNewFiles=0 |en
-if glob(g:Working_Dir)=='/home/q335/Desktop/Dropbox/q335writings'
-\ && !has("gui_running")
-	syntax off
-	map OA <Up>
-	map OB <Down>
-	map OD <Left>
-	map OC <Right>
-	map! OA <Up>
-	map! OB <Down>
-	map! OD <Left>
-	map! OC <Right>
-en
 se viminfo=!,'20,<1000,s10,/50,:150
 	if !exists('Viminfo_File')
 		call Ec('Viminfo_File not defined in .vimrc!')
@@ -428,13 +455,14 @@ se viminfo=
 if has("gui_running")
 	colorscheme slate
 	if exists("WINPOS") | exe WINPOS |en
+	"command to repeat previous f,t
 	if !exists('S_GUIFONT')
 		"se guifont=Envy\ Code\ R\ 10 
 		se guifont=Envy_Code_R:h10 
 		let S_GUIFONT=&guifont
 	el| exe 'se guifont='.S_GUIFONT |en |en
-if exists('PERMANENTD')
-	let SaveD=eval(PERMANENTD)
+if exists('SAVED')
+	let SaveD=eval(SAVED)
 	for key in keys(SaveD)
 		exe 'let '.key.'='.eval(SaveD[key])
 	endfor
@@ -445,30 +473,24 @@ elseif !exists('LogDic')
 	let LogDic=New('Log')
 el| let g:LastTime=LogDic.L[-1][0] |en
 if !exists('histL') | let histL=[] |en
+if !exists('CurColors') | let CurColors={}
+el| call CSLoad(CurColors) |en
 call InitHist()
 call Save('histL')
 call Save('LogDic')
+call Save('CurColors')
 call Save('SaveD')
-if len(histL)>0
+call Save('SwatchDic')
+if argc()==0 && len(histL)>0
 	silent exe 'e '.g:histL[0][0]
 	call CheckFormatted() | call OnWinEnter() |en
-
 au BufWinEnter * call OnWinEnter()
 au BufRead * call CheckFormatted()
 au BufNewFile * call OnNewBuf()
 au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'),line('w0'))
 au VimLeavePre * call Write_Viminfo()
-hi ColorColumn guibg=#222222 ctermbg=237
-hi Pmenu ctermbg=26 ctermfg=81
-hi PmenuSel ctermbg=21 ctermfg=81
-hi PmenuSbar ctermbg=23
-hi PmenuThumb ctermfg=81
-hi ErrorMsg ctermbg=9 ctermfg=15
-hi Search ctermbg=21 ctermfg=81
-hi MatchParen ctermfg=9 ctermbg=none
-hi StatusLine cterm=underline ctermfg=244 ctermbg=236
-hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
-hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
+hi ColorColumn guibg=#222222 
+hi Vertsplit guifg=grey15 guibg=grey15
 se noshowmode ai guioptions-=T
 se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
 se tabstop=4 history=150 mouse=a ttymouse=xterm2 hidden backspace=2
@@ -478,13 +500,33 @@ se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-LastTime)}
 redir END
 nohl
 
-"merge history & Pager
-	"glob() for all history entries not in Working_Dir
-	"Separate history lists (for help, outside files) --perfect for nested array
-	"undo list?
-"cmdnorm R and <CR>, multiline cmdmenu, echoing tabs
-	"cmdmenu - echo prepend, long lines
-	"log-cmdmenu interaction bug
-"connectbot
-	"background color bug report?
-	"hi normal + highlight lines for quick scheme changes
+let normD={110:":noh\<CR>",(g:EscAsc):"\<Esc>",96:'`',122:":wa\<CR>",
+\99:":call Cabinet.show()\<CR>",
+\114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
+\80:":call IniPaint()\<CR>",108:":call g:LogDic.show()\<CR>",
+\101:":call CenterLine()\<CR>",
+\103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",
+\115:":let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
+\49:":exe 'e '.g:histL[0][0]\<CR>",50:":exe 'e '.g:histL[1][0]\<CR>",
+\113:"\<Esc>",51:":exe 'e '.g:histL[2][0]\<CR>",
+\112:"i\<C-R>=eval(input('Put: ','','var'))\<CR>",109:":mes\<CR>",
+\42:":,$s/\\<\<C-R>=expand('<cword>')\<CR>\\>//gc|1,''-&&\<left>\<left>
+\\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
+\35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
+\'help':':b[123] [c]abinet c[e]nter [g]:h [l]og [n]ohl [P]nt [r]mswp l[s]
+\ :[m]es [p]utvar C-[w]C-w e[X]e [z]:wa s/[*#]',
+\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '
+\.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
+	let insD={103:"\<C-R>=getchar()\<CR>",(g:EscAsc):"\<Esc>a",96:'`',
+\115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
+\49:"\<Esc>:exe 'e '.g:histL[0][0]\<CR>",
+\50:"\<Esc>:exe 'e '.g:histL[1][0]\<CR>",
+\51:"\<Esc>:exe 'e '.g:histL[2][0]\<CR>",
+\102:"\<C-R>=escape(expand('%'),' ')\<CR>",119:"\<Esc>\<C-W>\<C-W>",
+\113:"\<Esc>a",'help':'b[123] [f]ilename [g]etchar l[s]:',
+\'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '
+\.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
+	let g:visD={(g:EscAsc):"",103:"y:call GetVar(@\")\<CR>",
+\120:"y:@\"\<CR>",99:"y:\<C-R>\"",'help':'[g]etvar e[x]e 2[c]md:',
+\'msg':"expand('%:t').' '.line('.').'.'.col('.').'/'.line('$').' '
+\.PrintTime(localtime()-g:LastTime)"}
