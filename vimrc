@@ -229,12 +229,13 @@ fun! PrintTime(s,...) "%e crashes Windows!
 	\.(a:s%86400>3599? (a:s%86400/3600.'h'):'')
 	\.(a:s%3600/60.'m ')
 endfun
+
 let LogWINH=6
 fun! Log(...)
 	if a:0==0
 		let g:cmdsave=&cmdheight
-		exe "se ch=".(g:LogWINH+2)
-		let offset=0
+		exe "se ch=".(g:LogWINH+1)
+		let offset=len(g:tlog)-g:LogWINH+1
 		let logmode=0
 		let cursor=len(g:tlog)
 	el
@@ -243,21 +244,23 @@ fun! Log(...)
 		let cursor=a:3
 	en
 	let g:logmsg=''
-	for i in range(len(g:tlog)-offset-g:LogWINH-1,len(g:tlog)-offset-1)
+	for i in range(offset,offset+g:LogWINH-1)
 		if i<0
 			let g:logmsg.="\n"
-		else
+		elseif i<len(g:tlog)
 			let g:logmsg.=(cursor==i? '>':' ')
 			\.PrintTime(g:tlog[i][0]-(i>0? g:tlog[i-1][0] : 0),
 			\g:tlog[i][0]).g:tlog[i][1]."\n"
+		elseif i>len(g:tlog)
+			let g:logmsg.="\n"
 		en	
 	endfor
 	if logmode==0
 		let g:cmdMode='g:tlogD'
-		if offset==0
-			redr!|let ent=input(g:logmsg.PrintTime(localtime()-g:tlog[-1][0]))
+		if offset==len(g:tlog)-g:LogWINH+1
+			redr!|let ent=input(g:logmsg.'>'.PrintTime(localtime()-g:tlog[-1][0]))
 		else
-			redr!|let ent=input(g:logmsg.'Edit:',g:tlog[len(g:tlog)-1-offset][1])
+			redr!|let ent=input(g:logmsg.'Edit:',g:tlog[cursor][1])
 		en
 		let g:cmdMode='g:cmdD'
 	else
@@ -267,27 +270,45 @@ fun! Log(...)
 	if ent[0:1]==?'S:'
 		let g:tlog[-1]=[localtime(),len(ent)>2? ent[2:] : g:tlog[-1][1]]
 	elseif ent==120 "x
-		if len(g:tlog)>1 | call remove(g:tlog,-offset-1) | en
+		if len(g:tlog)>1 | call remove(g:tlog,cursor) | en
+		if cursor==len(g:tlog) | let cursor=len(g:tlog)-1 | en
 	elseif ent==107 "k
-		if offset<len(g:tlog)-1
-			let offset+=1 | en
+		if cursor>0
+			let cursor-=1
+			if cursor<offset
+				let offset-=1 | en
+		en
 	elseif ent==106 "j
-		if offset>0
-			let offset-=1 | en
-	elseif ent==105 "i
+		if cursor<len(g:tlog)-1
+			let cursor+=1
+			if cursor>offset+g:LogWINH-1
+				let offset+=1 | en
+		en
+	elseif ent==99 "c
 		let logmode=0	
 	elseif ent==71 "G
-		let offset=0	
+		let cursor=len(g:tlog)-1
+		let offset=len(g:tlog)-g:LogWINH	
+	elseif ent==65 "A
+		let offset=len(g:tlog)-g:LogWINH+1
+		let cursor=len(g:tlog)
+		let logmode=0
 	elseif ent==''
 		let logmode=1
+		if offset==len(g:tlog)-g:LogWINH+1
+			let offset-=1
+			let cursor-=1
+		en
 	elseif ent==g:N_ESC
 		exe 'se ch='.g:cmdsave
 		return
 	elseif logmode==0 
-		if offset==0
+		if offset==len(g:tlog)-g:LogWINH+1
 			call extend(g:tlog,[[localtime(),ent]])
+			let offset+=1
+			let cursor+=1
 		else
-			let g:tlog[len(g:tlog)-1-offset][1]=ent
+			let g:tlog[cursor][1]=ent
 	   		let logmode=1
 		en
 	en | call Log(offset,logmode,cursor)
