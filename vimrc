@@ -1,6 +1,16 @@
 redir => g:StartupErr
 
 let cstest_hist=[[0,7]]
+fun! CompleteSwatches(Arglead,CmdLine,CurPos)
+	return filter(keys(g:SWATCHES),'v:val=~a:Arglead')
+endfun
+fun! SetColor()
+	let higroup=input('Highlight group? ','','highlight')
+	if higroup=='' | return | en
+	let colors=input('Swatch? ','','customlist,CompleteSwatches')
+	if colors=='' | unlet colors | let colors=CSTest() |en
+	call CSSet(higroup,colors)
+endfun
 fun! CSTest(...)
 	let msg=""
 	let dictmode=0
@@ -26,7 +36,7 @@ fun! CSTest(...)
 	exe 'hi Normal ctermfg='.newfg.' ctermbg='.newbg
 	redr
 	let c=getchar()
-	while c!=g:EscAsc && c!=113
+	while c!=g:EscAsc && c!=113 && c!=10
 		if c==104 && newfg > 0 && !dictmode
 			let newfg-=1
 			let histix+=1
@@ -51,7 +61,9 @@ fun! CSTest(...)
 			let newbg=reltime()[1]%256
 		elseif c==115 && !dictmode
 			let name=input("Swatch name:")
-			exe 'let g:SWATCHES["'.name.'"]=['.newfg.','.newbg.']'
+			if name!=''
+				exe 'let g:SWATCHES["'.name.'"]=['.newfg.','.newbg.']'
+			en
 		el| let msg=dictmode? "[n]ext [p]rev" :
 			\ "[hl]scrollfg [jk]scrollbg [n]ext [p]rev [r]and [s]aveswatch"
 		en
@@ -66,15 +78,15 @@ fun! CSTest(...)
 		el| ec msg | let msg="" |en
 		let c=getchar()
 	endwhile
-	exe 'hi Normal ctermfg='.(g:HICOLOR.Normal[0]).' ctermbg='.(g:HICOLOR.Normal[1])
+	if has_key(g:HICOLOR,'Normal')
+		exe 'hi Normal ctermfg='.(g:HICOLOR.Normal[0]).' ctermbg='.(g:HICOLOR.Normal[1])
+	en
 	if len(g:cstest_hist)>100
 		if histix<25 | let g:cstest_hist=g:cstest_hist[:50]
 		elseif histix>75 | let g:cstest_hist=g:cstest_hist[50:]
 		el| let g:cstest_hist=g:cstest_hist[histix-25:histix+25] |en
-	en |return g:cstest_hist[-1]
-endfun
-fun! CSNew(name)
-	exe 'let g:'.a:name.'=deepcopy(g:HICOLOR)'
+	en
+	return list[histix]
 endfun
 fun! CSLoad(settings)
 	let g:HICOLOR=a:settings
@@ -85,9 +97,13 @@ endfun
 fun! CSSet(name,...)
 	if a:0==2 | let g:HICOLOR[a:name]=[a:1%256,a:2%256]
 		exe 'hi '.a:name.' ctermfg='.(a:1%256).' ctermbg='.(a:2%256)
-	el| let g:HICOLOR[a:name]=g:SWATCHES[a:1]
+	elseif a:0==1 && type(a:1)==1 
+		let g:HICOLOR[a:name]=g:SWATCHES[a:1]
 		exe 'hi '.a:name.' ctermfg='.(g:SWATCHES[a:1][0]%256)
-		\.' ctermbg='.(g:SWATCHES[a:1][1]%256) |en
+		\.' ctermbg='.(g:SWATCHES[a:1][1]%256)
+	elseif a:0==1 && type(a:1)==3 
+		let g:HICOLOR[a:name]=a:1
+		exe 'hi '.a:name.' ctermfg='.(a:1[0]%256).' ctermbg='.(a:1[1]%256) |en
 endfun
 
 let Pad=repeat(' ',200)
@@ -100,22 +116,20 @@ fun! CenterLine()
 	en
 endfun
 
-fun! BackupSaveD(filename)
-	if has_key(g:SD,'SD') | unlet g:SD['SD'] |en
+fun! WriteVars(filename)
+	sil! exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>
+	\\<right>\<right>\<right>\<right>varlist='g:\<cr>"
+	let saves=filter(split(g:varlist),'abs(type(eval(v:val))-3.5)<1 && v:val[2:]==toupper(v:val[2:])')
 	let list=[]
-	for key in keys(g:SD)
-		if exists('g:'.key)
-			let splitlist=split('let '.key.'='.string(eval('g:'.key)),"\n")
+	for key in saves
+		if exists(key)
+			let splitlist=split('let '.key.'='.string(eval(key)),"\n")
 			call add(list,splitlist[0])
 			for line in splitlist[1:]
 				call add(list,"\\".line)
 			endfor
 		en
-		let g:SD[key]=''
 	endfor
-	if exists('g:SD')
-		call add(list,'let SD='.string(g:SD))
-	el| call add(list,'let SD={}') |en
 	call writefile(list,a:filename,)
 endfun
 
@@ -139,8 +153,6 @@ fun! New(class,...)
 	return newclass
 endfun
 
-nnoremap q: <nop>
-nnoremap [15 q:
 nnoremap <expr> gp '`[' . strpart(getregtype(), 0, 1) . '`]'
 
 fun! GetVar(str)
@@ -413,7 +425,7 @@ fun! Write_Viminfo()
 	if g:StartupErr=~?'error'
 		let in=input("Startup errors were encountered, store settings anyways?")
 		if in!=?'y' && in!='ye' && in!='yes' |retu|en |en
-	call BackupSaveD('saveD')
+	call WriteVars('saveD')
 	if has("gui_running")
 		let g:S_GUIFONT=&guifont
 		let g:WINPOS='se co='.&co.' lines='.&lines.
@@ -496,7 +508,7 @@ redir END
 nohl
 
 let normD={110:":noh\<CR>",(g:EscAsc):"\<Esc>",96:'`',122:":wa\<CR>",
-\99:":call Cabinet.show()\<CR>",
+\99:":call SetColor()\<CR>",
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
 \80:":call IniPaint()\<CR>",108:":call g:LOGDIC.show()\<CR>",
 \101:":call CenterLine()\<CR>",
@@ -508,7 +520,7 @@ let normD={110:":noh\<CR>",(g:EscAsc):"\<Esc>",96:'`',122:":wa\<CR>",
 \42:":,$s/\\<\<C-R>=expand('<cword>')\<CR>\\>//gc|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
-\'help':':b[123] [c]abinet c[e]nter [g]:h [l]og [n]ohl [P]nt [r]mswp l[s]
+\'help':':b[123] set[c]olor c[e]nter [g]:h [l]og [n]ohl [P]nt [r]mswp l[s]
 \ :[m]es [p]utvar C-[w]C-w e[X]e [z]:wa s/[*#]',
 \'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '
 \.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
