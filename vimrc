@@ -1,12 +1,14 @@
 se viminfo=!,'20,<1000,s10,/50,:50
-se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch
+se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
 se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256
 se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
+se stl=\ %l.%02c/%L\ %<%f%=\ 
+se stl+=%{(localtime()-g:TLOG[0:9])/60.strftime('\ %I:%M\ %d')}\ 
+se guifont=Envy\ Code\ R:h12:cANSI guioptions-=T
 if has("gui_running")
 	colorscheme slate
 el | syntax off | en
-se guifont=Envy\ Code\ R:h12:cANSI guioptions-=T
 hi ColorColumn guibg=#222222 ctermbg=237
 hi ErrorMsg ctermbg=9 ctermfg=15
 hi Search ctermfg=9 ctermbg=none
@@ -14,8 +16,6 @@ hi MatchParen ctermfg=9 ctermbg=none
 hi StatusLine cterm=underline ctermfg=240 ctermbg=236
 hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
 hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=240 ctermbg=236
-se stl=\ %l.%02c/%L\ %<%f%=\ 
-se stl+=%{(localtime()-g:TLOG[0:9])/60.strftime('\ %H:%M\ %d')}\ 
 if has("win16") || has("win32") || has("win64")
 	let K_ESC="\<Esc>" | let N_ESC=27
 else
@@ -98,20 +98,37 @@ fun! Log(...)
 	en
 endfun
 
-let QCD={110:":noh\<CR>",9:"\<Esc>",(g:N_ESC):"\<Esc>",
+let normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')
 \\<CR>",112:":call Paint()\<CR>",108:":call Log()\<CR>",101:":e <cWORD>\<CR>",
-\104:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",121:"^y$:\<C-R>\"",
-\98:":let qcx=HistMenu()|exe qcx=='' ? '' : 'e '.qcx\<CR>",89:"^y$:\<C-R>\"",
+\104:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",88:"^y$:\<C-R>\"\<CR>",
+\98:":let qcx=HistMenu()|exe (qcx==-1 ? '' : 'e '.escape(g:histL[qcx]
+\[:match(g:histL[qcx],'\\\$')-1],' '))\<CR>",
 \42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
-\35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>"}
-fun! QCF(msg)
-	ec a:msg|let key=getchar()
-	return has_key(g:QCD,key)? g:QCD[key] : QCF('[B]uffer [E]d [H]lp [L]og 
-	\[N]ohls [P]aint [R]m swp [Y]ank [*\#]sub > ')
+\35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
+\0:'[B]uffer [E]d [H]lp [l]og [N]ohls [P]aint [R]m swp [X]ecLine [*/#]sub > '}
+	let insD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):"\<Esc>a",96:'`',
+\98:"\<Esc>:let qcx=HistMenu()|exe (qcx==-1 ? '' : 'e '.escape(g:histL[qcx]
+\[:match(g:histL[qcx],'\\\$')-1],' '))\<CR>",
+\102:"\<C-R>=escape(expand('%'),' ')\<CR>",
+\0:'[B]uffer [F]ilename [G]etchar > '}
+	let cmdD={103:"\<C-R>=getchar()\<CR>",(g:N_ESC):" \<BS>",96:" \<BS>`",
+\98:"\<C-R>=eval(join(repeat([HistMenu()],2),'==-1 ? \"\" : 
+\escape(split(histL[').'],\"\\\\\\$\")[0],\" \")')\<CR>",
+\102:"\<C-R>=escape(expand('%'),' ')\<CR>",
+\108:"\<C-R>=matchstr(getline('.'),'[[:graph:]].*[[:graph:]]')\<CR>",
+\119:"\<C-R>=expand('<cword>')\<CR>",87:"\<C-R>=expand('<cWORD>')\<CR>",
+\0:'[B]uffer [F]ilename [G]etchar [L]ine [w/W]ord > '}
+fun! TMenu(msg,cmd)
+	ec a:msg|let key=getchar()|redr!
+	return has_key(a:cmd,key)? a:cmd[key] : TMenu(a:cmd[0],a:cmd)
 endfun!
-nn <expr> <Tab> QCF(line('.').'.'.col('.').'/'.line('$').' - '.
-\(localtime()-g:TLOG[0:9])/60.strftime('/%H:%M/%d - ').expand('%:t').' > ')
+nn <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' - '.(localtime()-
+\g:TLOG[0:9])/60.strftime('/%I:%M/%d - ').expand('%:t').' > ',g:normD)
+cno <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' - '.(localtime()-
+\g:TLOG[0:9])/60.strftime('/%I:%M/%d - ').expand('%:t').' > ',g:cmdD)
+ino <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' - '.(localtime()-
+\g:TLOG[0:9])/60.strftime('/%I:%M/%d - ').expand('%:t').' > ',g:insD)
 
 let HLb=split('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ','\zs')
 let Asc2HLb=repeat([-1],256) | for i in range(len(HLb))
@@ -195,17 +212,12 @@ fun! FmtList(list, ...)
 endfun
 fun! HistMenu()
 	ec FmtList(g:histLb,g:maxW).' > ' | let sel=getchar()
-	if sel==9 || sel==32
-		redr|retu escape(g:histL[0][:match(g:histL[0],'\$')-1],' ')
-	elseif sel=="\<BS>"
-		while 1
-			redr|ec FmtList(g:histLb+["[DELETE] >"],g:maxW)
-			if RmHist(g:HLb2fIx[g:Asc2HLb[getchar()]])=='0' | redr | brea|en
-		endwhile
-	else
-		redr | let ix=g:HLb2fIx[g:Asc2HLb[sel]]
-		retu ix==-1 ? '' : escape(g:histL[ix][:match(g:histL[ix],'\$')-1],' ')
-	en
+	while sel=="\<BS>"
+		redr|ec FmtList(g:histLb+["[DELETE] >"],g:maxW) | let sel2=getchar()
+		if sel2=="\<BS>" | redr|retu HistMenu()
+		elseif RmHist(g:HLb2fIx[g:Asc2HLb[sel2]])=='0' | redr|retu -1 | en
+	endw
+	redr|retu (sel==9||sel==32)? 0 : g:HLb2fIx[g:Asc2HLb[sel]]
 endfun
 
 nn <silent> <Space> :<C-U>exe 'norm! i'.nr2char(getchar())<CR>
@@ -450,15 +462,6 @@ fun! WinPushL(winnr,L)
 		winc l
 	endwhile
 	exe a:winnr.'winc w|vert res +'.min([a:L,moved])
-endfun
-fun! WinPullL(winnr,L)
-	exe a:winnr.'winc w|winc l'
-   	if winnr()!=a:winnr
-		exe a:winnr.'winc w|vert res -'.min([winwidth(a:winnr)-1,a:L])
-   	endif
-endfun
-fun! OnResize()
-	let s:cP=[winnr(),winline(),wincol()]
 	if s:pP[0]!=s:cP[0]
 		let s:dir=GetResDir()
 		if s:dir=='k'
