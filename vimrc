@@ -304,17 +304,16 @@ endfun
 if exists('opt_mousescroll') && opt_mousescroll
 	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (Mscroll()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
 en
-let speed=[200,150,100,70,50,40,30,20,10,10,10,10,10,10,10,10,10,10]
+let speed=[99999999]+map(range(11),'11*(11-v:val)*(11-v:val)')+repeat([1],40)
 fun! Mscroll()
 	if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1) || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) || v:mouse_lnum==line('$')
 		if line('$')==line('w0') | exe "keepj norm! \<c-y>" |en
 		return 1 | en
-	let ves=&ve | se ve=all
 	exe "norm! \<leftmouse>"
 	let frame=-1
-	let [tl,dvl,dhl]=[repeat([0],4),repeat([0],4),repeat([0],4)]
+	let [tl,dvl,dhl]=[repeat([reltime()],4),repeat([0],4),repeat([0],4)]
 	while getchar()=="\<leftdrag>"
-		let [dV,dH]=[v:mouse_lnum-line('.'),v:mouse_col-virtcol('.')]
+		let [dV,dH]=[v:mouse_lnum-line('.'), &ve!=?'all'? 0 : v:mouse_col-virtcol('.')]
 		exe "norm! \<leftmouse>"
 		let v=winsaveview()
 		let [dV,dH]=[dV>v.topline-1? v.topline-1 : dV, dH>v.leftcol? v.leftcol : dH]
@@ -323,37 +322,24 @@ fun! Mscroll()
 		call winrestview(v)
 		if !(frame%2) | redr! | en
 	endwhile
-	if frame>4
-		let elapsed=reltime(tl[(frame+1)%4])
-		if !elapsed[0] && elapsed[1]<150000
-			let [xv,nv,xh,nh]=[max(dvl),min(dvl),max(dhl),min(dhl)]
-			let vv=xv*nv>=0? dvl[0]+dvl[1]+dvl[2]+dvl[3] : 0
-			let vh=xh*nh>=0? dhl[0]+dhl[1]+dhl[2]+dhl[3] : 0
-			let cmdv=vv>0? "norm! \<c-y>" : "norm! \<c-e>"
-			let cmdh=vh>0? "norm! zh" : "norm! zl"
-			let vv=min([abs(vv),10])
-			let vh=min([abs(vh),10])
-			let s=0
-			let vc=0
-			let hc=0
-			while !getchar(1) & s<=1000
-				let [s,vc,hc]+=1
-				if vc>speed[vv]
-					let vv-=vv>1? 1 : 0
-					exe cmdv
-					redr
-					let vc=0
-				en
-				if hc>speed[vh]
-					let vh-=vh>1? 1 : 0
-					exe cmdh
-					redr
-					let hc=0
-				en
-			endw
+	let elapsed=reltime(tl[(frame+1)%4])
+	let [vv,vh]=[dvl[0]+dvl[1]+dvl[2]+dvl[3],dhl[0]+dhl[1]+dhl[2]+dhl[3]]
+	let [cmdv,vv]=vv>3? ["\<c-y>",vv] : vv<-4? ["\<c-e>",-vv] : ['',0]
+	let [cmdh,vh]=vh>3? ["zh",vh] : vh<-4? ["zl",-vh] : ['',0]
+	if elapsed[0] || elapsed[1]>200000 || (!vv && !vh) | return | en
+	let [vv,vh,s,vc,hc]=[vv+10,vh+10,0,0,0]
+	while s<=8000 && !getchar(1) && (vv>0 || vh>0)
+		let [s,vc,hc,cmd]=[s+1,vc+1,hc+1,'']
+		if vc>g:speed[vv]
+			let [vv,vc,cmd]=[vv-1,0,cmdv]
 		en
-	en
-	let &ve=ves
+		if hc>g:speed[vh]
+			let [vh,hc,cmd]=[vh-1,0,cmd.cmdh]
+		en
+		if !empty(cmd)
+			exe 'norm! '.cmd | redr
+		en
+	endw
 endfun
 
 let CShst=[[0,7]]
