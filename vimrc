@@ -296,128 +296,22 @@ fun! Pager(list,...)
 			elseif i>len(a:list)
 				let g:logmsg.="\n" | en	
 		endfor
-		if logmode==0
-			if has_key(funcD,'_'.ent)
-				let newcursor={funcD['_'.ent]}(a:list,cursor)
+		redr!|ec g:logmsg
+		let ent=getchar()
+		if has_key(funcD,ent)
+			if func[ent]!=''
+				let newcursor={funcD[ent]}(a:list,cursor)
 				if newcursor<offset
 					let offset=newcursor
 				elseif newcursor>offset+g:PagerH-1
 					let offset+=newcursor-offset-g:PagerH+1
 				endif
 				let cursor=newcursor
-				let logmode=1
-			else
-				if ent==105 "i
-					redr!|let ent=input(g:logmsg.'INS >')
-					if len(a:list)==0
-						call insert(a:list,ent,cursor+1)
-						let cursor+=1
-						let offset+=1
-					el| call insert(a:list,ent,cursor) |en
-				elseif ent==97 "a
-					redr!|let ent=input(g:logmsg.'APP >')
-					call insert(a:list,ent,cursor+1)
-					let cursor+=1
-					let offset+=1
-				elseif ent==115 "s
-					redr!| exe 'let g:'.input(g:logmsg.'Save as: ').'=a:list'
-				else
-					redr!|let ent=input(g:logmsg.'CHG >',a:list[cursor])
-					let a:list[cursor]=ent
-				en
-				let logmode=1
-			en
-		el| redr!|ec g:logmsg
-			let ent=getchar()
-			if has_key(funcD,ent)
-				call {funcD.ent}(a:list,cursor)
-			else
-				if ent==120 "x
-					if len(a:list)>0 | call remove(a:list,cursor) | en
-					if cursor==len(a:list) | let cursor=len(a:list)-1 | en
-				elseif ent==107 "k
-					if cursor>0
-						let cursor-=1
-						if cursor<offset
-							let offset-=1 | en
-					en
-				elseif ent==106 "j
-					if cursor<len(a:list)-1
-						let cursor+=1
-						if cursor>=offset+g:PagerH
-							let offset+=1 | en
-					en
-				elseif ent==99 || ent==105 || ent==97 "cia
-					let logmode=0	
-				elseif ent==71 "G
-					let cursor=len(a:list)-1
-					let offset=len(a:list)-g:PagerH	
-				elseif ent==65 "A
-					let cursor=len(a:list)
-					let offset=len(a:list)-g:PagerH+1
-					let logmode=0
-				elseif ent==113 "q
-					let ent=g:N_ESC
-				elseif ent==115 "s
-					let logmode=0
-				en
-			en
-		en
-	endwhile
-	exe 'se ch='.g:cmdsave
-endfun
-
-fun! Log()
-	let g:cmdsave=&cmdheight
-	exe "se ch=".(g:PagerH+1)
-	let logmode=1
-	let offset=len(g:tlog)-g:PagerH+(!logmode)
-	let cursor=len(g:tlog)-logmode
-	let ent=''
-	while ent!=g:N_ESC || logmode==0
-		let g:logmsg=''
-		for i in range(offset,offset+g:PagerH-1)
-			if i<0
-				let g:logmsg.="\n"
-			elseif i<len(g:tlog)
-				let g:logmsg.=((cursor==i? '>':' ')
-				\.PrintTime(g:tlog[i][0]-(i>0? g:tlog[i-1][0] : 0),
-				\g:tlog[i][0]).g:tlog[i][1]."\n")[0:&columns-1]
-			elseif i>len(g:tlog)
-				let g:logmsg.="\n" | en	
-		endfor
-		if logmode==0
-			if offset==len(g:tlog)-g:PagerH+1
-				redr!|let ent=input(g:logmsg.'>'.y)
-			else
-				redr!|let ent=input(g:logmsg.'Edit:',g:tlog[cursor][1]) | en
-			if ent[0:1]==?'S:'
-				let g:tlog[-1]=[localtime(),len(ent)>2? ent[2:] : g:tlog[-1][1]]
-			elseif ent==''
-				let logmode=1
-				if offset==len(g:tlog)-g:PagerH+1
-					let offset-=1
-					let cursor-=1
-				en
-			else
-				if ent[0:1]==?'b:'
-					let ent=ent[2:].' @'.expand('%').'?'.line('.')	
-				en
-				if offset==len(g:tlog)-g:PagerH+1
-					call extend(g:tlog,[[localtime(),ent]])
-					let offset+=1
-					let cursor+=1
-				else
-					let g:tlog[cursor][1]=ent
-					let logmode=1
-				en
 			en
 		else
-			redr!|ec g:logmsg
-			let ent=getchar()
 			if ent==120 "x
-				if len(g:tlog)>1 | call remove(g:tlog,cursor) | en
-				if cursor==len(g:tlog) | let cursor=len(g:tlog)-1 | en
+				if len(a:list)>0 | call remove(a:list,cursor) | en
+				if cursor==len(a:list) | let cursor=len(a:list)-1 | en
 			elseif ent==107 "k
 				if cursor>0
 					let cursor-=1
@@ -425,28 +319,39 @@ fun! Log()
 						let offset-=1 | en
 				en
 			elseif ent==106 "j
-				if cursor<len(g:tlog)-1
+				if cursor<len(a:list)-1
 					let cursor+=1
 					if cursor>=offset+g:PagerH
 						let offset+=1 | en
 				en
-			elseif ent==99 "c
-				let logmode=0	
 			elseif ent==71 "G
-				let cursor=len(g:tlog)-1
-				let offset=len(g:tlog)-g:PagerH	
+				let cursor=len(a:list)-1
+				let offset=len(a:list)-g:PagerH	
 			elseif ent==65 "A
-				let cursor=len(g:tlog)
-				let offset=len(g:tlog)-g:PagerH+1
-				let logmode=0
-			elseif ent==103 "g
-				let atpos=stridx(g:tlog[cursor][1],'@')
-				if atpos!=-1
-					let file=split(g:tlog[cursor][1][atpos+1:],'?')
-					if glob(file[0])!=#glob('%') | exe 'e '.file[0] | en
-					exe 'norm! '.file[1].'G'
-					let ent=g:N_ESC
-				en
+				let cursor=len(a:list)
+				let offset=len(a:list)-g:PagerH+1
+				redr!|let ent=input(g:logmsg.'CHG >',a:list[cursor])
+				let a:list[cursor]=ent
+				break
+			elseif ent==113 "q
+				let ent=g:N_ESC
+			elseif ent==105 "i
+				redr!|let ent=input(g:logmsg.'INS >')
+				if len(a:list)==0
+					call insert(a:list,ent,cursor+1)
+					let cursor+=1
+					let offset+=1
+				el| call insert(a:list,ent,cursor) |en
+			elseif ent==97 "a
+				redr!|let ent=input(g:logmsg.'APP >')
+				call insert(a:list,ent,cursor+1)
+				let cursor+=1
+				let offset+=1
+			elseif ent==115 "s
+				redr!| exe 'let g:'.input(g:logmsg.'Save as: ').'=a:list'
+			elseif ent==99 "c
+				redr!|let ent=input(g:logmsg.'CHG >',a:list[cursor])
+				let a:list[cursor]=ent
 			en
 		en
 	endwhile
@@ -459,24 +364,28 @@ fun! PrintLogLine(list, i, cursor)
 	\a:list[a:i][0]).a:list[a:i][1])[0:&columns-2]."\n"
 endfun
 fun! LogChange(list,cursor)
+	redraw!
 	let a:list[a:cursor][1]=input(g:logmsg.'CHG >',a:list[a:cursor][1])
 	return a:cursor
 endfun
 fun! LogAppend(list,cursor)
+	redraw!
 	call insert(a:list,[localtime(),input(g:logmsg.PrintTime(localtime()-a:list[-1][0]))],len(a:list))
 	return len(a:list)-1
 endfun
 fun! LogStill(list,cursor)
+	redraw!
 	let a:list[len(a:list)-1]=[localtime(),input(g:logmsg.'STILL >',a:list[len(a:list)-1][1])]
 	return len(a:list)-1
 endfun
-let LogDic={'Print':'PrintLogLine','_99':'LogChange','_97':'LogAppend','_115':'LogStill'}
+let LogDic={'Print':'PrintLogLine','99':'LogChange','97':'LogAppend','115':'LogStill'}
 fun! Log()
 	call Pager(g:tlog,g:LogDic)
 endfun
 
 "todo:
 "How do you lock functions? Merely having an empty function, right? good.
+"make Change do nothing on empty entry
 "Bookmarks... easy
 
 fun! TMenu(cmd,...)
