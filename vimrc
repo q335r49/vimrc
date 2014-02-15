@@ -7,18 +7,24 @@ endfun
 
 fun! PrevHeading()
 	let indent=virtcol('.') | norm! -
+	while virtcol('.')==indent && line('.')!=1
+		norm! -
+	endwhile
 	while virtcol('.')!=indent && line('.')!=1
 		norm! -
 	endwhile
 endfun
 fun! NextHeading()
 	let indent=virtcol('.') | norm! +
+	while virtcol('.')==indent && line('.')!=line('$')
+		norm! +
+	endwhile
 	while virtcol('.')!=indent && line('.')!=line('$')
 		norm! +
 	endwhile
 endfun
-nn <silent> + ^:call NextHeading()<CR>
-nn <silent> - ^:call PrevHeading()<CR>
+nn <silent> + :call NextHeading()<CR>
+nn <silent> - :call PrevHeading()<CR>
 
 fun! Ec(x,...)
 	echoh LineNr | echom (a:0? (a:1.": "):'').string(a:x) | echoh None | return a:x
@@ -128,7 +134,7 @@ fun! RmHist(ix)
 	return remove(g:histL,a:ix)[1]
 endfun
 fun! InsHist(name,lnum,cnum,w0)
-	if a:name=='' || a:name=~$VIMRUNTIME |retu|en
+	if a:name=='' || a:name=~escape($VIMRUNTIME,'\') |retu|en
 	call insert(g:histL,[a:name,a:lnum,a:cnum,a:w0])
 	if len(g:histL)>=len(g:HLb)-8
 		let g:histL=g:histL[:len(g:HLb)-16] | call InitHist()
@@ -192,7 +198,7 @@ fun! OnWinEnter()
 endfun
 fun! OnNewBuf()
 	if g:FORMAT_NEW_FILES
-  		call setline(1,localtime()." vim: set nowrap ts=4 tw=62 fo=aw: "
+  		call setline(1,localtime()." vim: set nowrap ts=4 tw=78 fo=aw: "
    		\.strftime('%H:%M %m/%d/%y'))
    		setlocal nowrap ts=4 tw=62 fo=aw
   		call CheckFormatted()
@@ -211,34 +217,80 @@ fun! CheckFormatted()
    	nn <buffer> <silent> } :if !search('\S\n\\|\s\n\s*\n','W')\|exe'norm!G$'\|en<CR>
    	nm <buffer> A }a
    	nm <buffer> I {i
-   	nn <buffer> > :se ai<CR>mt>apgqap't:se noai<CR>
+   	nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
    	nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
 	redr|ec 'Formatting Options Loaded: '.expand('%')
 endfun
 nn gf :e <cword><CR>
 
-fun! PrintTime(s,...)
-	retu strftime('%b%e %I:%M ',a:0>0? (a:1) : localtime())
+fun! PrintTime(s,...) "%e crashes Windows!
+	retu strftime('%b%d %I:%M ',a:0>0? (a:1) : localtime())
 	\.(a:s>86399? (a:s/86400.'d'):'')
 	\.(a:s%86400>3599? (a:s%86400/3600.'h'):'')
 	\.(a:s%3600/60.'m ')
 endfun
-fun! Log()
-	let g:logmsg=''|for i in range(len(g:tlog)>5? len(g:tlog)-5:0,len(g:tlog)-1)
-		let g:logmsg.=PrintTime(g:tlog[i][0]-(i>0? g:tlog[i-1][0] : 0),
-		\g:tlog[i][0]).g:tlog[i][1]."\n" | endfor
-	let g:cmdMode='g:tlogD'
-		redr | let ent=input(g:logmsg.PrintTime(localtime()-g:tlog[-1][0]))
-	let g:cmdMode='g:cmdD'
-	if ent[0:1]==?'R:'
-		if len(ent)>2 | let g:tlog[-1][1]=ent[2:] | en
-	elseif ent[0:1]==?'S:'
+let LogWINH=6
+fun! Log(...)
+	if a:0==0
+		let g:cmdsave=&cmdheight
+		exe "se ch=".(g:LogWINH+2)
+		let offset=0
+		let logmode=0
+		let cursor=len(g:tlog)
+	el
+		let offset=a:1
+		let logmode=a:2
+		let cursor=a:3
+	en
+	let g:logmsg=''
+	for i in range(len(g:tlog)-offset-g:LogWINH-1,len(g:tlog)-offset-1)
+		if i<0
+			let g:logmsg.="\n"
+		else
+			let g:logmsg.=(cursor==i? '>':' ')
+			\.PrintTime(g:tlog[i][0]-(i>0? g:tlog[i-1][0] : 0),
+			\g:tlog[i][0]).g:tlog[i][1]."\n"
+		en	
+	endfor
+	if logmode==0
+		let g:cmdMode='g:tlogD'
+		if offset==0
+			redr!|let ent=input(g:logmsg.PrintTime(localtime()-g:tlog[-1][0]))
+		else
+			redr!|let ent=input(g:logmsg.'Edit:',g:tlog[len(g:tlog)-1-offset][1])
+		en
+		let g:cmdMode='g:cmdD'
+	else
+		redr!|ec g:logmsg
+		let ent=getchar()
+	en
+	if ent[0:1]==?'S:'
 		let g:tlog[-1]=[localtime(),len(ent)>2? ent[2:] : g:tlog[-1][1]]
-	elseif ent==?'X'
-		if len(g:tlog)>1 | call remove(g:tlog,-1) | en
-	elseif ent!=?'Q' && ent!=''
-		call extend(g:tlog,[[localtime(),ent]])
-	else | retu|en | call Log()
+	elseif ent==120 "x
+		if len(g:tlog)>1 | call remove(g:tlog,-offset-1) | en
+	elseif ent==107 "k
+		if offset<len(g:tlog)-1
+			let offset+=1 | en
+	elseif ent==106 "j
+		if offset>0
+			let offset-=1 | en
+	elseif ent==105 "i
+		let logmode=0	
+	elseif ent==71 "G
+		let offset=0	
+	elseif ent==''
+		let logmode=1
+	elseif ent==g:N_ESC
+		exe 'se ch='.g:cmdsave
+		return
+	elseif logmode==0 
+		if offset==0
+			call extend(g:tlog,[[localtime(),ent]])
+		else
+			let g:tlog[len(g:tlog)-1-offset][1]=ent
+	   		let logmode=1
+		en
+	en | call Log(offset,logmode,cursor)
 endfun
 
 fun! TMenu(cmd,...)
@@ -701,7 +753,9 @@ if !exists('do_once') | let do_once=1
 	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
 	se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 	se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-tlog[-1][0])}
-	se guifont=Envy\ Code\ R\ 10 guioptions-=T
+	"se guifont=Envy\ Code\ R\ 10 
+	se guifont=Envy_Code_R:h10 
+	se guioptions-=T
 	if has("gui_running")
 		colorscheme slate
 		if exists("WINPOS") | exe WINPOS | en
@@ -720,6 +774,7 @@ if !exists('do_once') | let do_once=1
 	let cmdMode='cmdD'
 	if !exists('TLOG') | let tlog=[[localtime(),'0000']]
 	el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
+	if !exists("HISTL") | let g:HISTL="" | en
 	let g:histL=map(split(g:HISTL,"\n"),'split((v:val),"\\$")')
 	call InitHist()
 	call IniQuote("*")
@@ -731,17 +786,13 @@ en
 "have a *base scheme*: black and white??????
 "Quickly check spelling!
 "ve bug
-"scroll and edit timelogs
 "time log bookmark
 "automatically change file names, '!mv' wrapper?
 "generalized delvable 2d array editor with formatted columns?
 "minewriter? file systems????
 "custom modes
 "make recently used files lowercase
-"redo text as wider: 79? no 78
-"silent ><
-"replace _ with something else (*?) to prevent ambiguity
-"changelog todo *history*, indexed source code????
-"change +/- behavior to *skip* to next indentation, and, to take arguments
-" (2 = skip to next double indent)
 "shopping list quick check!
+"write fonts in viminfo!!!!
+"normal mode mappings in command mode!
+"fix `X
