@@ -1,28 +1,16 @@
 se viminfo=!,'20,<1000,s10,/50,:50
-let K_ESC='@'|let N_ESC=64
-exe 'no '.K_ESC.' <Esc>'
-exe 'no! '.K_ESC.' <Esc>'
-exe 'cno '.K_ESC.' <C-C>'
-so /sdcard/q335writings/abbrev
-if !exists('au_processed')
-	let au_processed=1
-	au VimEnter * call AfterViminfo()
-	au BufRead *.txt call InitTextFile()
-	au BufNewFile *.txt call InitTextFile() | exe "norm! i".localtime()." "
-	\ .strftime('%y%m%d')." vim: set nowrap ts=4 tw=62 fo=aw:"
-en
-fun! AfterViminfo()
-	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch
-	se tabstop=4 history=150 mouse=a ttymouse=xterm hidden  backspace=2
-	se wildmode=list:longest,full display=lastline modeline t_Co=256
-	se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-	syntax off
-	if !exists('g:TLOG') | let g:TLOG=localtime().'[0] ---' | en
-	let g:histL=exists('g:FHIST') ? split(g:FHIST) : [] |cal InitHist()
-	if !argc() | cd /sdcard/q335writings |  e main.txt | en | call UpdHist()
-	au BufWinEnter * call UpdHist()
-	au BufWinLeave * call AddHist(expand('%'),line('.'))
-	au VimLeavePre * let g:FHIST=join(g:histL,"\n")
+if has("win16") || has("win32") || has("win64")
+	let K_ESC="\<Esc>" | let N_ESC=27
+	let g:LblFunc="GetLblWin"
+else
+	let K_ESC='@'|let N_ESC=64
+	exe 'no '.K_ESC.' <Esc>'
+	exe 'no! '.K_ESC.' <Esc>'
+	exe 'cno '.K_ESC.' <C-C>'
+	nn <silent> <leftmouse> <leftmouse>:call {g:OnTouch}()<CR>
+	nn <silent> <leftrelease> <leftmouse>:call OnRelease()<CR>
+	vn <silent> <leftmouse> <Esc>mv<leftmouse>:let g:OnTouch='OnVisual'<CR>
+	let g:LblFunc="GetLblUnix"
 	map <C-J> <C-M>
 	map! <C-J> <C-M>
 	no   OQ @
@@ -35,11 +23,40 @@ fun! AfterViminfo()
 	ino  <F10> <End>
 	nn   <F9> <C-O>
 	nn   <F10> <C-I>
-	hi clear Search       | hi Search ctermfg=9
-	hi clear ErrorMsg     | hi ErrorMsg ctermbg=9 ctermfg=15
-	hi clear MatchParen   | hi link MatchParen Search
-	hi clear StatusLine   | hi StatusLine cterm=underline
-	hi clear StatusLineNC | hi StatusLineNC cterm=underline ctermfg=240
+en
+if !exists('au_processed')
+	let au_processed=1
+	au VimEnter * call AfterViminfo()
+	au BufRead *.txt call InitTextFile()
+	au BufNewFile *.txt call InitTextFile() | exe "norm! i".localtime()." "
+	\ .strftime('%y%m%d')." vim: set nowrap ts=4 tw=62 fo=aw:"
+en
+fun! AfterViminfo()
+	colorscheme slate
+	se guifont=Consolas:h9:cANSI guioptions-=T
+	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch
+	se tabstop=4 history=150 mouse=a ttymouse=xterm hidden  backspace=2
+	se wildmode=list:longest,full display=lastline modeline t_Co=256
+	se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
+	syntax off
+	if !exists('g:TLOG') | let g:TLOG=localtime().'[0] ---' | en
+	let g:histL=exists('g:FHIST') ? split(g:FHIST) : [] |cal InitHist()
+	if !exists('g:MAIN_DIRECTORY') | echoerr "Set MAIN_DIRECTORY!"
+	elseif !argc()
+		exe 'cd '.g:MAIN_DIRECTORY
+		so abbrev | e main.txt 
+    en
+	call UpdHist()
+	au BufWinEnter * call UpdHist()
+	au BufWinLeave * call AddHist(expand('%'),line('.'))
+	au VimLeavePre * let g:FHIST=join(g:histL,"\n")
+	if !has("gui_running")
+		hi clear Search       | hi Search ctermfg=9
+		hi clear ErrorMsg     | hi ErrorMsg ctermbg=9 ctermfg=15
+		hi clear MatchParen   | hi link MatchParen Search
+		hi clear StatusLine   | hi StatusLine cterm=underline
+		hi clear StatusLineNC | hi StatusLineNC cterm=underline ctermfg=240
+	en
 	se stl=\ %l.%02c/%L\ %<%f%=\ 
 	se stl+=%{(localtime()-g:TLOG[0:9])/60.strftime('\ %H:%M\ %d')}\ 
 endfun
@@ -82,8 +99,14 @@ let Asc2HLb=repeat([-1],256) | for i in range(len(HLb))
 	let Asc2HLb[char2nr(toupper(HLb[i]))]=i
 endfor
 let g:maxW=15
+fun! GetLblUnix(file)
+	return matchstr(a:file,"[[:alnum:]][^/]*\\$")[:-2]	
+endfun
+fun! GetLblWin(file)
+	return matchstr(a:file,"[[:alnum:]][^\\\\]*\\$")[:-2]	
+endfun
 fun! InitHist()
-	let g:histLb=map(copy(g:histL),'matchstr(v:val,"[[:alnum:]][^/]*\\$")[:-2]')
+	let g:histLb=map(copy(g:histL),'{g:LblFunc}(v:val)')
 	let g:HLb2fIx=repeat([-1],len(g:HLb)+1) "invar: g:HLb2fIx[-1]=-1
 	let firstopenslot=0
 	for i in range(len(g:histLb))
@@ -104,7 +127,7 @@ fun! AddHist(name,num)
 	if len(g:histL)>=len(g:HLb)-8
 		let g:histL=g:histL[:len(g:HLb)-16] | call InitHist()
 	retu|en
-	let name=matchstr(g:histL[0],"[[:alnum:]][^/]*\\$")[:-2]
+	let name={g:LblFunc}(g:histL[0])
 	let name=len(name)+3>g:maxW ? name[0:g:maxW-8]."~".name[-3:] : name
 	let lbl=g:Asc2HLb[char2nr(name[0])]
 	let colIx=g:HLb2fIx[lbl]
@@ -287,12 +310,12 @@ endfun
 
 let s:Dashes=repeat('-',200)|let s:Pad=repeat(' ',200)
 let s:Speed = range(1,25)
-let g:MouseMode='InitScroll'
+let g:OnTouch='InitScroll'
 se wiw=1
 fun! InitScroll()
 	let s:vesave=&ve | se ve=all
 	let s:pP=[winnr(),winline(),wincol()]
-	let g:MouseMode='OnScroll'
+	let g:OnTouch='OnScroll'
 	let s:initCol=s:pP[2]
 endfun
 fun! OnScroll()
@@ -315,7 +338,7 @@ fun! OnScroll()
 	    	exe "norm! \<C-Y>"
 	    endif
 	else
-		let g:MouseMode='OnResize'
+		let g:OnTouch='OnResize'
 		call OnResize()
 	endif
 endfun
@@ -456,12 +479,12 @@ fun! OnResize()
 	endif
 endfun
 fun! OnRelease()
-	if g:MouseMode=='OnVisual'
+	if g:OnTouch=='OnVisual'
 		norm! v`v
 	else
 		exe 'se ve='.s:vesave
 	endif
-	let g:MouseMode='InitScroll'
+	let g:OnTouch='InitScroll'
 endfun
 fun! Paint()
 	ec ' Brush? (Backspace to turn off)' | let brush=getchar()
@@ -475,7 +498,7 @@ fun! Paint()
 	else
 		redr|ec ' Brush Off'
 		exe 'se ve='.s:vesave
-		nn <silent> <leftmouse> <leftmouse>:call {g:MouseMode}()<CR>
+		nn <silent> <leftmouse> <leftmouse>:call {g:OnTouch}()<CR>
 		nn <silent> <leftrelease> <leftmouse>:call OnRelease()<CR>
 		try
 			iunmap <leftrelease>
@@ -483,6 +506,3 @@ fun! Paint()
 		catch | endtry
 	endif
 endfun                                                              
-nn <silent> <leftmouse> <leftmouse>:call {g:MouseMode}()<CR>
-nn <silent> <leftrelease> <leftmouse>:call OnRelease()<CR>
-vn <silent> <leftmouse> <Esc>mv<leftmouse>:let g:MouseMode='OnVisual'<CR>
