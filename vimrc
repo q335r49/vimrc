@@ -1,5 +1,30 @@
 redir => g:StartupErr
 
+if !exists('Cur_Device')
+	echom "Warning: Cur_Device is undefined, device specific settings may not be loaded."
+	let Cur_Device=''
+en
+if Cur_Device=='cygwin'
+	vno <c-c> "*y
+	vno <c-v> "*p
+	ino <c-_> <c-w>
+	nno <c-_> db
+	let OPT_DisableAutocap=1
+	let Viminfo_File='~/.viminfo'
+	let Cyg_Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings'
+	let Working_Dir= 'C:/Users/q335r49/Desktop/Dropbox/q335writings'
+	let EscChar=''
+en
+
+nno <c-p> :call GotoPreviousFold()<cr>
+nno <c-n> :call GotoNextFold()<cr>
+fun! GotoPreviousFold()
+	call search('{{{','bW')	
+endfun
+fun! GotoNextFold()
+	call search('{{{','W')	
+endfun
+
 ab /f {{{}}}2k$a
 
 nn j gj
@@ -14,8 +39,15 @@ nn <expr> gp '`['.getregtype().'`]'
 com! -nargs=+ -complete=var Editlist call New('NestedList',<args>).show()
 com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
 
-let g:LParentheses=repeat('(',20)
-let g:RParentheses=repeat(')',20)
+fun! Writeroom(margin)
+	echom a:margin
+	wa
+	only
+	exe 'botright '.(a:margin*&columns/100).' vsp blankR'
+	exe 'topleft '.(a:margin*&columns/100).' vsp blank'
+	wincmd l
+endfun
+
 let Pad=repeat(' ',200)
 fun! FoldText()
 	let l=getline(v:foldstart)
@@ -211,7 +243,11 @@ fun! WriteVars(file)
 	return writefile(list,a:file)
 endfun
 fun! OpenLastBackup()
-	exe 'cd '.g:Working_Dir 
+	if g:Cur_Device=='cygwin'
+		exe 'cd '.g:Cyg_Working_Dir
+	el
+		exe 'cd '.g:Working_Dir 
+	en
 	let modtimeL=map(range(5),'getftime("varsave".v:val)')
 	let mostrecent=max(modtimeL)
 	exe 'e varsave'.index(modtimeL,mostrecent)
@@ -333,7 +369,7 @@ fun! TMenu(cmd,...)
 		let key=getchar()|redr! | en
 	retu has_key(a:cmd,key)? a:cmd[key] : TMenu(a:cmd,'help')
 endfun!
-if exists("Cur_Device") && Cur_Device=="Droid4"
+if Cur_Device=="Droid4"
 	nno <expr> _ TMenu(g:normD)
 	ino <expr> _ TMenu(g:insD)
 	vno <expr> _ TMenu(g:visD)
@@ -348,7 +384,7 @@ cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
 cnorea <expr> bd! ((getcmdtype()==':' && getcmdpos()<5)? 'let NoMRUsav=1\|bd!':'bd!')
-cnorea <expr> wa ((getcmdtype()==':' && getcmdpos()<4)? "wa\|redr\|ec WriteVars(Working_Dir.'/saveD')==0? 'vars saved' : 'ERROR!'" :'wa')
+cnorea <expr> wa ((getcmdtype()==':' && getcmdpos()<4)? "wa\|redr\|ec (WriteVars(Working_Dir.'/saveD')==0? 'vars saved' : 'ERROR!')" :'wa')
 
 let g:charL=[]
 fun! CapWait(prev)
@@ -378,6 +414,7 @@ fun! CapHere()
 	\ : (trunc=~'[?!.]\s*$\|^\s*$' && trunc!~'\.\.\s*$') ? (CapWait(trunc[-1:-1])) : "\<del>"
 endfun
 fun! InitCap(capnl)
+	if exists('g:OPT_DisableAutocap') | retu|en
 	ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
 	if a:capnl==1
 		let b:CapStarters=".?!\<nl>\<cr>\<tab>\<space>"
@@ -432,7 +469,11 @@ fun! WriteVimState()
 	if g:StartupErr=~?'error' && input("Startup errors were encountered! "
 	\.g:StartupErr."\nSave settings anyways?")!~?'^y'
 		retu|en
-	exe 'cd '.g:Working_Dir 
+	if g:Cur_Device=='cygwin'
+		exe 'cd '.g:Cyg_Working_Dir
+	el
+		exe 'cd '.g:Working_Dir 
+	en
 	let modtimeL=map(range(5),'getftime("varsave".v:val)')
 	if localtime()-max(modtimeL)>86400
 		call WriteVars(g:Working_Dir.'/varsave'.index(modtimeL,min(modtimeL)))
@@ -513,7 +554,15 @@ se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 se stl=\ %l.%02c/%L\ %<%f%=\ 
 se fcs=vert:\  showbreak=.\  
 se term=screen-256color
-"se noshowmode
+se so=4
+if Cur_Device=='cygwin' "from code.google.com/p/mintty/wiki/Tips
+	"let &t_ti.="\e[2 q"
+	"let &t_SI.="\e[6 q"
+	"let &t_EI.="\e[2 q"
+	"let &t_te.="\e[0 q"
+	"inoremap <Esc> <Esc><Esc>
+	"se noshowmode
+en
 redir END
 if !argc() && filereadable('.lastsession')
 	so .lastsession
@@ -532,11 +581,12 @@ let normD={95:"_",96:'`',48:"@",
 \42:":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \35:":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>",
-\'help':'123:buff c/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap z:wa *#:sub',
+\'help':'123:buff c/olor e/dit(^R^L^T^B) g/ethelp k:center l/og n/ohl o:punchin r/mswp m/sg p/utvar s/till t:nextwin w/rap z:wa *#:sub ^w/riteroom',
 \'msg':"expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
 \.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]",
 \111:":call LOGDIC.111(1)\<cr>",
-\115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>"}
+\115:":call LOGDIC.115()|ec PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1]\<cr>",
+\23:":call Writeroom(25)\<cr>"}
 
 let insD={95:"_",96:'`',48:"@",
 \103:"\<c-r>=getchar()\<cr>",(g:EscAsc):"\<c-o>\<esc>",
@@ -552,7 +602,8 @@ let insD={95:"_",96:'`',48:"@",
 let g:visD={(g:EscAsc):"",42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
 \99:":ce\<cr>",120:"y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>",103:"y:\<c-r>\"",
-\'help':'*:sub c/enter e/dit g/et2cmd x/ec',101:"y:e \<c-r>\"\<cr>",
+\'help':'*:sub c/enter e/dit g/et2cmd u/nformat x/ec',
+\101:"y:e \<c-r>\"\<cr>",117:":s/ \\n/ /\<cr>",
 \'msg':"expand('%:t').' '.line('.')
 \.'/'.line('$').' '.(exists(\"g:LOGDIC\")? PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1] : \"\")"}
 
@@ -585,8 +636,8 @@ let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 \| en | let g:CSgrp=hi[in] | let msg=g:CSgrp | en',
 \115:'let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
 \if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en',
-\83:'let name=input("Save scheme as: ",g:CS_LASTSCHEME,"customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=g:CURCS | let g:CS_LASTSCHEME=name | en',
-\76:'let schemek=keys(g:SCHEMES) | let [in,cmd]=QSel(schemek,"scheme: ")|if in!=-1 && cmd!=g:EscAsc | let g:CURCS=g:SCHEMES[schemek[in]] | call CSLoad(g:CURCS) | let g:LASTSCHEME=schemek[in] | en'}
+\83:'let name=input("Save scheme as: ",g:CS_LASTSCHEME,"customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=g:CURCS | let g:CS_LASTSCHEME=name | en | let continue=0',
+\76:'let schemek=keys(g:SCHEMES) | let [in,cmd]=QSel(schemek,"scheme: ")|if in!=-1 && cmd!=g:EscAsc | let g:CURCS=g:SCHEMES[schemek[in]] | call CSLoad(g:CURCS) | let g:LASTSCHEME=schemek[in] | en | let continue=0'}
 
 "Added changelog
 "Added shortcuts to log functions in normD command
@@ -640,7 +691,21 @@ let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 "added option to [S]ave and [L]oad color schemes
 "last scheme name default entry for load color scheme
 "change color chooser from C to c
-"autocomplete {{{
+"use /f to automcomplete {{{
 "added () to distinguish folds, removed fold centering
 "variable maxQselsize for Qsel list length
-"added cygwin customizations (must define Cyg_Working_Dir)
+"added cygwin customizations (must define Cyg_Working_Dir... confusing as hell)
+"Writeroom(margin) function for wide screens
+"Mapped normal c-n c-p to search for folds
+"OPT_DisableAutocap added
+"Changed Writeroom to take percentage
+"Autoexit after saving a color scheme
+"added ^W to activate writeroom in normD
+"moved device-dependent settings to main vimrc file
+"Cygwin: added ^C and ^V (clipboard) visual mode bindings
+"added u/nformat to visD
+"autoexit after loading a color scheme
+"Cygwin: Cursor changes shape based on mode
+"Cygwin: innoremap escape to escape-escape to prevent delay
+"TODO: `il `iw for invlist, invwrap in normal / insert mode
+"multiline FTft for prose
