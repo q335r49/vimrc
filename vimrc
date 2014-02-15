@@ -1,34 +1,46 @@
 let Qsel=['0','1','*',"'",'"','(','[','{','\']
 let Qpairs={'(':')','{':'}','[':']','<':'>'}
+let QpairsOpp={')':'(','}':'{',']':'[','>':'<'}
+let Qx1=['h','l']
+let Qx2=['xb"hPl','xe"iph']
+let Qx3=['xbbhe"iph','xeelb"hPl']
+let Qx4=['norm! lb"hPe"iphmq','norm! he"ipb"hPlmq']
 fun! IniQuote(mark)
-	let @h=a:mark | let @i=has_key(g:QPAIRS,a:mark)? (g:QPAIRS[a:mark]) : a:mark
-	let g:QLXP="expand('<cWORD>')=~\"^".(@h=='"'? '\'.@h : @h)."\""
-	let g:QRXP="expand('<cWORD>')=~\"".(@i=='"'? '\'.@i : @i)."$\""
+	if has_key(g:Qpairs,a:mark) | let @h=a:mark | let @i=(g:QPAIRS[a:mark])
+	elsei has_key(g:QpairsOpp,a:mark) | let @h=(g:QPAIRS[a:mark]) |let @i=a:mark
+	el| let @h=a:mark | let @i=a:mark | en
 endfun
-fun! QuoteE(sel)
-	if a:sel==1 | ec "(Predefined: 2* 3' 4\" 5( 6[ 7{ 8) Quote mark:"
-		call IniQuote(nr2char(getchar()))
-	elsei a:sel!=0 | call IniQuote(g:Qsel[a:sel]) | en
-	let LQ=eval(g:QLXP) | let RQ=eval(g:QRXP)	
-	if RQ && LQ && getpos("'q")!=getpos('.') | norm! hExlBx
-	elsei RQ | norm! mqhExE"ip
-	elsei LQ | norm! mqlBxEElB"hP
-	el| norm! lB"hPE"ipmq
-	en
+fun! Quote(sel,dr)
+	if a:sel==0
+		echom 999
+	    norm! mrhel"tylbh"uyl`r
+		if @u=~"[\[{(\*'\"/]" | call IniQuote(@u)
+		elsei @t=~"[\)}]\*'\"/]" | call IniQuote(@t) | en
+	elseif a:sel==1 | ec "Quote mark:" | call IniQuote(nr2char(getchar()))
+	el|  call IniQuote(g:Qsel[a:sel]) | en
+	let WORD=expand('<cWORD>')		
+    norm! mrlBms`r
+	let cur=col("'r")-col("'s'")
+	let tLQ=match(WORD,@h) | let LQ=tLQ
+	while tLQ>-1 && tLQ<cur
+		let LQ=tLQ | let tLQ=match(WORD,@h,LQ+1) | endw
+	if LQ>cur | let RQ=(@i==@h? LQ : match(WORD,@i,cur)) | let LQ=-1
+	elsei LQ<cur | let RQ=match(WORD,@i,cur)
+	elsei LQ==len(WORD)-1 | let RQ=LQ | let LQ=-1
+	el| let RQ=match(WORD,@i,cur+1) | en
+	if a:dr | let T=(RQ>-1? RQ-cur : -1) | let A=(LQ>-1? cur-LQ : -1)
+	el| let A=(RQ>-1? RQ-cur : -1) | let T=(LQ>-1? cur-LQ : -1) | en
+	if T>-1 && A>-1 && getpos("'q")!=getpos('.')
+		retu 'norm! '.(T>0 ? T.g:Qx1[a:dr] : '').'x'
+		\.(T+A-!a:dr>0? (T+A-!a:dr).g:Qx1[!a:dr] : '').'x' 
+	elsei T!=-1 | retu 'norm! mq'.(T>0? T.g:Qx1[a:dr] :'').g:Qx2[a:dr]
+	elsei A!=-1 | retu 'norm! mq'.(A>0? A.g:Qx1[!a:dr] :'').g:Qx3[a:dr]
+	el|retu g:Qx4[a:dr] | en
 endfun
-fun! QuoteB(sel)
-	if a:sel==1 | ec "(Predefined: 2* 3' 4\" 5( 6[ 7{ 8\\) Quote mark:"
-		call IniQuote(nr2char(getchar()))
-	elsei a:sel!=0 | call IniQuote(g:Qsel[a:sel]) | en
-	let LQ=eval(g:QLXP)	| let RQ=eval(g:QRXP)	
-	if RQ && LQ && getpos("'q")!=getpos('.') | norm! hExlBx
-	elsei LQ | norm! mqlBxB"hP
-	elsei RQ | norm! mqhExBBhE"ip
-	el| norm! hE"ipB"hPmq
-	en
-endfun
-nn <silent> [ :<C-U>call QuoteB(v:count)<CR>
-nn <silent> ] :<C-U>call QuoteE(v:count)<CR>
+nn <silent> [ :<C-U>exe Quote(v:count,0)<CR>
+nn <silent> ] :<C-U>exe Quote(v:count,1)<CR>
+nn <C-F> :<C-U>ec Quote(v:count,0)<CR>
+nn <C-G> :<C-U>ec Quote(v:count,1)<CR>
 
 let HLb=split('1234567890abcdefghijklmnopqrstuvwxyz
 \ABCDEFGHIJKLMNOPQRSTUVWXYZ','\zs')
@@ -39,7 +51,7 @@ let maxW=15
 fun! GetLbl(file)
 	let name=matchstr(a:file,"[[:alnum:]][^/\\\\]*\\$")[:-2]	
 	return len(name)+3>g:maxW ? name[0:g:maxW-8]."~".name[-3:] : name
-endfu4
+endfun
 fun! InitHist()
 	let g:histLb=map(copy(g:histL),'GetLbl(v:val)')
 	let g:HLb2fIx=repeat([-1],len(g:HLb)+1) "invar: g:HLb2fIx[-1]=-1
@@ -114,6 +126,8 @@ fun! InsHist(name,lnum,cnum)
 	en
 endfun
 fun! FmtList(list, ...)
+	if len(a:list)==0 | retu ''
+	elseif len(a:list)==1 | retu a:list[0] | en
 	let tabW=a:0==0? 0 : a:1 | let padN=[0]+(tabW==0 ? [] : range(tabW-1,1,-1))
 	let ecstr=a:list[0] | let endX=len(ecstr)
 	for e in a:list[1:]
@@ -164,13 +178,10 @@ command! -nargs=1 -complete=file Edit call Edit('<args>')
 nno gf :call Edit(expand('<cWORD>'))<CR>
 
 fun! PrintTime(s,...)
-	return strftime('%b %d %I:%M [',a:0>0? (a:1) : localtime())
-	\.(a:s>3599? (a:s/3600.(a:s%3600<600? ':0' : ':')) : '').(a:s%3600/60).'] '
-endfun
-fun! PrintLogMsg()
-	let tspan=localtime()-g:tlog[0][0]
-	retu (tspan>86399? (tspan/86400).'d':'')
-	\.(tspan%86400>3599? (tspan%86400)/3600.'h ':'').len(g:tlog)."e:"
+	retu strftime('%b %d %I:%M [',a:0>0? (a:1) : localtime())
+	\.(a:s>86399? (a:s/86400.'d '):'')
+	\.(a:s%86400>3599? (a:s%86400/3600.'h '):'')
+	\.(a:s%3600/60.'m').'] '
 endfun
 fun! Log()
 	let g:logmsg=''|for i in range(len(g:tlog)>5? len(g:tlog)-5:0,len(g:tlog)-1)
@@ -184,7 +195,7 @@ fun! Log()
 	elseif ent[0:1]==?'S:'
 		let g:tlog[-1]=[localtime(),len(ent)>2? ent[2:] : g:tlog[-1][1]]
 	elseif ent==?'X'
-		call remove(g:tlog,-1)
+		if len(g:tlog)>1 | call remove(g:tlog,-1) | en
 	elseif ent!=?'Q' && ent!=''
 		call extend(g:tlog,[[localtime(),ent]])
 	else | retu|en | call Log()
@@ -551,7 +562,8 @@ fun! SetOpt(options)
 \.(inputrestore()? '':''))\<CR>\<CR>",120:"\<C-U>X\<CR>",
 \115:"\<C-R>='S:'.((inputsave()? '':'').input(g:logmsg.'STILL:')
 \.(inputrestore()? '':''))\<CR>\<CR>",'help':'[L]og [R]ename [S]till [X]Del:',
-\(g:N_ESC):"\<C-R>=input(g:logmsg)\<CR>\<CR>",'msg':'PrintLogMsg()'}
+\(g:N_ESC):"\<C-R>=input(g:logmsg)\<CR>\<CR>",
+\'msg':"PrintTime(localtime()-g:tlog[0][0],g:tlog[0][0]).len(g:tlog).' logs:'"}
 	let g:normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',119:":wa\<CR>",
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
 \112:":call IniPaint()\<CR>",108:":call Log()\<CR>",
@@ -594,8 +606,6 @@ fun! FirstRunSetup()
 	let g:INPUT_METH=input("INPUT_METH? (thumb/keyboard):",
 		\exists('g:DEFIM_'.os)? eval('g:DEFIM_'.os):'thumb','file')
 	exe 'let g:DEFIM_'.os.'=g:INPUT_METH'
-	exe 'cd '.g:WORKING_DIR
-	call SetOpt(g:INPUT_METH)
 endfun
 
 if !exists('do_once') | let do_once=1
@@ -610,7 +620,7 @@ if !exists('do_once') | let do_once=1
 	se wildmode=list:longest,full display=lastline modeline t_Co=256
 	se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 	se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-tlog[-1][0])}
-	se guifont=Envy\ Code\ R:h10:cANSI guioptions-=T
+	se guifont=Envy\ Code\ R\ 10 guioptions-=T
 	if has("gui_running")
 		colorscheme slate
 		if exists("WINPOS") | exe WINPOS | en
@@ -626,10 +636,11 @@ if !exists('do_once') | let do_once=1
 	if !exists('TLOG') | let tlog=[[localtime(),'0000']]
 	el | let tlog=map(split(TLOG,"\n"),"split(v:val,'|')") | en
 	let histL=exists('HISTL') ? split(HISTL,"\n") : [] | call InitHist()
-	if !exists('g:WORKING_DIR') || !isdirectory(g:WORKING_DIR)
-		au VimEnter * call FirstRunSetup()
-	en | call SetOpt(INPUT_METH) | exe 'so '.g:WORKING_DIR.'/abbrev'
+	call IniQuote("'")
+	if !exists('g:WORKING_DIR') || !isdirectory(glob(g:WORKING_DIR))
+		au VimEnter * call FirstRunSetup() 
+	en
+	au VimEnter * call SetOpt(g:INPUT_METH) |  exe 'so '.g:WORKING_DIR.'/abbrev'
 	if !argc() | exe 'cd '.g:WORKING_DIR
 		if len(histL)>1 | au VimEnter * call Edit(histL[0])
-	if !exists('QLXP') | call IniQuote("'") | en
 en|en|en
