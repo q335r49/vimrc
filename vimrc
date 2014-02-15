@@ -6,6 +6,7 @@ if opt_device=~?'windows'
 	let Working_Dir='C:\Users\q335r49\Desktop\Dropbox\q335writings'
 	let Viminfo_File='C:\Users\q335r49\Desktop\Dropbox\q335writings\viminfo' | en
 if opt_device=~?'cygwin'
+	let g:txpHotkey='`'
 	no! <c-h> <left>
 	no! <c-j> <down>
 	no! <c-k> <up>
@@ -63,21 +64,22 @@ if has("gui_running")
 en
 
 let [pvft,pvftc]=[1,32]
-fun! MLFT(x,c,i)
+fun! Multift(x,c,i)
 	let [g:pvftc,g:pvft]=[a:c,a:i]
     let pos=searchpos((a:x==2? mode(1)=='no'? '\C\V\_.\zs' : '\C\V\_.' : '\C\V').(a:x==1 && mode(1)=='no' || a:x==-2? nr2char(g:pvftc).'\zs' : nr2char(g:pvftc)),a:x<0? 'bW':'W')
 	call setpos("'x", pos[0]? [0,pos[0],pos[1],0] : [0,line('.'),col('.'),0]) 
 	return "`x"
 endfun
-no <expr> F MLFT(-1,getchar(),-1)
-no <expr> f MLFT(1,getchar(),1)
-no <expr> T MLFT(-2,getchar(),-2)
-no <expr> t MLFT(2,getchar(),2)
-no <expr> ; MLFT(pvft,pvftc,pvft)
-no <expr> , MLFT(-pvft,pvftc,pvft)
+no <expr> F Multift(-1,getchar(),-1)
+no <expr> f Multift(1,getchar(),1)
+no <expr> T Multift(-2,getchar(),-2)
+no <expr> t Multift(2,getchar(),2)
+no <expr> ; Multift(pvft,pvftc,pvft)
+no <expr> , Multift(-pvft,pvftc,pvft)
 om a/ :<c-u>norm F/vt/<cr>
 
 ino <f1> <c-o>zh
+nn <f1> zh
 
 let ujx_pvXpos=[0,0,0,0]
 let ujx_eolnotreached=1
@@ -109,21 +111,113 @@ endfun
 nno <silent> x :<c-u>call Undojx('x')<cr>
 nno <silent> X :<c-u>call Undojx('X')<cr>
 
-nno Q q
-vno Q q
-if !exists('Qnrm') | let Qnrm={} | en
-if !exists('Qnhelp') | let Qnhelp={} | en
-if !exists('Qvis') | let Qvis={} | en
-if !exists('Qvhelp') | let Qvhelp={} | en
-let [Qnrm.81,Qnhelp.Q,Qvis.81,Qvhelp.Q]=["Q","Ex mode","Q","Ex mode"]
-fun! Qmenu(cmd)
-	exe a:cmd.msg
-	return get(a:cmd, getchar(), a:cmd.default)
-endfun
 nno <expr> q Qmenu(g:Qnrm)
 vno <expr> q Qmenu(g:Qvis)
+nno Q q
+vno Q q
+hi qbold ctermfg=112 ctermbg=115 cterm=NONE
+hi qnorm ctermfg=105 ctermbg=115 cterm=NONE
+fun! Qmenu(menu)
+	redr
+	let btab=tabpagenr('$')
+	if !&stal && btab>1
+		let chsav=&ch
+		let &ch=2
+		let tl=map(range(1,tabpagenr('$')),'fnamemodify(bufname(tabpagebuflist(v:val)[tabpagewinnr(v:val)-1]),":t")')
+		let active=tabpagenr()
+		if active==1
+			echoh qbold | echon ' ' expand('%')
+			echoh qnorm  | echon line('.') " ' " join(tl[1:]," ' ")
+		elseif active==btab
+			echoh qnorm  | echon ' ' join(tl[:-2]," ' ") " ' "
+			echoh qbold | echon expand('%')
+			echoh qnorm  | echon line('.')
+		else
+			echoh qnorm  | echon ' ' join(tl[:active-2]," ' ") " ' "
+			echoh qbold | echon expand('%')
+			echoh qnorm  | echon line('.') " ' " join(tl[active :]," ' ")
+		en
+		let extraline=1
+	else
+		let extraline=0
+	en
+	if !&ls && winnr('$')>1
+		if &ch!=2
+			let chsav=&ch
+			let &ch=2
+		en
+		echoh qnorm  | echon '    '
+		let tl=map(tabpagebuflist(),'fnamemodify(bufname(v:val),":t")')
+		let active=winnr()
+		if active==1
+			echoh qbold | echon tl[0]
+			echoh qnorm  | echon '''' join(tl[1:],'''')
+		elseif active==tabpagenr('$')
+			echoh qnorm  | echon join(tl[:-2],'\') ''''
+			echoh qbold | echon tl[-1]
+		else
+			echoh qnorm  | echon join(tl[:active-2],'''') ''''
+			echoh qbold | echon tl[active-1]
+			echoh qnorm  | echon '''' join(tl[active :],'''')
+		en
+		let extraline+=1
+	en
+	if extraline
+		echon "\n"
+	en
+	echon  eval(strftime('" ".%m."smtwrfa"[%w].%d'))
+	echoh qbold | echon strftime(' %l:%M')
+	echoh qnorm  | echon g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60 ' '
+	if !extraline
+		echoh qbold | echon expand('%:t') ' ' line('.')
+	en
+	echoh qnorm  | echon '''' line('$') ' '
+	echoh qbold | echon 100*line('.')/line('$') '% '
+    echoh qnorm  | echon col('.')
+	let c=getchar()
+	if extraline
+		let &ch=chsav
+	en
+	redr| ech "" | return get(a:menu, c, a:menu.default)
+endfun
+let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 let Qnrm.default=":ec PrintDic(Qnhelp,28)\<cr>"
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
+let [Qnrm.81,Qnhelp.Q,Qvis.81,Qvhelp.Q]=["Q","Ex mode","Q","Ex mode"]
+let [Qnrm[102],Qnhelp.f]=[":ec search('^\\S*\\ '.expand('<cword>').'(')\<cr>","Go to function"]
+let Qnrm["\<leftmouse>"]="\<leftmouse>"
+let [Qnrm.110,Qnhelp.np]=["\<c-w>l","Columns <>"]
+let Qnrm.112="\<c-w>h"
+let [Qnrm.119,Qnhelp.we]=["g;","Changes <>"]
+let Qnrm.101="g,"
+let [Qnrm.109,Qnhelp.m]=[":call TogglePanMode()\<cr>","Mouse pan Toggle"]
+let [Qnrm.71,Qnhelp.G]=[":ec search('\\S\\s*\\n\\n\\n\\n\\n\\n')\<cr>", "Goto section End"]
+let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
+let [Qnrm.70,Qnhelp.F]=[":let [&ls,&stal]=&ls>=1? [0,0]:[2,2]\<cr>","Fullscreen"]
+let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
+let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
+let [Qnrm.87,Qnhelp.W]=[":wincmd W\<cr>", "Prev Window"]
+let [Qnrm.114,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
+let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
+let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
+let [Qnrm.113,Qnhelp.q]=[":noh\<cr>","No highlight search"]
+let [Qnrm.78,Qnhelp.N]=[":se invnumber\<cr>","Line number toggle"]
+let [Qnrm.104,Qnhelp.h]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>","Help word under cursor"]
+let [Qnrm.49,Qnrm.50,Qnrm.51,Qnrm.52,Qnrm.53,Qnrm.54,Qnrm.55,Qnrm.56,Qnrm.57]=map(range(1,9),'":tabn".v:val."\<cr>"')
+let [Qnrm.9,Qnrm.32]=[":tabp\<cr>",":tabn\<cr>"]
+	let Qnhelp['1..9']="Switch tabs"
+	let Qnhelp['<space>/<tab>']="Next/prev tab"
+let Qnrm.42=":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>"
+let Qnrm.35=":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>"
+	let Qnhelp['*#']="Replace word"
+let [Qvis.42,Qvhelp['*']]=["y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>","Replace selection"]
+let [Qnrm.120,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source paragraph"]
+let [Qvis.120,Qvhelp.x]=["y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source selection"]
+let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy to clipboard"]
+let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
+let [Qnrm.108,Qnhelp.l]=[":cal g:logdic.show()\<cr>","Show log files"]
+let [Qnrm.72,Qnhelp.H]=[":call mruf.show()\<cr>","Show recent files"]
+let [Qnrm.86,Qnhelp['V']]=[":call WriteViminfo(input('Name of file to write: ',Viminfo_File,'file'))\n","Write viminfo"]
 
 nn R <c-r>
 let [Qnrm.73,Qnhelp.I]=["R","Replace mode"]
@@ -139,7 +233,7 @@ for i in range(1,256)
 	let asciidic[printf("%3d",i)]=strtrans(nr2char(i))
 endfor
 fun! AsciiUI()
-	ec PrintDic(g:asciidic,7)
+	ec PrintDic(g:asciidic,7) "\n"
 	let word=expand("<cword>")
 	norm! ga
 	if word>0
@@ -184,6 +278,9 @@ nn j gj
 nn k gk
 nn gp :exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'<cr>
 nn gd :let temp=getline('.')[col('.')-1] \| if temp=~'[({\[]' \| exe 'norm! %x``x'\| elseif temp=~'[)}\]]' \| exe 'norm! %x``X' \| endif<cr>
+nn gA :let @_=!search('\S\s*\n\s*\n','W') && !search('\%$','W') \|startinsert!<cr>
+let sur_pairs={'(':')','{':'}','<':'>','[':']'}
+vn s <esc>:let @t=nr2char(getchar())\|let @u=get(sur_pairs,@t,@t)\|norm! `>"up`<"tP<cr>
 
 fun! SoftCap()
 	norm! a^
@@ -208,13 +305,6 @@ endfun
 let [Qnrm.99,Qnhelp.c]=[":call SoftCap()\<cr>","Caps lock"]
 ino <c-h> <esc>:call SoftCap()<cr>
 
-let Pad=repeat(' ',200)
-fun! FoldText()
-	let l=getline(v:foldstart)
-	let p=stridx(l,'{{{')
-	return g:Pad[v:foldlevel].'('.(p==0? l[3:20].' ...' : l[:p-1]).')'
-endfun
-
 com! -nargs=+ -complete=var Editlist call New('NestedList',<args>).show()
 com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
 
@@ -226,8 +316,8 @@ else
 en
 let CS_attr=['NONE','bold','underline','undercurl','reverse','italic','standout']
 let CS_attrIx={'NONE':0,'bold':1,'underline':2,'undercurl':3,'reverse':4,'italic':5,'standout':6}
-let CShst=[[0,7,'NONE']]
-let [CShix,SwchIx]=[0,0]
+let CS_histL=[[0,7,'NONE']]
+let [CS_histi,SwchIx]=[0,0]
 let CS_grp='Normal'
 fun! CS_hi(group,list)
 	exe a:list[0] is 'LINK-->'? 'hi! link '.a:group.' '.a:list[1] : 'hi '.a:group.' ctermfg='.a:list[0].' ctermbg='.a:list[1].' cterm='.a:list[2]
@@ -252,16 +342,16 @@ fun! CS_UI()
     cno <expr> <bs> g:CS_input=='group' && getcmdline()==''? "CS_EXIT\<cr>" : "\<bs>" 
     cno . <cr>
 	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
-	let hl=copy(get(g:SCHEMES[g:CS_NAME],g:CS_grp,g:CShst[-1]))
+	let hl=copy(get(g:SCHEMES[g:CS_NAME],g:CS_grp,g:CS_histL[-1]))
 	let swatchlist=keys(g:SCHEMES.swatches)
 	let continue=1
 	let g:CS_input=''
 	let field=0
 	while continue
-		if g:CShix<=len(g:CShst)-1
-			let g:CShst[g:CShix]=copy(hl)
-		el| call add(g:CShst,copy(hl))
-			let g:CShix=len(g:CShst)-1 |en
+		if g:CS_histi<=len(g:CS_histL)-1
+			let g:CS_histL[g:CS_histi]=copy(hl)
+		el| call add(g:CS_histL,copy(hl))
+			let g:CS_histi=len(g:CS_histL)-1 |en
 		call CS_hi(g:CS_grp,hl)
 		redr!
 		echohl CS_LightOnDark
@@ -289,9 +379,9 @@ fun! CS_UI()
 		echon ' hjklJKr <bs>Up <cr>Save [L]ink [g]oLink [WR]Favs [bf]Hist [U]nlet'
 		exe get(g:colorD,getchar(),'')
 	endwhile
-	if len(g:CShst)>100
-		let CShst=g:CShix<25? (g:CShst[:50]) : g:CShix>75? (g:CShst[50:])
-		\: g:CShst[g:CShix-25:g:CShix+25] |en
+	if len(g:CS_histL)>100
+		let CS_histL=g:CS_histi<25? (g:CS_histL[:50]) : g:CS_histi>75? (g:CS_histL[50:])
+		\: g:CS_histL[g:CS_histi-25:g:CS_histi+25] |en
 	echoh None
 	redr! | ec ''
 	cunmap =
@@ -310,11 +400,11 @@ let colorD.74="if hl[0] isnot 'LINK-->' | let hl[field]='NONE' | en"
 let colorD.75="if hl[0] isnot 'LINK-->' | let hl[field]=field==2? 'NONE' : 100 | en"
 let colorD.104='let field=(field+2)%3'
 let colorD.108='let field=(field+1)%3'
-let colorD.106='if hl[0] isnot "LINK-->" | let [hl[field],g:CShix]=field<2? [hl[field] is "NONE"? 255 : hl[field] == 0? "NONE" : hl[field]-1,g:CShix+1] : [g:CS_attr[(get(g:CS_attrIx,hl[2], 1)-1)%len(g:CS_attr)],g:CShix+1] | el | let hl=[0,15,"NONE"] | en'
-let colorD.107='if hl[0] isnot "LINK-->" | let [hl[field],g:CShix]=field<2? [hl[field] is "NONE"? 0 : hl[field] == 255? "NONE" : hl[field]==0? 1 : hl[field]+1,g:CShix+1] : [g:CS_attr[(get(g:CS_attrIx,hl[2],-1)+1)%len(g:CS_attr)],g:CShix+1] | el | let hl=[0,15,"NONE"] | en'
-let colorD.98='if g:CShix > 0 | let g:CShix-=1 | let hl=copy(g:CShst[g:CShix]) | en'
-let colorD.102='if g:CShix<len(g:CShst)-1|let g:CShix+=1|let hl=copy(g:CShst[g:CShix]) |en'
-let colorD.114='let [hl[field],g:CShix]=[field==2? hl[field] : reltime()[1]%256,g:CShix+1]'
+let colorD.106='if hl[0] isnot "LINK-->" | let [hl[field],g:CS_histi]=field<2? [hl[field] is "NONE"? 255 : hl[field] == 0? "NONE" : hl[field]-1,g:CS_histi+1] : [g:CS_attr[(get(g:CS_attrIx,hl[2], 1)-1)%len(g:CS_attr)],g:CS_histi+1] | el | let hl=[0,15,"NONE"] | en'
+let colorD.107='if hl[0] isnot "LINK-->" | let [hl[field],g:CS_histi]=field<2? [hl[field] is "NONE"? 0 : hl[field] == 255? "NONE" : hl[field]==0? 1 : hl[field]+1,g:CS_histi+1] : [g:CS_attr[(get(g:CS_attrIx,hl[2],-1)+1)%len(g:CS_attr)],g:CS_histi+1] | el | let hl=[0,15,"NONE"] | en'
+let colorD.98='if g:CS_histi > 0 | let g:CS_histi-=1 | let hl=copy(g:CS_histL[g:CS_histi]) | en'
+let colorD.102='if g:CS_histi<len(g:CS_histL)-1|let g:CS_histi+=1|let hl=copy(g:CS_histL[g:CS_histi]) |en'
+let colorD.114='let [hl[field],g:CS_histi]=[field==2? hl[field] : reltime()[1]%256,g:CS_histi+1]'
 let colorD.85="redr | echohl CS_LightOnDark\n
 \if input('> unlet SCHEME.'.g:CS_NAME.'.'.g:CS_grp.'? (y/n)','')==?'y' && has_key(g:SCHEMES[g:CS_NAME],g:CS_grp)\n
 	\unlet g:SCHEMES[g:CS_NAME][g:CS_grp]\nen"
@@ -348,14 +438,14 @@ let colorD["\<bs>"]="if has_key(g:SCHEMES[g:CS_NAME],g:CS_grp)\n
 	\en\n
 	\let g:CS_grp=in\n
 \el\nlet continue=0\nen"
-let colorD[21]=colorD["\<bs>"]
+let colorD.21=colorD["\<bs>"]
 let colorD.87='echohl CS_LightOnDark | let name=input("  save as: SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) | let g:SCHEMES.swatches[name]=copy(hl) |en'
 let colorD.82="echo ''|let ix=0|for i in sort(keys(g:SCHEMES.swatches))\n
 	\call CS_hi('CS_'.ix,g:SCHEMES.swatches[i])\n
 	\exe 'echohl CS_'.ix\n
 	\echon '   '.i.'   '\n
 	\let ix+=1\n
-\endfor\n".'echohl CS_LightOnDark | let name=input("> let SCHEMES.".g:CS_NAME.".".g:CS_grp." = SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) && has_key(g:SCHEMES.swatches,name) | let g:CShix=g:CShix+1 | let hl=copy(g:SCHEMES.swatches[name]) | else | echo "  **Swatch not found**" | sleep 1 | en'
+\endfor\n".'echohl CS_LightOnDark | let name=input("> let SCHEMES.".g:CS_NAME.".".g:CS_grp." = SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) && has_key(g:SCHEMES.swatches,name) | let g:CS_histi=g:CS_histi+1 | let hl=copy(g:SCHEMES.swatches[name]) | else | echo "  **Swatch not found**" | sleep 1 | en'
 let [Qnrm.67,Qnhelp.C]=[":call CS_UI()\<cr>","Customize colors"]
 let [Qnrm.7,Qnhelp['^G']]=[":ec 'hi<' . synIDattr(synID(line('.'),col('.'),1),'name') . '> trans<'
 \ . synIDattr(synID(line('.'),col('.'),0),'name') . '> lo<'
@@ -377,7 +467,6 @@ endfun
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
 cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
-cnorea <expr> qnv ((getcmdtype()==':' && getcmdpos()<5)? "let &viminfo=''\|exe 'autocmd! WriteViminfo' \|qa!":"qnv")
 
 let g:charL=[]
 let g:opt_disable_syntax_while_panning=1
@@ -422,7 +511,7 @@ fun! LoadFormatting()
 		setl nowrap fo=aw
 		let number=matchstr(options,'hardwrap\zs\d*') 
 		exe "setl tw=".(empty(number)? 70 : number)
-		nn <buffer>	<cr> za
+		nn <buffer>	<cr> +
 		nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
 		nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
 	elseif options=~?'prose' |  setl wrap | en
@@ -494,10 +583,7 @@ fun! LoadViminfoData()
 	let g:SCHEMES.swatches=has_key(g:SCHEMES,'swatches')? g:SCHEMES.swatches : {}
 	let g:CS_NAME=exists('g:opt_colorscheme')? g:opt_colorscheme : exists('g:CS_NAME')? g:CS_NAME : 'default'
 	cal CSLoad(g:CS_NAME)
-	let g:Qnrm.msg="ec printf('%-17.17s %s',eval(strftime('%m.\"smtwrfa\"[%w].%d.\" \".%I.\":%M \".g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60')),expand('%:t').' '.line('.').':'.col('.').'/'.line('$'))"
-	try | silent exe g:Qnrm.msg  "eg, windows doesn't support %s in strftime
-	catch | let g:Qnrm.msg="ec line('.').','.col('.').'/'.line('$')" | endtry
-	let g:Qvis.msg=g:Qnrm.msg
+	ec "Something wrong? Use :RestoreSettings viminfo.bak to load previous states."
 endfun
 fun! WriteViminfo(file)
 	if v:version<703 || v:version==703 && !has("patch30")
@@ -513,7 +599,6 @@ fun! WriteViminfo(file)
 			en | en
 		endfor
 	en
-	if has("gui_running") | let g:S_GUIFONT=&guifont |en
 	if a:file==#'exit'  "curdir is necessary to retain relative path
 		exe 'cd '.g:Working_Dir
 		se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
@@ -525,46 +610,12 @@ fun! WriteViminfo(file)
 		wv! |en
 endfun
 
-let Qnrm["\<leftmouse>"]="\<leftmouse>"
-let [Qnrm.110,Qnhelp.np]=["\<c-w>l","Columns <>"]
-let Qnrm.112="\<c-w>h"
-let [Qnrm.119,Qnhelp.we]=["g;","Changes <>"]
-let Qnrm.101="g,"
-let [Qnrm.109,Qnhelp.m]=[":call TogglePanMode()\<cr>","Mouse pan Toggle"]
-let [Qnrm.71,Qnhelp.G]=[":exe 'norm! '.(search('\\S\\s*\\n\\n\\n\\n\\n\\n','W')? 'g':'G' )\<cr>", "Goto section End"]
-let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
-let [Qnrm.70,Qnhelp.F]=[":let [&ls,&stal]=&ls>1? [0,0]:[2,2]\<cr>","Fullscreen"]
-let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
-let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
-let [Qnrm.87,Qnhelp.W]=[":wincmd W\<cr>", "Prev Window"]
-let [Qnrm.114,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
-let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
-let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
-let [Qnrm.113,Qnhelp.q]=[":noh\<cr>","No highlight search"]
-let [Qnrm.78,Qnhelp.N]=[":se invnumber\<cr>","Line number toggle"]
-let [Qnrm.104,Qnhelp.h]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>","Help word under cursor"]
-let [Qnrm.49,Qnrm.50,Qnrm.51,Qnrm.52,Qnrm.53,Qnrm.54,Qnrm.55,Qnrm.56,Qnrm.57]=map(range(1,9),'":tabn".v:val."\<cr>"')
-let [Qnrm.9,Qnrm.32]=[":tabp\<cr>",":tabn\<cr>"]
-	let Qnhelp['1..9']="Switch tabs"
-	let Qnhelp['<space>/<tab>']="Next/prev tab"
-let Qnrm.42=":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>"
-let Qnrm.35=":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>"
-	let Qnhelp['*#']="Replace word"
-let [Qvis.42,Qvhelp['*']]=["y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>","Replace selection"]
-let [Qnrm.120,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source paragraph"]
-let [Qvis.120,Qvhelp.x]=["y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source selection"]
-let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy to clipboard"]
-let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
-let [Qnrm.108,Qnhelp.l]=[":cal g:logdic.show()\<cr>","Show log files"]
-let [Qnrm.72,Qnhelp.H]=[":call mruf.show()\<cr>","Show recent files"]
-let [Qnrm.86,Qnhelp['V']]=[":call WriteViminfo(input('Name of file to write: ',Viminfo_File,'file'))\n","Write viminfo"]
-
 if !exists('firstrun')
 	let firstrun=0
 	if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
 		ec 'Warning: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME
 		let Working_Dir=$HOME |en
-	for file in ['abbrev','pager','nav.vim','utils']
+	for file in ['abbrev','pager','nav.vim']   "+utils
 		if !empty(glob(Working_Dir.'/'.file)) | exe 'so '.Working_Dir.'/'.file
 		el| ec 'Warning:' Working_Dir.'/'.file 'doesn't exist'
 		en
@@ -582,7 +633,7 @@ if !exists('firstrun')
 			exe setViExpr.conflicts[-1]
 		el| exe setViExpr.g:Viminfo_File | en
 	en
-	au VimEnter * call LoadViminfoData() 
+	au VimEnter * call LoadViminfoData()
 	au VimEnter * au BufRead * call mruf.restorepos(expand('%')) 
 	au VimEnter * au BufLeave * call mruf.insert(expand('<afile>'),line('.'),col('.'),line('w0'))
 	se linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
@@ -600,9 +651,7 @@ if !exists('firstrun')
 		let &t_te.="\e[0 q"
 	se noshowmode | en
 	au BufRead * call LoadFormatting()
-	augroup WriteViminfo
-		au VimLeavePre * call WriteViminfo('exit')
-	augroup end
+	au VimLeavePre * call WriteViminfo('exit')
 	if !argc() && filereadable('.lastsession')
 		so .lastsession | en
 en
