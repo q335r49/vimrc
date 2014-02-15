@@ -307,7 +307,7 @@ fun! CompleteSchemes(Arglead,CmdLine,CurPos)
 	return filter(keys(g:SCHEMES),'v:val=~a:Arglead')
 endfun
 hi CS_LightOnDark ctermfg=15 ctermbg=0
-fun! CSChooser()
+fun! CS_UI()
     cno <expr> = (g:CS_MODE=='group'? "\<cr>" : "=") 
     cno <expr> <bs> (g:CS_MODE=='group' && getcmdline()==''? "CS_EXIT\<cr>" : "\<c-u>") 
     cno . <cr>
@@ -328,10 +328,13 @@ fun! CSChooser()
 		echohl CS_LightOnDark
 		echon '> let SCHEMES.' g:CS_NAME '.' msg ' = [' fg ',' bg ']    '
 		exe "echoh" g:CSgrp
-		echon '  group/scheme:<bs> history:[bf] increment/decrement:[hjkl] swatches:[np] [e]dit [i]nvert [*rR]andom save/load-swatch:[SL] delete:[^X]'
+		echon '  Edit Group:<bs> +-history:[bf] +-color:[hjkl] +-swatch:[np] [e]ntry [i]nvert [*rR]andom save/load[SL] delete:[^X]'
 		let msg=g:CSgrp
 		let c=getchar()
-		exe get(g:colorD,c,'ec PrintDic(g:colorDh,20)|call getchar()')
+		while !has_key(g:colorD,c)
+			let c=getchar()
+		endw
+		exe g:colorD[c]
 	endwhile
 	if len(g:CShst)>100
 		let CShst=g:CShix<25? (g:CShst[:50]) : g:CShix>75? (g:CShst[50:])
@@ -342,34 +345,28 @@ fun! CSChooser()
 	cunmap <bs>
 	cunmap .
 endfun
-let [colorD,colorDh]=[{},{}]
-let [colorD.113,colorDh['q/esc']]=["let continue=0 | if has_key(g:SCHEMES[g:CS_NAME],g:CSgrp) | exe 'hi' g:CSgrp 'ctermfg='.g:SCHEMES[g:CS_NAME][g:CSgrp][0].' ctermbg='.g:SCHEMES[g:CS_NAME][g:CSgrp][1] | en","Quit"]
+let colorD={}
+let colorD.113="let continue=0 | if has_key(g:SCHEMES[g:CS_NAME],g:CSgrp) | exe 'hi' g:CSgrp 'ctermfg='.g:SCHEMES[g:CS_NAME][g:CSgrp][0].' ctermbg='.g:SCHEMES[g:CS_NAME][g:CSgrp][1] | en"
 let colorD[EscAsc]=colorD.113
 let colorD.10="let continue=0 | exe 'hi' g:CSgrp 'ctermfg='.fg.' ctermbg='.bg | let g:SCHEMES[g:CS_NAME][g:CSgrp]=[fg,bg]"
 let colorD.13=colorD.10
-let [colorD.101,colorDh['e']]=["redr | echohl CS_LightOnDark | let [fg,bg]=eval(input('> let SCHEMES.'.g:CS_NAME.'.'.g:CSgrp.'=',\"[,]\<home>\<right>\"))",'enter color']
+let colorD.101="redr | echohl CS_LightOnDark | let [fg,bg]=eval(input('> let SCHEMES.'.g:CS_NAME.'.'.g:CSgrp.'=',\"[,]\<home>\<right>\"))"
 let colorD.104='let [fg,g:CShix]=[fg is "NONE"? 255 : fg is 0? "NONE" : fg-1, g:CShix+1]'
 let colorD.108='let [fg,g:CShix]=[fg is "NONE"? 0 : fg is 255? "NONE" : fg+1,g:CShix+1]'
-let colorDh.hl="cycle fg"
 let colorD.106='let [bg,g:CShix]=[bg is "NONE"? 255 : bg is 0? "NONE" : bg-1,g:CShix+1]'
 let colorD.107='let [bg,g:CShix]=[bg is "NONE"? 0 : bg is 255? "NONE" : bg+1,g:CShix+1]'
-let colorDh.jk="cycle bg"
 let colorD.112='let [g:SwchIx,g:CShix]=[(g:SwchIx+len(swatchlist)-1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" = SCHEMES.swatches.".swatchlist[g:SwchIx]'
 let colorD.110='let [g:SwchIx,g:CShix]=[(g:SwchIx+1)%len(swatchlist),g:CShix+1] | let [fg,bg]=g:SCHEMES.swatches[swatchlist[g:SwchIx]] | let msg.=" = SCHEMES.swatches.".swatchlist[g:SwchIx]'
-let colorDh.bf="nav history"
 let colorD.98='if g:CShix > 0 | let g:CShix-=1 | let [fg,bg]=g:CShst[g:CShix] | en'
 let colorD.102='if g:CShix<len(g:CShst)-1|let g:CShix+=1|let [fg,bg]=g:CShst[g:CShix]|en'
-let colorDh.np="nav swatches"
 let colorD.42='let [fg,bg,g:CShix]=[reltime()[1]%256,reltime()[1]%256,g:CShix+1]'
 let colorD.114='let [fg,g:CShix]=[reltime()[1]%256,g:CShix+1]'
 let colorD.82='let [bg,g:CShix]=[reltime()[1]%256,g:CShix+1]'
-let colorDh['rR*']="Random"
-let colorD.24="echohl CS_LightOnDark\n
-\if input('Really delete '.g:CSgrp.' (y/n)? (Highlight group will remain until vim reload)','')==?'y' && has_key(g:SCHEMES[g:CS_NAME],g:CSgrp)\n
+let colorD.24="redr | echohl CS_LightOnDark\n
+\if input('> unlet SCHEME.'.g:CS_NAME.'.'.g:CSgrp.'? (y/n)','')==?'y' && has_key(g:SCHEMES[g:CS_NAME],g:CSgrp)\n
 \       unlet g:SCHEMES[g:CS_NAME][g:CSgrp]\n
 \en"
-let colorDh['^X']="Delete group"
-let [colorD.105,colorDh.i]=['let [fg,bg]=[bg,fg]',"invert"]
+let colorD.105='let [fg,bg]=[bg,fg]'
 let [colorD["\<backspace>"],colorD["<bs>, <c-u>"]]=["if has_key(g:SCHEMES[g:CS_NAME],g:CSgrp)\n
 \    exe 'hi' g:CSgrp 'ctermfg='.g:SCHEMES[g:CS_NAME][g:CSgrp][0].' ctermbg='.g:SCHEMES[g:CS_NAME][g:CSgrp][1]\n
 \en\n
@@ -405,9 +402,9 @@ let [colorD["\<backspace>"],colorD["<bs>, <c-u>"]]=["if has_key(g:SCHEMES[g:CS_N
 \   let continue=0\n
 \en", "Select Group"]
 let colorD[21]=colorD["\<backspace>"]
-let [colorD.83,colorDh.S]=['echohl CS_LightOnDark | let name=input("  save as: SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) | let g:SCHEMES.swatches[name]=[fg,bg] |en','Save swatch']
-let [colorD.76,colorDh.L]=['echohl CS_LightOnDark | let name=input("> let SCHEMES.".g:CS_NAME.".".g:CSgrp." = SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) && has_key(g:SCHEMES.swatches,name) | let g:CShix=g:CShix+1 | let [fg,bg]=g:SCHEMES.swatches[name] | let msg.=" = SCHEMES.swatches.".name | else | echo "  **Swatch not found**" | sleep 1 | en','Load swatch']
-let [Qnrm.67,Qnhelp.C]=[":call CSChooser()\<cr>","Customize colors"]
+let colorD.83='echohl CS_LightOnDark | let name=input("  save as: SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) | let g:SCHEMES.swatches[name]=[fg,bg] |en'
+let colorD.76='echohl CS_LightOnDark | let name=input("> let SCHEMES.".g:CS_NAME.".".g:CSgrp." = SCHEMES.swatches.","","customlist,CompleteSwatches") | if !empty(name) && has_key(g:SCHEMES.swatches,name) | let g:CShix=g:CShix+1 | let [fg,bg]=g:SCHEMES.swatches[name] | let msg.=" = SCHEMES.swatches.".name | else | echo "  **Swatch not found**" | sleep 1 | en'
+let [Qnrm.67,Qnhelp.C]=[":call CS_UI()\<cr>","Customize colors"]
 let [Qnrm.7,Qnhelp['^G']]=[":ec 'hi<' . synIDattr(synID(line('.'),col('.'),1),'name') . '> trans<'
 \ . synIDattr(synID(line('.'),col('.'),0),'name') . '> lo<'
 \ . synIDattr(synIDtrans(synID(line('.'),col('.'),1)),'name') . '>'\<cr>","Get highlight"]
