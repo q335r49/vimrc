@@ -1,5 +1,7 @@
 redir => g:StartupErr
 
+se nocompatible
+
 if !exists('Cur_Device')
 	echom "Warning: Cur_Device is undefined, device specific settings may not be loaded."
 	let Cur_Device=''
@@ -337,6 +339,7 @@ fun! EdMRU()
 	redr
 endfun
 
+
 fun! GetLbl(file)
 	let name=matchstr(a:file,"[[:alnum:]][^/\\\\]*$")
 	return len(name)>12 ? name[0:7]."~".name[-3:] : name
@@ -349,6 +352,9 @@ fun! InsHist(name,lnum,cnum,w0)
 		cal insert(g:MRUL,[a:lnum,a:cnum,a:w0])
 	en
 endfun
+
+
+
 fun! RemHist(file)
 	let i=match(g:MRUF,'^'.a:file.'$')
 	if i!=-1
@@ -380,11 +386,11 @@ else
 endif
 
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
-cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
-cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
-cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
-cnorea <expr> bd! ((getcmdtype()==':' && getcmdpos()<5)? 'let NoMRUsav=1\|bd!':'bd!')
-cnorea <expr> wa ((getcmdtype()==':' && getcmdpos()<4)? "wa\|redr\|ec (WriteVars(Working_Dir.'/saveD')==0? 'vars saved' : 'ERROR!')" :'wa')
+"cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
+"cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
+"cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
+"cnorea <expr> bd! ((getcmdtype()==':' && getcmdpos()<5)? 'let NoMRUsav=1\|bd!':'bd!')
+"cnorea <expr> wa ((getcmdtype()==':' && getcmdpos()<4)? "wa\|redr\|ec (WriteVars(Working_Dir.'/saveD')==0? 'vars saved' : 'ERROR!')" :'wa')
 
 let g:charL=[]
 fun! CapWait(prev)
@@ -707,5 +713,8 @@ let CSChooserD={113:"let continue=0 | if has_key(g:CURCS,g:CSgrp)
 "autoexit after loading a color scheme
 "Cygwin: Cursor changes shape based on mode
 "Cygwin: innoremap escape to escape-escape to prevent delay
+"set nocompatible to avoid absurd errors
+
 "TODO: `il `iw for invlist, invwrap in normal / insert mode
-"multiline FTft for prose
+"TODO: multiline FTft for prose
+
