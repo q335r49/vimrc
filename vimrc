@@ -44,7 +44,7 @@ if opt_device=~?'droid4'
 	exe "map \<c-v>\[19~ *" | exe "map! \<c-v>\[19~ *"
 	exe "map \<c-v>\[20~ (" | exe "map! \<c-v>\[20~ ("
 	exe "map \<c-v>\[21~ )" | exe "map! \<c-v>\[21~ )"
-	let Viminfo_File='/sdcard/q335writings/viminfo'
+	let Viminfo_File='/sdcard/q335writings/viminfo-d4'
 	let Working_Dir='/sdcard/q335writings'
 	let EscChar='@'
 	let opt_autocap=1
@@ -59,42 +59,35 @@ if has("gui_running")
 	hi Vertsplit guifg=grey15 guibg=grey15
 	se guioptions-=T | en
 
-nno <silent> x :call Undojx('x')<cr>
-nno <silent> X :call Undojx('X')<cr>
+let ujx_pvXpos=[0,0,0,0]
+let ujx_eolnotreached=1
 fun! Undojx(cmd)
-	let regsav=@"
-	exe 'norm! '.a:cmd
-	redr
-	let c=getchar()
-	while c==120 || c==88
-		undoj | exe (c==88? 'norm! X' : 'norm! x') | redr
-		let c=getchar()
-	endwhile
-	if c==105
-		startinsert
-	elseif c==111
-		norm! o	
-		startinsert
-	elseif c==79
-		norm! O
-		startinsert
-	elseif c==73
-		norm! ^
-		startinsert
-	elseif c==65
-		startinsert!
-	elseif c==97
-		if col('.')==col('$')-1
-			startinsert!
-		else
-			norm! l
-			startinsert
-		en
+	if getpos('.')==g:ujx_pvXpos
+		try
+			undoj
+		catch *
+			let @x=''
+			let g:ujx_eolnotreached=1
+		endtry
 	else
-		exe 'norm! '.(type(c)? c : nr2char(c))
+		let @x=''
+		let g:ujx_eolnotreached=1
 	en
-	let @"=regsav
+	exe 'norm! '.v:count1.a:cmd
+	let newpos=getpos('.')
+	if newpos[2]==g:ujx_pvXpos[2]
+		let @x.=@"
+	elseif a:cmd==#'x' && g:ujx_eolnotreached && !empty(@x)
+		let @x.=@"
+		let g:ujx_eolnotreached=0
+	el
+		let @x=@".@x
+	en
+	echo @x
+	let g:ujx_pvXpos=newpos
 endfun
+nno <silent> x :<c-u>call Undojx('x')<cr>
+nno <silent> X :<c-u>call Undojx('X')<cr>
 
 nno Q q
 vno Q q
@@ -164,12 +157,18 @@ endfor
 let [Qnrm.103,Qnhelp.g]=[":ec PrintDic(asciidic,7)\<cr>","Show Ascii"]
 
 fun! Scrollbind()
-	norm! mtHmu
-	let winnr=winnr()
-	windo se invscb|1
-	windo se scb
-	exe winnr.'wincmd w'
-	norm! 'uzt't
+	if &scb
+		windo se noscb
+		ec "Scrollbind off"
+	else
+		norm! mtHmu
+		let winnr=winnr()
+		windo se invscb|1
+		windo se scb
+		exe winnr.'wincmd w'
+		norm! 'uzt't
+		ec "Scrollbind on"
+	en
 endfun
 let [Qnrm.83,Qnhelp.S]=[":call Scrollbind()\<cr>","Scrollbind on"]
 
@@ -332,6 +331,7 @@ let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | silent call Writeroom(e
 
 if exists('opt_mousepan') && opt_mousepan
 	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (MousePan()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
+	let MpanRedr=opt_device==?'droid4'? 'redr!' : 'redr'
 	let glidestep=[99999999]+map(range(11),'11*(11-v:val)*(11-v:val)')
 	fun! MousePan()
 		if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1) || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) || v:mouse_lnum==line('$')
@@ -393,7 +393,7 @@ fun! CSChooser(...)
 	exe "echoh" g:CSgrp
 	ec msg fg bg
 	let continue=1
-	let c=getchar()
+	let c=char2nr('g')
 	exe get(g:colorD,c,'ec PrintDic(g:colorDh,20)|call getchar()')
 	while continue
 		if g:CShix<=len(g:CShst)-1
@@ -589,8 +589,8 @@ fun! LoadFormatting()
 			nn <buffer> <silent> A :call search('\S\s*\n\s*\n\\|\%$','Wc')<CR>a
 		en|en
 	if options=~?'prose'
-		syntax match Bold "\*\S.\{-}\S\*"hs=s+1,he=e-1
-		syntax match Italics "\/\S.\{-}\S\/"hs=s+1,he=e-1
+		syntax region Bold start=+\(\s\|^\)\*\zs\S+ end=+\S\ze\*+
+		syntax region Italics start=+\(\s\|^\)\/\zs\S+ end=+\S\ze\/+
 		setl noai
 		ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
 		if options=~#'Prose' && g:opt_autocap
@@ -614,7 +614,7 @@ fun! LoadFormatting()
 			nm <buffer> <silent> i i^<Left><C-R>=CapHere()<CR>
 			nm <buffer> <silent> s s^<Left><C-R>=CapHere()<CR>
 			nm <buffer> <silent> cw cw^<Left><C-R>=CapHere()<CR>
-			nm <buffer> <silent> C C^<Left><C-R>=CapHere()<CR>
+			nm buffer> <silent> C C^<Left><C-R>=CapHere()<CR>
 		en
 		iab <buffer> i I
 		iab <buffer> Id I'd
@@ -693,13 +693,15 @@ let [Qnrm.102,Qnhelp['f']]=["g;","foward edit"]
 let [Qnrm.98,Qnhelp['b']]=["g;","back edit"]
 let [Qnrm.58,Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.116,Qnhelp.t]=[":let &showtabline=!&showtabline\<cr>","Tabline toggle"]
-let [Qnrm.118,Qnhelp.v]=[":if empty(&ve) | se ve=all | el | se ve= | en\<cr>","Virtual edit toggle"]
+let [Qnrm.118,Qnhelp.v]=[":let &ve=empty(&ve)? 'all' : '' | echo 'Virtualedit '.(empty(&ve)? 'off':'on')\<cr>","Virtual edit toggle"]
 let [Qnrm.105,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
 let [Qnrm.76,Qnhelp.L]=[":exe colorD.76\<cr>","Load Colorscheme"]
 let [Qnrm.115,Qnhelp.s]=[":let &ls=&ls>1? 0:2\<cr>","Status line toggle"]
-let [Qnrm.119,Qnhelp.w]=[":exe 'wincmd w'.(&scb? '|'.line('.') : '')\<cr>","Next Window"]
-let [Qnrm.87,Qnhelp.W]=[":exe 'wincmd W'.(&scb? '|'.line('.') : '')\<cr>","Prev Window"]
-let [Qnrm.114,Qnhelp.r]=[":se invwrap\<cr>","Wrap toggle"]
+
+let [Qnrm.119,Qnhelp.w]=[":wincmd w\<cr>","Next Window"]
+let [Qnrm.87,Qnhelp.W]=[":wincmd W\<cr>", "Prev Window"]
+
+let [Qnrm.114,Qnhelp.r]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
 let [Qnrm.122,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
 let [Qnrm.82,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
 let [Qnrm.101,Qnhelp.e]=[":noh\<cr>","No highlight search"]
