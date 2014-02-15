@@ -4,7 +4,7 @@ se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256
 se wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 se stl=\ %l.%02c/%L\ %<%f%=\ 
-se stl+=%{FmtTm(localtime()-g:TLOG[0:9]).strftime('\ %I:%M\ %d')}\ 
+se stl+=%{(localtime()-g:TLOG[0:9])/60.strftime('\ %I:%M\ %d')}\ 
 se guifont=Envy\ Code\ R:h12:cANSI guioptions-=T
 if has("gui_running")
 	colorscheme slate
@@ -13,9 +13,9 @@ hi ColorColumn guibg=#222222 ctermbg=237
 hi ErrorMsg ctermbg=9 ctermfg=15
 hi Search ctermfg=9 ctermbg=none
 hi MatchParen ctermfg=9 ctermbg=none
-hi StatusLine cterm=underline ctermfg=244 ctermbg=236
+hi StatusLine cterm=underline ctermfg=240 ctermbg=236
 hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
-hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
+hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=240 ctermbg=236
 if !exists('au_processed')
 	let au_processed=1
 	au VimEnter * call LoadVimInfo()
@@ -58,27 +58,24 @@ fun! LoadVimInfo()
 	el | let K_ESC="\<Esc>" | let N_ESC=27 | en
 endfun
 
-fun! FmtTm(s)
-	return (a:s>3600? (a:s/3600.(a:s%3600<600? ':0' : ':')) : '').(a:s%3600/60)
-endfun
 fun! Log(...)
-	let entry=input(g:TLOG[:match(g:TLOG,'\n',0,6)]
-	\.'\n['.FmtTm(localtime()-g:TLOG[0:9])
+	let log=input(g:TLOG[:match(g:TLOG,'\n',0,6)]
+	\."[".(localtime()-g:TLOG[0:9])/60
 	\.(a:0==0? "] LOG > " : '] [R:]ename [S:]till [X]Delete [Q]uit > '))
-	if entry[0:1]==?'R:'
-		let g:TLOG=g:TLOG[:match(g:TLOG,' ')].entry[2:]
+	if log[0:1]==?'R:'
+		let g:TLOG=g:TLOG[:match(g:TLOG,' ')].log[2:]
 		\."\n".g:TLOG[match(g:TLOG,'\n')+1:] | redr | call Log()
-	elseif entry[0:1]==?'S:'
+	elseif log[0:1]==?'S:'
 		let g:TLOG=g:TLOG[match(g:TLOG,'\n')+1:]
-		let g:TLOG=localtime()."[".FmtTm(localtime()-g:TLOG[0:9])
-		\."] ".entry[2:]."\n".g:TLOG | redr | call Log()
-	elseif entry==?'X'
+		let g:TLOG=localtime()."[".(localtime()-g:TLOG[0:9])/60
+		\."] ".log[2:]."\n".g:TLOG | redr | call Log()
+	elseif log==?'X'
 		let g:TLOG=g:TLOG[match(g:TLOG,'\n')+1:] | redr | call Log()
-	elseif entry==?'?'
+	elseif log==?'?'
 		redr | call Log(1)
-	elseif entry!='Q' && entry!=''
-		let g:TLOG=localtime()."[".FmtTm(localtime()-g:TLOG[0:9])
-		\."] ".entry."\n".g:TLOG | redr | call Log() | en
+	elseif log!='Q' && log!=''
+		let g:TLOG=localtime()."[".(localtime()-g:TLOG[0:9])/60
+		\."] ".log."\n".g:TLOG | redr | call Log() | en
 endfun
 
 let normD={110:":noh\<CR>",(g:N_ESC):"\<Esc>",96:'`',119:":wa\<CR>",
@@ -105,12 +102,12 @@ fun! TMenu(msg,cmd)
 	ec a:msg|let key=getchar()|redr!
 	return has_key(a:cmd,key)? a:cmd[key] : TMenu(a:cmd[0],a:cmd)
 endfun!
-nno <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' - '.FmtTm(localtime()-
-\g:TLOG[0:9]).strftime('/%I:%M/%d - ').expand('%:t').' > ',g:normD)
-cno <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' - '.FmtTm(localtime()-
-\g:TLOG[0:9]).strftime('/%I:%M/%d - ').expand('%:t').' > ',g:cmdD)
-ino <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' - '.FmtTm(localtime()-
-\g:TLOG[0:9]).strftime('/%I:%M/%d - ').expand('%:t').' > ',g:insD)
+nno <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' - '.(localtime()-
+\g:TLOG[0:9])/60.strftime('/%I:%M/%d - ').expand('%:t').' > ',g:normD)
+cno <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' - '.(localtime()-
+\g:TLOG[0:9])/60.strftime('/%I:%M/%d - ').expand('%:t').' > ',g:cmdD)
+ino <expr> ` TMenu(line('.').'.'.col('.').'/'.line('$').' - '.(localtime()-
+\g:TLOG[0:9])/60.strftime('/%I:%M/%d - ').expand('%:t').' > ',g:insD)
 
 let HLb=split('1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ','\zs')
 let Asc2HLb=repeat([-1],256) | for i in range(len(HLb))
