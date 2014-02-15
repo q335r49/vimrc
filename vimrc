@@ -1,8 +1,6 @@
 fun! InList(list,element)
 	for i in range(len(a:list))
-		if a:list[i][0]==#a:element
-			return i
-		en
+		if a:list[i][0]==#a:element | return i | en
 	endfor
 	return -1
 endfun
@@ -65,7 +63,7 @@ fun! QuoteChange(mark)
 	endif
 endfun
 nn <silent> [ :<C-U>exe Quote(v:count,0)<CR>
-nn <silent> ] :<C-U>exe Quote(v:count,1)<CR>
+"n <silent> ] :<C-U>exe Quote(v:count,1)<CR>
 nn <C-F> :<C-U>let gg=Quote(v:count,0)<CR>:ec gg<CR>
 nn <C-G> :<C-U>ec Quote(v:count,1)<CR>
 
@@ -121,9 +119,9 @@ fun! RmHist(ix)
 	call map(g:HLb2fIx,'v:val>a:ix ? v:val-1 : (v:val==a:ix ? -1 : v:val)')
 	return remove(g:histL,a:ix)[1]
 endfun
-fun! InsHist(name,lnum,cnum)
+fun! InsHist(name,lnum,cnum,w0)
 	if a:name=='' || a:name=~$VIMRUNTIME |retu|en
-	call insert(g:histL,[a:name,a:lnum,a:cnum])
+	call insert(g:histL,[a:name,a:lnum,a:cnum,a:w0])
 	if len(g:histL)>=len(g:HLb)-8
 		let g:histL=g:histL[:len(g:HLb)-16] | call InitHist()
 	retu|en
@@ -174,10 +172,13 @@ fun! HistMenu()
 		elseif RmHist(g:HLb2fIx[g:Asc2HLb[sel2]])=='0' | redr|retu -1 | en|endw
 	redr|retu g:HLb2fIx[g:Asc2HLb[sel]]
 endfun
-fun! OnBufRead()
+fun! OnWinEnter()
 	let ix=InList(g:histL,expand('%'))
-	if ix>=0 | call cursor(g:histL[ix][1],g:histL[ix][2]) | en 
-	call CheckFormatted()
+	if ix>=0
+		let j=g:histL[ix][1]-g:histL[ix][3]
+		exe "norm! ".g:histL[ix][3]."z\<CR>".(j>0? j.'j':'').g:histL[ix][2].'|'
+	en
+	call RmHist(ix)
 endfun
 fun! OnNewBuf()
   	call setline(1,localtime()." vim: set nowrap ts=4 tw=62 fo=aw: "
@@ -643,7 +644,7 @@ fun! OnVimEnter()
 	call SetOpt(g:INPUT_METH) |  exe 'so '.g:WORKING_DIR.'/abbrev'
 	if !argc() | exe 'cd '.g:WORKING_DIR
 		if len(g:histL)>0
-			exe 'e '.g:histL[0][0] | call OnBufRead() | call RmHist(0)
+			exe 'e '.g:histL[0][0] | call CheckFormatted() | call OnWinEnter()
 	en | en
 	if glob(g:WORKING_DIR)=='/home/q335/Desktop/Dropbox/q335writings'
 	\ && !has("gui_running")
@@ -663,10 +664,10 @@ if !exists('do_once') | let do_once=1
 		el| let g:viminfo_file_invalid=1 | rv | en
 	se viminfo=
 	au VimEnter * call OnVimEnter()
-	au BufWinEnter * call RmHist(InList(g:histL,expand('%')))
-	au BufRead * call OnBufRead()
+	au BufWinEnter * call OnWinEnter()
+	au BufRead * call CheckFormatted()
 	au BufNewFile * call OnNewBuf()
-	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'))
+	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'),line('w0'))
 	au VimLeavePre * call Write_Viminfo()
 	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
 	se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
@@ -694,6 +695,5 @@ if !exists('do_once') | let do_once=1
 	nohl
 en
 "Nextheading for formatted paragraphs
-"screen pos save
-"Store histLb with hist (as short name)?
-"Consolidate OnBufRead, BufWinEnter
+"settings for text or non text new buffer, such as when argc()!=0
+"modify Ec to handle lists
