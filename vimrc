@@ -12,7 +12,7 @@ fun! CSTest(...)
 		let newbg=a:2
 		call add(g:cstest_hist,[newfg,newbg])
 	elseif a:0==1 && type(a:1)==1
-		let [newfg,newbg]=SwatchDic[a:1]
+		let [newfg,newbg]=SWATCHES[a:1]
 		call add(g:cstest_hist,[newfg,newbg])
 	elseif a:0==1 && type(a:1)==4
 		let dictmode=1
@@ -51,7 +51,7 @@ fun! CSTest(...)
 			let newbg=reltime()[1]%256
 		elseif c==115 && !dictmode
 			let name=input("Swatch name:")
-			exe 'let g:SwatchDic["'.name.'"]=['.newfg.','.newbg.']'
+			exe 'let g:SWATCHES["'.name.'"]=['.newfg.','.newbg.']'
 		el| let msg=dictmode? "[n]ext [p]rev" :
 			\ "[hl]scrollfg [jk]scrollbg [n]ext [p]rev [r]and [s]aveswatch"
 		en
@@ -66,7 +66,7 @@ fun! CSTest(...)
 		el| ec msg | let msg="" |en
 		let c=getchar()
 	endwhile
-	exe 'hi Normal ctermfg='.(g:CurColors.Normal[0]).' ctermbg='.(g:CurColors.Normal[1])
+	exe 'hi Normal ctermfg='.(g:HICOLOR.Normal[0]).' ctermbg='.(g:HICOLOR.Normal[1])
 	if len(g:cstest_hist)>100
 		if histix<25 | let g:cstest_hist=g:cstest_hist[:50]
 		elseif histix>75 | let g:cstest_hist=g:cstest_hist[50:]
@@ -74,21 +74,20 @@ fun! CSTest(...)
 	en |return g:cstest_hist[-1]
 endfun
 fun! CSNew(name)
-	exe 'let g:'.a:name.'=deepcopy(g:CurColors)'
-	call Save(a:name)
+	exe 'let g:'.a:name.'=deepcopy(g:HICOLOR)'
 endfun
 fun! CSLoad(settings)
-	let g:CurColors=a:settings
-	for k in keys(g:CurColors)
-		exe 'hi '.k.' ctermfg='.(g:CurColors[k][0]%256).' ctermbg='.(g:CurColors[k][1]%256)
+	let g:HICOLOR=a:settings
+	for k in keys(g:HICOLOR)
+		exe 'hi '.k.' ctermfg='.(g:HICOLOR[k][0]%256).' ctermbg='.(g:HICOLOR[k][1]%256)
 	endfor
 endfun
 fun! CSSet(name,...)
-	if a:0==2 | let g:CurColors[a:name]=[a:1%256,a:2%256]
+	if a:0==2 | let g:HICOLOR[a:name]=[a:1%256,a:2%256]
 		exe 'hi '.a:name.' ctermfg='.(a:1%256).' ctermbg='.(a:2%256)
-	el| let g:CurColors[a:name]=g:SwatchDic[a:1]
-		exe 'hi '.a:name.' ctermfg='.(g:SwatchDic[a:1][0]%256)
-		\.' ctermbg='.(g:SwatchDic[a:1][1]%256) |en
+	el| let g:HICOLOR[a:name]=g:SWATCHES[a:1]
+		exe 'hi '.a:name.' ctermfg='.(g:SWATCHES[a:1][0]%256)
+		\.' ctermbg='.(g:SWATCHES[a:1][1]%256) |en
 endfun
 
 let Pad=repeat(' ',200)
@@ -101,20 +100,23 @@ fun! CenterLine()
 	en
 endfun
 
-fun! Save(name)
-	let g:SaveD[a:name]=toupper(a:name)
-endfun
-fun! Unsave(name)
-	exe 'unlet g:'.toupper(a:name)
-	exe 'unlet g:'.a:name
-	unlet g:SaveD[a:name]
-endfun
 fun! BackupSaveD(filename)
+	if has_key(g:SD,'SD') | unlet g:SD['SD'] |en
 	let list=[]
-	for key in keys(g:SaveD)
-		call add(list,'let '.key.'='.eval('g:'.g:SaveD[key]))
+	for key in keys(g:SD)
+		if exists('g:'.key)
+			let splitlist=split('let '.key.'='.string(eval('g:'.key)),"\n")
+			call add(list,splitlist[0])
+			for line in splitlist[1:]
+				call add(list,"\\".line)
+			endfor
+		en
+		let g:SD[key]=''
 	endfor
-	call writefile(list,a:filename)
+	if exists('g:SD')
+		call add(list,'let SD='.string(g:SD))
+	el| call add(list,'let SD={}') |en
+	call writefile(list,a:filename,)
 endfun
 
 fun! PrintTime(s,...) "%e crashes Windows!
@@ -218,7 +220,7 @@ fun! GetLbl(file)
 	return len(name)+3>g:maxW ? name[0:g:maxW-8]."~".name[-3:] : name
 endfun
 fun! InitHist()
-	let g:histLb=map(copy(g:histL),'GetLbl(v:val[0])')
+	let g:histLb=map(copy(g:HISTL),'GetLbl(v:val[0])')
 	let g:HLb2fIx=repeat([-1],len(g:HLb)+1) "invar: g:HLb2fIx[-1]=-1
 	let unassigned=range(len(g:histLb))
 	for i in unassigned
@@ -245,7 +247,7 @@ fun! InitHist()
 	endfor
 endfun
 fun! RmHist(ix)
-	if (a:ix>=len(g:histL) || a:ix<0) | retu 0|en
+	if (a:ix>=len(g:HISTL) || a:ix<0) | retu 0|en
 	if g:histLb[a:ix][0]==?g:histLb[a:ix][2]
 		for i in range(a:ix+1,len(g:histLb)-1)
 		if g:histLb[i][2]==?g:histLb[a:ix][0] && g:histLb[i][2]!=?g:histLb[i][0]
@@ -257,15 +259,15 @@ fun! RmHist(ix)
 	en
 	call remove(g:histLb,a:ix)
 	call map(g:HLb2fIx,'v:val>a:ix ? v:val-1 : (v:val==a:ix ? -1 : v:val)')
-	return remove(g:histL,a:ix)[1]
+	return remove(g:HISTL,a:ix)[1]
 endfun
 fun! InsHist(name,lnum,cnum,w0)
 	if a:name=='' || a:name=~escape($VIMRUNTIME,'\') |retu|en
-	call insert(g:histL,[a:name,a:lnum,a:cnum,a:w0])
-	if len(g:histL)>=len(g:HLb)-8
-		let g:histL=g:histL[:len(g:HLb)-16] | call InitHist()
+	call insert(g:HISTL,[a:name,a:lnum,a:cnum,a:w0])
+	if len(g:HISTL)>=len(g:HLb)-8
+		let g:HISTL=g:HISTL[:len(g:HLb)-16] | call InitHist()
 	retu|en
-	let name=GetLbl(g:histL[0][0])
+	let name=GetLbl(g:HISTL[0][0])
 	let lbll=g:Asc2HLb[char2nr(tolower(name[0]))]
 	let lblu=g:Asc2HLb[char2nr(toupper(name[0]))]
 	let collisionl=g:HLb2fIx[lbll]
@@ -314,10 +316,10 @@ fun! HistMenu()
 endfun
 fun! OnWinEnter()
 	let file=expand('%')
-	for i in range(len(g:histL))
-		if g:histL[i][0]==#file
-			let j=g:histL[i][1]-g:histL[i][3]
-			exe "norm! ".g:histL[i][3]."z\<CR>".(j>0? j.'j':'').g:histL[i][2].'|'
+	for i in range(len(g:HISTL))
+		if g:HISTL[i][0]==#file
+			let j=g:HISTL[i][1]-g:HISTL[i][3]
+			exe "norm! ".g:HISTL[i][3]."z\<CR>".(j>0? j.'j':'').g:HISTL[i][2].'|'
 			call RmHist(i)
 			break|en
 	endfor
@@ -408,13 +410,10 @@ fun! InitCap()
 endfun
 
 fun! Write_Viminfo()
-	if match(g:StartupErr,'\cerror')!=-1
-		let in=input("Startup errors were encountered, write viminfo anyways?")
+	if g:StartupErr=~?'error'
+		let in=input("Startup errors were encountered, store settings anyways?")
 		if in!=?'y' && in!='ye' && in!='yes' |retu|en |en
-	if exists('g:SaveD')
-		for i in keys(g:SaveD)
-			exe 'let g:'.g:SaveD[i].'=string(g:'.i.')'
-		endfor |en
+	call BackupSaveD('saveD')
 	if has("gui_running")
 		let g:S_GUIFONT=&guifont
 		let g:WINPOS='se co='.&co.' lines='.&lines.
@@ -465,28 +464,20 @@ if has("gui_running")
 		se guifont=Envy_Code_R:h10 
 		let S_GUIFONT=&guifont
 	el| exe 'se guifont='.S_GUIFONT |en |en
-if exists('SAVED')
-	let SaveD=eval(SAVED)
-	for key in keys(SaveD)
-		exe 'let '.key.'='.eval(SaveD[key])
-	endfor
-el| let SaveD={} |en
+if filereadable('saveD') | so saveD
+el| let SD={} |en
 if !exists('*InitLog')
 	let g:LastTime=localtime()
-elseif !exists('LogDic')
-	let LogDic=New('Log')
-el| let g:LastTime=LogDic.L[-1][0] |en
-if !exists('histL') | let histL=[] |en
-if !exists('CurColors') | let CurColors={}
-el| call CSLoad(CurColors) |en
+elseif !exists('LOGDIC')
+	let LOGDIC=New('Log')
+el| let g:LastTime=LOGDIC.L[-1][0] |en
+if !exists('HISTL') | let HISTL=[] |en
+if !exists('HICOLOR') | let HICOLOR={}
+el| call CSLoad(HICOLOR) |en
+if !exists('SWATCHES') | let SWATCHES={} |en
 call InitHist()
-call Save('histL')
-call Save('LogDic')
-call Save('CurColors')
-call Save('SaveD')
-call Save('SwatchDic')
-if argc()==0 && len(histL)>0
-	silent exe 'e '.g:histL[0][0]
+if argc()==0 && len(HISTL)>0
+	silent exe 'e '.g:HISTL[0][0]
 	call CheckFormatted() | call OnWinEnter() |en
 au BufWinEnter * call OnWinEnter()
 au BufRead * call CheckFormatted()
@@ -507,12 +498,12 @@ nohl
 let normD={110:":noh\<CR>",(g:EscAsc):"\<Esc>",96:'`',122:":wa\<CR>",
 \99:":call Cabinet.show()\<CR>",
 \114:":redi@t|sw|redi END\<CR>:!rm \<C-R>=escape(@t[1:],' ')\<CR>",
-\80:":call IniPaint()\<CR>",108:":call g:LogDic.show()\<CR>",
+\80:":call IniPaint()\<CR>",108:":call g:LOGDIC.show()\<CR>",
 \101:":call CenterLine()\<CR>",
 \103:"vawly:h \<C-R>=@\"[-1:-1]=='('? @\":@\"[:-2]\<CR>",
-\115:":let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
-\49:":exe 'e '.g:histL[0][0]\<CR>",50:":exe 'e '.g:histL[1][0]\<CR>",
-\113:"\<Esc>",51:":exe 'e '.g:histL[2][0]\<CR>",
+\115:":let qcx=HistMenu()|if qcx>=0|exe 'e '.g:HISTL[qcx][0]|en\<CR>",
+\49:":exe 'e '.g:HISTL[0][0]\<CR>",50:":exe 'e '.g:HISTL[1][0]\<CR>",
+\113:"\<Esc>",51:":exe 'e '.g:HISTL[2][0]\<CR>",
 \112:"i\<C-R>=eval(input('Put: ','','var'))\<CR>",109:":mes\<CR>",
 \42:":,$s/\\<\<C-R>=expand('<cword>')\<CR>\\>//gc|1,''-&&\<left>\<left>
 \\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>",
@@ -522,10 +513,10 @@ let normD={110:":noh\<CR>",(g:EscAsc):"\<Esc>",96:'`',122:":wa\<CR>",
 \'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '
 \.line('.').'.'.col('.').'/'.line('$').' '.PrintTime(localtime()-g:LastTime)"}
 	let insD={103:"\<C-R>=getchar()\<CR>",(g:EscAsc):"\<Esc>a",96:'`',
-\115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|exe 'e '.g:histL[qcx][0]|en\<CR>",
-\49:"\<Esc>:exe 'e '.g:histL[0][0]\<CR>",
-\50:"\<Esc>:exe 'e '.g:histL[1][0]\<CR>",
-\51:"\<Esc>:exe 'e '.g:histL[2][0]\<CR>",
+\115:"\<Esc>:let qcx=HistMenu()|if qcx>=0|exe 'e '.g:HISTL[qcx][0]|en\<CR>",
+\49:"\<Esc>:exe 'e '.g:HISTL[0][0]\<CR>",
+\50:"\<Esc>:exe 'e '.g:HISTL[1][0]\<CR>",
+\51:"\<Esc>:exe 'e '.g:HISTL[2][0]\<CR>",
 \102:"\<C-R>=escape(expand('%'),' ')\<CR>",119:"\<Esc>\<C-W>\<C-W>",
 \113:"\<Esc>a",'help':'b[123] [f]ilename [g]etchar l[s]:',
 \'msg':"expand('%:t').' '.join(map(g:histLb[:2],'v:val[2:]'),' ').' '
