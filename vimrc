@@ -201,6 +201,8 @@ let [Qvis.42,Qvhelp['*']]=["y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>\
 let [Qvis.120,Qvhelp.x]=["y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source selection"]
 let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy to clipboard"]
 let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
+let [Qvis.115,Qvhelp.s]=["y/\<c-r>\"\<cr>","Search"]
+
 let Qnrm.default=":ec PrintDic(g:Qnhelp,28)\<cr>"
 let [Qnrm.f,Qnhelp.f]=[":ec search('^\\S*\\ \\S*'.expand('<cword>').'(')\<cr>","Go to function"]
 let [Qnrm[':'],Qnhelp[':']]=["q:","commandline normal"]
