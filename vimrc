@@ -1,6 +1,29 @@
 se nocompatible
 redir => g:StartupErr
 
+fun! InsHist(name,lnum,cnum,w0)
+	if !empty(a:name) && a:name!~escape($VIMRUNTIME,'\') && !isdirectory(a:name)
+		let g:MRUF[a:name]=[a:lnum,a:cnum,a:w0,localtime()]
+	en
+endfun
+fun! LoadLastEdit(file)
+	let pos=get(g:MRUF,a:file,[])
+	if !empty(pos)
+		exe "norm! ".pos[2]."z\<cr>".(pos[0]>pos[2]? (pos[0]-pos[2]).'j':'').pos[1].'|'
+	en
+endfun
+fun! PruneHistory(num)
+	if len(g:MRUF)<a:num+20
+		return | en
+	let keys=keys(g:MRUF)
+	let cutoff=sort(map(copy(keys),"g:MRUF[v:val][3]"))[a:num]
+	for i in keys
+		if g:MRUF[i]>cutoff	
+			unlet MRUF[i]
+		en
+	endfor
+endfun
+
 if !exists("firstrun") | let firstrun=1 | en
 
 if !exists("g:EscChar") | let g:EscChar="\e" | let g:EscAsc=27
@@ -12,16 +35,16 @@ if g:EscChar!="\e"
    	exe 'cno '.g:EscChar.' <C-C>'
 en
 
+nno <space> <c-e>
+nno <backspace> <c-y>
+nno <c-i> <c-y>
+
 let opt_autocap=0
 if !exists('opt_device')
 	echom "Warning: opt_device is undefined, device specific settings will not be loaded."
 	let opt_device=''
 en
 if opt_device=~?'cygwin'
-	nno <space> <c-e>
-	nno <backspace> <c-y>
-	nno <c-i> <c-y>
-
 	se timeout ttimeout timeoutlen=100 ttimeoutlen=100
 	cno <c-h> <left>
 	cno <c-j> <down>
@@ -95,6 +118,7 @@ fun! ToggleScrollbar()
 		let b:opt_scrollbar=1
 		nno <silent> <buffer> <leftmouse> <leftmouse>:call ScrollbarGrab()<cr>
 		ino <silent> <buffer> <leftmouse> <leftmouse><c-o>:call ScrollbarGrab()<cr>
+		nno <buffer> <scrollwheelup> <scrollwheelup>:call UpdateScrollbox()<cr>
 		nno <buffer> <scrollwheelup> <scrollwheelup>:call UpdateScrollbox()<cr>
 		nno <buffer> <scrollwheeldown> <scrollwheeldown>:call UpdateScrollbox()<cr>
 		ino <buffer> <scrollwheelup> <scrollwheelup><c-o>:call UpdateScrollbox()<cr>
@@ -340,53 +364,20 @@ fun! Mscroll()
 	en
 endfun
 
-let maxQselsize=&lines*&columns-2
-fun! QSel(list,msg)
-	let [inp,c]=['','']
-	while c!=g:EscAsc && (c==0 || c>30)
-		let inp=c=="\<bs>"? inp[:-2] : inp.nr2char(c)
-		let [lenmatch,qual,qual1,qual2,qual3,qual4,qual5]=[len(a:msg)+2,0,'','','','','']
-		for e in range(len(a:list))
-			let pos=match(a:list[e],'\c'.inp)
-			let thisqual=pos>-1? pos==0? inp==#a:list[e][:len(inp)-1]? inp==?a:list[e]? inp==#a:list[e]? 5 : 4 : 3 : 2 : 1 : 0
-			if !thisqual | continue | en
-			if thisqual>qual
-				if qual | let qual{qual}.=a:list[match].' ' |en
-				let [match,matchpos,qual]=[e,pos,thisqual]
-			el| let qual{thisqual}.=a:list[e].' ' |en
-			let lenmatch+=len(a:list[e])+1
-			if lenmatch>g:maxQselsize | break|en
-		endfor
-		redr!
-		if qual==1
-			echon a:msg '(' a:list[match][:matchpos-1] ')' inp len(a:list[match])>matchpos+len(inp)
-			\?'('.a:list[match][matchpos+len(inp):].') | ':' | ' qual1
-		elseif qual==2
-			echon a:msg inp len(a:list[match])>len(inp)?'('.a:list[match][len(inp):].') | '
-			\: ' | ' qual2 qual1
-		elseif qual==3
-			echon a:msg inp len(a:list[match])>len(inp)?'('.a:list[match][len(inp):].') | '
-			\: ' | ' qual3 qual2 qual1
-		elseif qual==4
-			echon a:msg inp ' | ' qual4 qual3 qual2 qual1
-		elseif qual==5
-			echon a:msg inp ' | ' qual5 qual4 qual3 qual2 qual1
-		el| echon a:msg inp ' (No match)' |en
-		let c=getchar()
-	endwhile
-	ec '' |redr
-	let g:Qselenter=inp
-	return [qual!=0? match : -1,c]
-endfun
-
 let CShst=[[0,7]]
 let [CShix,SwchIx]=[0,0]
 let CSgrp='Normal'
-fun! CSLoad(cs)
-	for k in keys(a:cs)
-		exe 'hi '.k.' ctermfg='.a:cs[k][0].' ctermbg='.a:cs[k][1]
-	endfor
-	let g:cs_current=a:cs
+fun! CSLoad(...)
+	if a:0!=0
+		for k in keys(a:1)
+			exe 'hi '.k.' ctermfg='.a:cs[k][0].' ctermbg='.a:1[k][1]
+		endfor
+		let g:SCHEMES.current=deepcopy(a:1)
+	el
+		for k in keys(g:SCHEMES.current)
+			exe 'hi '.k.' ctermfg='.g:SCHEMES.current[k][0].' ctermbg='.g:SCHEMES.current[k][1]
+		endfor
+	en
 endfun
 fun! CompleteSwatches(Arglead,CmdLine,CurPos)
 	return filter(keys(g:SWATCHES),'v:val=~a:Arglead')
@@ -397,7 +388,7 @@ endfun
 fun! CSChooser(...)
 	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
 	if a:0==0
-		let [fg,bg]=get(g:cs_current,g:CSgrp,g:CShst[-1])
+		let [fg,bg]=get(g:SCHEMES.current,g:CSgrp,g:CShst[-1])
 	elseif a:0==2
 		let [fg,bg]=[a:1,a:2]
 		call add(g:CShst,[fg,bg])
@@ -432,33 +423,21 @@ fun! CSChooser(...)
 	endwhile
 endfun
 
-fun! WriteVars(file)
+fun! WriteVars(...)
 	sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
 	let list=[]
 	for name in split(v)  
 		if name[2:]==#toupper(name[2:])	
 			let type=eval("type(".name.")")
 			if type>1
-				call add(list,substitute("let ".name."="
-				\.eval("string(".name.")"),"\n",'''."\\n".''',"g"))
+				call add(list,substitute("let ".name."=".eval("string(".name.")"),"\n",'''."\\n".''',"g"))
 				if type==4 && eval("has_key(".name.",'reinit')")
 					call add(list,"call ".name.".reinit()")
 				en
 			en
 		en
 	endfor
-	return writefile(list,a:file)
-endfun
-fun! OpenLastBackup()
-	if g:opt_device=~?'cygwin'
-		exe 'cd '.g:Cyg_Working_Dir
-	el
-		exe 'cd '.g:Working_Dir 
-	en
-	let modtimeL=map(range(5),'getftime("varsave".v:val)')
-	let mostrecent=max(modtimeL)
-	exe 'e varsave'.index(modtimeL,mostrecent)
-	ec 'Last backup '.strftime("%c",mostrecent)
+	return map(copy(a:000),'writefile(list,escape(v:val," "))')
 endfun
 
 let g:DoWk='SMTWRFA'
@@ -489,61 +468,6 @@ fun! Ec(...)
 	return a:1
 endfun
 
-fun! EdMRU()
-	let [sel,cmd]=QSel(g:MRUF,'Open: ')
-	if cmd==g:EscAsc
-		return
-	elseif sel==-1
-		exe empty(g:Qselenter)? '': 'e '.g:Qselenter | retu|en
-	if cmd==22 "<c-v>
-		let ro=1
-		ec 'Read Only, split which direction? (CR,^L,^R,^T,^B)'
-		let cmd=getchar()
-	el| let ro=0 |en
-	while cmd!=g:EscAsc
-		if cmd==18 "<c-r>
-			exe 'botright vertical '.(ro? 'sv ':'sp ').escape(g:MRUF[sel],' ')
-		elseif cmd==12 "<c-l>
-			exe 'topleft vertical '.(ro? 'sv ':'sp ').escape(g:MRUF[sel],' ')
-		elseif cmd==20 "<c-t>
-			exe 'topleft '.(ro? 'sv ':'sp ').escape(g:MRUF[sel],' ')
-		elseif cmd==2 "<c-b>
-			exe 'botright '.(ro? 'sv ':'sp ').escape(g:MRUF[sel],' ')
-		elseif cmd==10 || cmd==13
-			exe (ro? 'view ':'e ').escape(g:MRUF[sel],' ')
-		elseif cmd==5
-			exe 'e '.g:Qselenter
-		el| ec '^E:Edit ^L:vspleft ^R:vspright ^T:sptop ^B:spbot ^V:readonly CR:edit'
-			let cmd=getchar()
-			continue | en
-		break
-	endwhile
-	redr
-endfun
-
-fun! GetLbl(file)
-	let name=matchstr(a:file,"[[:alnum:]][^/\\\\]*$")
-	return len(name)>12 ? name[0:7]."~".name[-3:] : name
-endfun
-fun! InsHist(name,lnum,cnum,w0)
-	if g:NoMRUsav==1 
-		let g:NoMRUsav=0
-	elseif !empty(a:name) && a:name!~escape($VIMRUNTIME,'\') && !isdirectory(a:name)
-		cal insert(g:MRUF,a:name)
-		cal insert(g:MRUL,[a:lnum,a:cnum,a:w0])
-	en
-endfun
-
-fun! RemHist(file)
-	let i=match(g:MRUF,'^'.a:file.'$')
-	if i!=-1
-		exe "norm! ".g:MRUL[i][2]."z\<cr>".(g:MRUL[i][0]>g:MRUL[i][2]? 
-		\ (g:MRUL[i][0]-g:MRUL[i][2]).'j':'').g:MRUL[i][1].'|'
-		cal remove(g:MRUF,i)
-		cal remove(g:MRUL,i)
-	en
-endfun
-
 let g:opt_defaultch=1
 fun! JustEcho(str)
 	let &ch=max([len(a:str)/&columns+1,&ch]) 
@@ -564,7 +488,6 @@ cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
 cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'w\|so%':'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 cnorea <expr> wsd ((getcmdtype()==':' && getcmdpos()<5)? 'w\|so%\|bd':'wsd')
-cnorea <expr> bd! ((getcmdtype()==':' && getcmdpos()<5)? 'let NoMRUsav=1\|bd!':'bd!')
 
 let ftfuncD={"f":function("MLf"),
 \"t":function("MLt"),
@@ -683,11 +606,11 @@ fun! WriteVimState()
 	el
 		exe 'cd '.g:Working_Dir 
 	en
-	let modtimeL=map(range(5),'getftime("varsave".v:val)')
-	if localtime()-max(modtimeL)>86400
-		call WriteVars(g:Working_Dir.'/varsave'.index(modtimeL,min(modtimeL)))
+	if filereadable('vars'.strftime("%y%m%d"))
+		call WriteVars('vars')
+	el
+		call WriteVars('vars','vars'.strftime("%y%m%d"))
 	en
-	call WriteVars('saveD')
 	if has("gui_running")
 		let g:S_GUIFONT=&guifont |en
 	"curdir is necessary to retain relative path
@@ -706,7 +629,7 @@ if !firstrun
 if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
 	cal Ec('Error: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME)
 	let Working_Dir=$HOME |en
-for file in ['abbrev','pager','saveD']
+for file in ['abbrev','pager','vars']
 	if filereadable(Working_Dir.'/'.file) | exe 'so '.Working_Dir.'/'.file
 	el| call Ec('Error: '.Working_Dir.'/'.file.' unreadable')|en
 endfor
@@ -733,23 +656,20 @@ if has("gui_running")
 	el| exe 'se guifont='.S_GUIFONT |en |en
 if !exists('LOGDIC') | let LOGDIC=New('Log') |en
 if !exists('MRUF')
-	let MRUF=[]
-	let MRUL=[] |en
-if len(MRUF)>60
-	let MRUF=MRUF[:40]
-	let MRUL=MRUL[:40] |en
-let NoMRUsav=0
+	let MRUF={}
+en
+call PruneHistory(60)
 if !exists('SWATCHES') | let SWATCHES={} |en
-if !exists('SCHEMES') | let SCHEMES={'lastscheme':''} | en
+if !exists('SCHEMES') | let SCHEMES={'lastscheme':{}} | en
 hi clear tabline
 if exists('opt_colorscheme') && has_key(SCHEMES,opt_colorscheme)
 	call CSLoad(SCHEMES[opt_colorscheme])
 else
-	call CSLoad(get(SCHEMES,SCHEMES.lastscheme,{}))
+	call CSLoad()
 en
-au BufWinEnter * call RemHist(expand('%')) 
+au BufLeave * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
+au BufWinEnter * call LoadLastEdit(expand('%')) 
 au BufWinEnter * call CheckFormatted()
-au BufHidden * call InsHist(expand('<afile>'),line('.'),col('.'),line('w0'))
 au VimLeavePre * call WriteVimState()
 se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch
 se ai tabstop=4 history=1000 mouse=a ttymouse=xterm2 hidden backspace=2
@@ -795,6 +715,7 @@ let normD={'default':":ec '[123]tabs [c]olor [e]dit(^R^L^T^B) [g]ethelp [k]cente
 \80:":call IniPaint()\<cr>",108:":cal g:LOGDIC.show()\<cr>",
 \107:":s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invhl\<cr>",103:"vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>",
 \101:":call EdMRU()\<cr>",
+\72:":call New('RecentFiles').show()\<cr>",
 \9:":exe TMenu(g:invertD)\<cr>",
 \49:":tabn1\<cr>",
 \50:":tabn2\<cr>",
@@ -818,15 +739,14 @@ let normD[EscAsc]="\<esc>"
 let normD[opt_TmenuAsc]=opt_TmenuKey
 
 let insD={9:"\<c-o>:exe TMenu(g:invertD)\<cr>",
-\'default':"\<c-o>:ec '123:buff f/ilename g/etchar k:center o/pen w/indow:'\<cr>",
+\'default':"\<c-o>:ec '123:buff f/ilename g/etchar k:center w/indow:'\<cr>",
 \97:"\<c-o>:call SoftCapsLock()\<cr>",
 \103:"\<c-r>=getchar()\<cr>",
-\113:"\<c-o>\<esc>",111:"\<c-r>=input('`o','','customlist,CmpMRU')\<cr>",
+\113:"\<c-o>\<esc>",
 \110:"\<c-o>:noh\<cr>",
 \107:"\<esc>:s/{{{\\d*\\|$/\\=submatch(0)=~'{{{'?'':'{{{1'\<cr>:invnohl\<cr>",
 \102:"\<c-r>=escape(expand('%'),' ')\<cr>",119:"\<c-o>\<c-w>\<c-w>",
-\'msg':"call JustEcho(expand('%:t').' .'.g:MRUF[0].' :'.g:MRUF[1].' .:'.g:MRUF[2].' '
-\.line('.').'/'.line('$').' '.PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).g:LOGDIC.L[-1][1])"}
+\'msg':"call JustEcho(PrintTime(localtime()-g:LOGDIC.L[-1][0],localtime()).line('.').'/'.line('$').' '.g:LOGDIC.L[-1][1])"}
 let insD[EscAsc]="\<c-o>\<esc>"
 let insD[opt_TmenuAsc]=opt_TmenuKey
 
@@ -842,14 +762,14 @@ let g:visD={42:"y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>
 let visD[EscAsc]=""
 let visD[opt_TmenuAsc]=opt_TmenuKey
 
-let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
-\|exe 'hi '.g:CSgrp.' ctermfg='.(g:cs_current[g:CSgrp][0]).' ctermbg='.(g:cs_current[g:CSgrp][1]) |en",
-\(g:EscAsc):"let continue=0 | if has_key(g:cs_current,g:CSgrp)
-\|exe 'hi '.g:CSgrp.' ctermfg='.(g:cs_current[g:CSgrp][0]).' ctermbg='.(g:cs_current[g:CSgrp][1]) |en",
+let CSChooserD={113:"let continue=0 | if has_key(g:SCHEMES.current,g:CSgrp)
+\|exe 'hi '.g:CSgrp.' ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1]) |en",
+\(g:EscAsc):"let continue=0 | if has_key(g:SCHEMES.current,g:CSgrp)
+\|exe 'hi '.g:CSgrp.' ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1]) |en",
 \10: "let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
-\|let g:cs_current[g:CSgrp]=[fg,bg]",
+\|let g:SCHEMES.current[g:CSgrp]=[fg,bg]",
 \13: "let continue=0 | exe 'hi '.g:CSgrp.' ctermfg='.fg.' ctermbg='.bg
-\|let g:cs_current[g:CSgrp]=[fg,bg]",
+\|let g:SCHEMES.current[g:CSgrp]=[fg,bg]",
 \104:'let [fg,g:CShix]=fg>0?   [fg-1,g:CShix+1] : [fg,g:CShix]',
 \108:'let [fg,g:CShix]=fg<255? [fg+1,g:CShix+1] : [fg,g:CShix]',
 \106:'let [bg,g:CShix]=bg>0?   [bg-1,g:CShix+1] : [bg,g:CShix]',
@@ -864,14 +784,22 @@ let CSChooserD={113:"let continue=0 | if has_key(g:cs_current,g:CSgrp)
 \114:'let [fg,g:CShix]=[reltime()[1]%256,g:CShix+1]',
 \82: 'let [bg,g:CShix]=[reltime()[1]%256,g:CShix+1]',
 \105:'let [fg,bg]=[bg,fg]',
-\103:'let [in,cmd]=QSel(hi,"Group: ")|if in!=-1 && cmd!=g:EscAsc|
-\if has_key(g:cs_current,hi[in]) | let [fg,bg]=g:cs_current[hi[in]]|en|
-\if has_key(g:cs_current,g:CSgrp) | 
-\exe "hi ".g:CSgrp." ctermfg=".(g:cs_current[g:CSgrp][0])." ctermbg=".(g:cs_current[g:CSgrp][1])
-\| en | let g:CSgrp=hi[in] | let msg=g:CSgrp | en',
+\103:"let in=input('Group: ','','highlight')\n
+\if has_key(g:SCHEMES.current,in)\n
+\     let [fg,bg]=g:SCHEMES.current[in]\n
+\en\n
+\if has_key(g:SCHEMES.current,g:CSgrp)\n
+\    exe 'hi '.g:CSgrp.' ctermfg='.(g:SCHEMES.current[g:CSgrp][0]).' ctermbg='.(g:SCHEMES.current[g:CSgrp][1])\n
+\en\n
+\let g:CSgrp=in\n
+\let msg=g:CSgrp",
 \115:'let name=input("Save swatch as: ","","customlist,CompleteSwatches") |
 \if !empty(name) | let g:SWATCHES[name]=[fg,bg] |en',
-\83:'let name=input("Save scheme as: ",g:SCHEMES.lastscheme,"customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=g:cs_current | let g:SCHEMES.lastscheme=name | en | let continue=0',
-\76:'let schemek=keys(g:SCHEMES) | let [in,cmd]=QSel(schemek,"scheme: ")|if in!=-1 && cmd!=g:EscAsc | let g:cs_current=g:SCHEMES[schemek[in]] | call CSLoad(g:cs_current) | let g:SCHEMES.lastscheme=schemek[in] | en | let continue=0'}
+\83:'let name=input("Save scheme as: ","","customlist,CompleteSchemes") | if !empty(name) | let g:SCHEMES[name]=deepcopy(g:SCHEMES.current) | en | let continue=0',
+\76:"let in=get(g:SCHEMES,input('Load scheme: ','','customlist,CompleteSchemes'),{})\n
+\if !empty(in)\n
+\    call CSLoad(in)\n
+\en\n
+\let continue=0"}
 
 let firstrun=0
