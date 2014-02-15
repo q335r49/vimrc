@@ -3,27 +3,23 @@ se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch
 se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
 se wildmode=list:longest,full display=lastline modeline t_Co=256
 se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-syntax off
 if has("gui_running")
-	se guifont=Envy\ Code\ R:h12:cANSI guioptions-=T
 	colorscheme slate
-	hi ColorColumn guibg=#222222
-else
-	hi clear Search       | hi Search ctermfg=9 ctermbg=none
-	hi clear ErrorMsg     | hi ErrorMsg ctermbg=9 ctermfg=15
-	hi clear MatchParen   | hi link MatchParen Search
-	hi clear StatusLine   | hi StatusLine cterm=underline
-	hi clear StatusLineNC | hi StatusLineNC cterm=underline ctermfg=240
-	hi clear Vertsplit    | hi Vertsplit ctermfg=236
-en
+el | syntax off | en
+se guifont=Envy\ Code\ R:h12:cANSI guioptions-=T
+hi ColorColumn guibg=#222222 ctermbg=237
+hi ErrorMsg ctermbg=9 ctermfg=15
+hi Search ctermfg=9 ctermbg=none
+hi MatchParen ctermfg=9 ctermbg=none
+hi StatusLine cterm=underline ctermfg=240 ctermbg=236
+hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
+hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=240 ctermbg=236
 se stl=\ %l.%02c/%L\ %<%f%=\ 
 se stl+=%{(localtime()-g:TLOG[0:9])/60.strftime('\ %H:%M\ %d')}\ 
 if has("win16") || has("win32") || has("win64")
 	let K_ESC="\<Esc>" | let N_ESC=27
-	let g:LblFunc="GetLblWin"
 else
 	let K_ESC='@'|let N_ESC=64
-	let g:LblFunc="GetLblUnix"
 	exe 'no '.K_ESC.' <Esc>'
 	exe 'no! '.K_ESC.' <Esc>'
 	exe 'cno '.K_ESC.' <C-C>'
@@ -45,25 +41,24 @@ else
 en
 if !exists('au_processed')
 	let au_processed=1
-	au VimEnter * call AfterViminfo()
+	au VimEnter * call AfterViminfoLoaded()
 	au BufRead *.txt call InitTextFile()
 	au BufNewFile *.txt call InitTextFile() | exe "norm! i".localtime()." "
 	\ .strftime('%y%m%d')." vim: set nowrap ts=4 tw=62 fo=aw:"
 en
-fun! AfterViminfo()
+fun! AfterViminfoLoaded()
 	if !exists('g:TLOG') | let g:TLOG=localtime().'[0] ---' | en
-	let g:histL=exists('g:FHIST') ? split(g:FHIST,"\n") : [] |cal InitHist()
 	if !exists('g:MAIN_DIRECTORY') || !isdirectory(g:MAIN_DIRECTORY)
 		echoerr 'Set MAIN_DIRECTORY!'
 	elseif !argc()
 		exe 'cd '.g:MAIN_DIRECTORY
 		so abbrev | e main.txt 
     en
-	call UpdHist()
-	au BufWinEnter * call UpdHist()
-	au BufWinLeave * call AddHist(expand('%'),line('.'))
-	au VimLeavePre * call AddHist(expand('%'),line('.'))
-		\|let g:FHIST=join(g:histL,"\n")
+	let g:histL=exists('g:FHIST') ? split(g:FHIST,"\n") : [] |cal InitHist()
+	au BufWinEnter * let ix=match(g:histL,'\V'.expand('%').'$')
+	\|call cursor((ix>=0? g:histL[ix][match(g:histL[ix],'\$')+1:] : 1),1)
+	au BufWinLeave * call InsHist(expand('%'),line('.'))
+	au VimLeavePre * let g:FHIST=join(g:histL,"\n")
 endfun
 
 fun! Quote(mark)
@@ -72,8 +67,9 @@ fun! Quote(mark)
 	if l=='' | exe 'norm! {}Wi'.a:mark
 	elseif l[col('.')-1]=~'[[:blank:]]' | exe 'norm! Wi'.a:mark
 	el | exe 'norm lbi'.a:mark | en
+	norm! `>
 	let l=getline(".") | let c=col('.')
-	exe (c!=col('$') ? 'norm! `>l' : 'norm! `>')
+	exe (c!=col('$') ? 'norm! l' : '')
 	if l=='' | exe 'norm! {}BEa'.a:mark
  	elseif l[c-1]=~'[[:blank:]]' | exe 'norm! BEa'.a:mark
 	el | exe 'norm! bea'.a:mark | en
@@ -109,8 +105,8 @@ let QCD={110:":noh\<CR>",9:"\<Esc>",(g:N_ESC):"\<Esc>",
 \98:":let qcx=HistMenu()|exe qcx=='' ? '' : 'e '.qcx\<CR>",89:"^y$:\<C-R>\"",
 \42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>"}
-fun! QCF(mess)
-	ec a:mess|let key=getchar()
+fun! QCF(msg)
+	ec a:msg|let key=getchar()
 	return has_key(g:QCD,key)? g:QCD[key] : QCF('[B]uffer [E]d [H]lp [L]og 
 	\[N]ohls [P]aint [R]m swp [Y]ank [*\#]sub > ')
 endfun!
@@ -123,14 +119,11 @@ let Asc2HLb=repeat([-1],256) | for i in range(len(HLb))
 	let Asc2HLb[char2nr(toupper(HLb[i]))]=i
 endfor
 let g:maxW=15
-fun! GetLblUnix(file)
-	return matchstr(a:file,"[[:alnum:]][^/]*\\$")[:-2]	
-endfun
-fun! GetLblWin(file)
-	return matchstr(a:file,"[[:alnum:]][^\\\\]*\\$")[:-2]	
+fun! GetLbl(file)
+	return matchstr(a:file,"[[:alnum:]][^/\\\\]*\\$")[:-2]	
 endfun
 fun! InitHist()
-	let g:histLb=map(copy(g:histL),'{g:LblFunc}(v:val)')
+	let g:histLb=map(copy(g:histL),'GetLbl(v:val)')
 	let g:HLb2fIx=repeat([-1],len(g:HLb)+1) "invar: g:HLb2fIx[-1]=-1
 	let firstopenslot=0
 	for i in range(len(g:histLb))
@@ -145,13 +138,14 @@ fun! InitHist()
 		let g:HLb2fIx[lbl]=i
 	endfor
 endfun
-fun! AddHist(name,num)
+fun! InsHist(name,num)
 	if a:name==''|retu|en
+	call RmHist(match(g:histL,'\V'.a:name.'$'))
 	call insert(g:histL,a:name.'$'.a:num)
 	if len(g:histL)>=len(g:HLb)-8
 		let g:histL=g:histL[:len(g:HLb)-16] | call InitHist()
 	retu|en
-	let name={g:LblFunc}(g:histL[0])
+	let name=GetLbl(g:histL[0])
 	let name=len(name)+3>g:maxW ? name[0:g:maxW-8]."~".name[-3:] : name
 	let lbl=g:Asc2HLb[char2nr(name[0])]
 	let colIx=g:HLb2fIx[lbl]
@@ -186,9 +180,6 @@ fun! RmHist(ix)
 	call map(g:HLb2fIx,'v:val>a:ix ? v:val-1 : (v:val==a:ix ? -1 : v:val)')
 	return split(remove(g:histL,a:ix),'\$')[1]
 endfun
-fun! UpdHist()
-	exe'norm! '.RmHist(match(g:histL,'\V'.expand('%').'$')).'gg'
-endfun
 fun! FmtList(list, ...)
 	let tabW=a:0==0? 0 : a:1 | let padN=[0]+(tabW==0 ? [] : range(tabW-1,1,-1))
 	let ecstr=a:list[0] | let endX=len(ecstr)
@@ -208,7 +199,7 @@ fun! HistMenu()
 		redr|retu escape(g:histL[0][:match(g:histL[0],'\$')-1],' ')
 	elseif sel=="\<BS>"
 		while 1
-			redr|ec FmtList(g:histLb+["DELETE >"],g:maxW)
+			redr|ec FmtList(g:histLb+["[DELETE] >"],g:maxW)
 			if RmHist(g:HLb2fIx[g:Asc2HLb[getchar()]])=='0' | redr | brea|en
 		endwhile
 	else
