@@ -1,19 +1,25 @@
+let Qsel=['0','1','*',"'",'"','(','[','{','\']
 let Qpairs={'(':')','{':'}','[':']','<':'>'}
 fun! IniQuote(mark)
 	let @h=a:mark | let @i=has_key(g:QPAIRS,a:mark)? (g:QPAIRS[a:mark]) : a:mark
 	let g:QLXP="expand('<cWORD>')=~\"^".(@h=='"'? '\'.@h : @h)."\""
 	let g:QRXP="expand('<cWORD>')=~\"".(@i=='"'? '\'.@i : @i)."$\""
-	return @h.@i
 endfun
-fun! QuoteE()
-	let LQ=eval(g:QLXP)	| let RQ=eval(g:QRXP)	
+fun! QuoteE(sel)
+	if a:sel==1 | ec "(Predefined: 2* 3' 4\" 5( 6[ 7{ 8) Quote mark:"
+		call IniQuote(nr2char(getchar()))
+	elsei a:sel!=0 | call IniQuote(g:Qsel[a:sel]) | en
+	let LQ=eval(g:QLXP) | let RQ=eval(g:QRXP)	
 	if RQ && LQ && getpos("'q")!=getpos('.') | norm! hExlBx
 	elsei RQ | norm! mqhExE"ip
 	elsei LQ | norm! mqlBxEElB"hP
 	el| norm! lB"hPE"ipmq
 	en
 endfun
-fun! QuoteB()
+fun! QuoteB(sel)
+	if a:sel==1 | ec "(Predefined: 2* 3' 4\" 5( 6[ 7{ 8\\) Quote mark:"
+		call IniQuote(nr2char(getchar()))
+	elsei a:sel!=0 | call IniQuote(g:Qsel[a:sel]) | en
 	let LQ=eval(g:QLXP)	| let RQ=eval(g:QRXP)	
 	if RQ && LQ && getpos("'q")!=getpos('.') | norm! hExlBx
 	elsei LQ | norm! mqlBxB"hP
@@ -21,8 +27,8 @@ fun! QuoteB()
 	el| norm! hE"ipB"hPmq
 	en
 endfun
-nn <silent> [ :call QuoteB()<CR>
-nn <silent> ] :call QuoteE()<CR>
+nn <silent> [ :<C-U>call QuoteB(v:count)<CR>
+nn <silent> ] :<C-U>call QuoteE(v:count)<CR>
 
 let HLb=split('1234567890abcdefghijklmnopqrstuvwxyz
 \ABCDEFGHIJKLMNOPQRSTUVWXYZ','\zs')
@@ -556,7 +562,6 @@ fun! SetOpt(options)
 \50:":call Edit(g:histL[2])\<CR>",51:":call Edit(g:histL[3])\<CR>",
 \42:":%s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
 \35:":'<,'>s/\<C-R>=expand('<cword>')\<CR>//gc\<Left>\<Left>\<Left>",
-\113:":ec 'Quotes=?'\|redr\|ec IniQuote(nr2char(getchar()))\<CR>",
 \111:":call SetOpt(\<C-R>=g:INPUT_METH==?'thumb'? \"'key'\" : \"'thumb'\"\<CR>)\<CR>
 \:ec 'Current input is '.g:INPUT_METH\<CR>",
 \'help':'b[12] [e]d [g]:h [l]og [n]ohl t[o]gglekbd [p]nt l[s] [r]mswp [w]a e[X]e s/[*#]',
