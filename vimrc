@@ -1,8 +1,14 @@
 redir => g:StartupErr
 
 fun! Permanent(name)
-	let g:PERMANENT.='|'.a:name
-	return a:name
+	let g:PermanentD[a:name]=toupper(a:name)
+endfun
+
+fun! PrintTime(s,...) "%e crashes Windows!
+	retu strftime('%b%d %I:%M ',a:0>0? (a:1) : localtime())
+	\.(a:s>86399? (a:s/86400.'d'):'')
+	\.(a:s%86400>3599? (a:s%86400/3600.'h'):'')
+	\.(a:s%3600/60.'m ')
 endfun
 
 fun! GetCompletion()
@@ -77,14 +83,14 @@ nn <expr> - "\<Esc>".PrevHeading(&ts*v:count).'Gzz'
 vn <expr> + '^'.NextHeading(&ts*v:count).'Gzz'
 vn <expr> - '^'.PrevHeading(&ts*v:count).'Gzz'
 
+let EcList=[]
 fun! Ec(...)
 	echoh Directory
 	if a:0>1 && a:000[a:0-1]=~'00m$'
 		redr| echom join(map(copy(a:000[:-2]),'string(v:val)'),'; ')
 		exe 'sleep '.a:000[a:0-1]
-	el| redr| echom join(map(copy(a:000),'string(v:val)'),'; ')
-		sleep 300m
-	en |echoh None
+	el| redr| echom join(map(copy(a:000),'string(v:val)'),'; ') |en
+	echoh None
 	return a:1
 endfun
 
@@ -483,45 +489,16 @@ fun! OnRelease() " Must move before release
 	endif
 endfun
 
-fun! Write_Viminfo()
-	if match(g:StartupErr,'\cerror')!=-1
-		let in=input("Startup errors were encountered, write viminfo anyways?")
-		if in!=?'y' && in!='ye' && in!='yes'
-		retu|en
-	en
-
-	let g:HISTL=string(g:histL)
-	let g:LOGDIC_SAV=string(g:LogDic)
-	if has("gui_running")
-		let g:S_GUIFONT=&guifont
-		let g:WINPOS='se co='.&co.' lines='.&lines.
-		\'|winp '.getwinposx().' '.getwinposy() | en
-
-	se viminfo=!,'20,<1000,s10,/50,:50
-	if !filereadable($VIMINFO_FILE) | wv
-	elseif !exists('g:USE_WV_WORKAROUND') || g:USE_WV_WORKAROUND!=$VIMINFO
-		try
-			wv $VIMINFO_FILE
-		catch
-			let g:USE_WV_WORKAROUND=$VIMINFO_FILE
-			wv ~/.viminfo
-			!cp ~/.viminfo $VIMINFO_FILE
-		endtry
-	el| let g:USE_WV_WORKAROUND=$VIMINFO_FILE
-		wv ~/.viminfo
-		!cp ~/.viminfo $VIMINFO_FILE
-	en | se viminfo=
-endfun
 fun! SetOpt(...)
 	let g:INPUT_METH=a:0? a:1 : 'thumb'
 	if g:INPUT_METH==?"THUMB"
 		let op=["@",64,1]
 	el| let op=["\e",27,0] | en
+	let [g:K_ESC,g:N_ESC]=op[:1]
 	if exists(g:K_ESC)
 		exe 'unm '.g:K_ESC
 		exe 'unm! '.g:K_ESC
 		exe 'cu '.g:K_ESC | en
-	let g:K_ESC=op[0] | let g:N_ESC=op[1]
 	if g:K_ESC!=?"\e"
 		exe 'no <F2> '.g:K_ESC
 		exe 'no '.g:K_ESC.' <Esc>'
@@ -578,87 +555,126 @@ fun! SetOpt(...)
 	\'msg':"expand('%:t').' '.line('.').'.'.col('.').'/'.line('$').' '
 	\.PrintTime(localtime()-g:LogDic.L[-1][0])"}
 endfun
-fun! WelcomeMsg()
-	if has('win16') || has('win32') || has('win64') | let os='WIN'
-	elseif exists('$VIMINFO_FILE') | let os='AND'
-	el| let os='UX' | en
-	let g:WORKING_DIR=input("Files are relative to WORKING_DIR:",
-		\exists('g:DEFWD_'.os)? eval('g:DEFWD_'.os):expand('$HOME'),'file')
-	exe 'let g:DEFWD_'.os.'=g:WORKING_DIR'
-	let g:INPUT_METH=input("INPUT_METH? (thumb/keyboard):",
-		\exists('g:DEFIM_'.os)? eval('g:DEFIM_'.os):'thumb','file')
-	exe 'let g:DEFIM_'.os.'=g:INPUT_METH'
-endfun
-if !exists('do_once') | let do_once=1
-	se viminfo=!,'20,<1000,s10,/50,:150
-		if filereadable($VIMINFO_FILE) | rv $VIMINFO_FILE
-		el| let g:viminfo_file_invalid=1 | rv | en
-	se viminfo=
-	au BufWinEnter * call OnWinEnter()
-	au BufRead * call CheckFormatted()
-	au BufNewFile * call OnNewBuf()
-	au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'),line('w0'))
-	au VimLeavePre * call Write_Viminfo()
-	se noshowmode ai
-	se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
-	se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
-	se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
-	se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-	se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-LogDic.L[-1][0])}
-	se guioptions-=T
-	hi ColorColumn guibg=#222222 ctermbg=237
-	hi Pmenu ctermbg=26 ctermfg=81
-	hi PmenuSel ctermbg=21 ctermfg=81
-	hi PmenuSbar ctermbg=23
-	hi PmenuThumb ctermfg=81
-	hi ErrorMsg ctermbg=9 ctermfg=15
-	hi Search ctermbg=21 ctermfg=81
-	hi MatchParen ctermfg=9 ctermbg=none
-	hi StatusLine cterm=underline ctermfg=244 ctermbg=236
-	hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
-	hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
-	if has("gui_running")
-		colorscheme slate
-		if exists("WINPOS") | exe WINPOS | en
-		if !exists('S_GUIFONT')
-			"se guifont=Envy\ Code\ R\ 10 
-			se guifont=Envy_Code_R:h10 
-			let S_GUIFONT='Envy_Code_R:h10' 
-		el| exe 'se guifont='.S_GUIFONT | en
-	el | syntax off | en
-
-	let g:histL=exists('g:HISTL')? eval(g:HISTL) : []
-
-	call InitHist()
-	nohl
-	if !exists('g:WORKING_DIR') || !isdirectory(glob(g:WORKING_DIR))
-		call WelcomeMsg() | en
-	call SetOpt(g:INPUT_METH)
-	exe 'so '.g:WORKING_DIR.'/abbrev'
-	exe 'so '.g:WORKING_DIR.'/cmdnorm'
-	exe 'so '.g:WORKING_DIR.'/pager'
-	if exists('g:LOGDIC_SAV') | let g:LogDic=eval(g:LOGDIC_SAV)
-	el| let g:LogDic=New('Log') | en
-	if !argc()
-		let g:FORMAT_NEW_FILES=1
-		exe 'cd '.g:WORKING_DIR
-		if len(g:histL)>0
-			exe 'e '.g:histL[0][0] | call CheckFormatted() | call OnWinEnter()
+fun! Write_Viminfo()
+	if match(g:StartupErr,'\cerror')!=-1
+		let in=input("Startup errors were encountered, write viminfo anyways?")
+		if in!=?'y' && in!='ye' && in!='yes' |retu|en
 		en
-	el| let g:FORMAT_NEW_FILES=0 | en
-	if glob(g:WORKING_DIR)=='/home/q335/Desktop/Dropbox/q335writings'
-	\ && !has("gui_running")
-		map OA <Up>
-		map OB <Down>
-		map OD <Left>
-		map OC <Right>
-		map! OA <Up>
-		map! OB <Down>
-		map! OD <Left>
-		map! OC <Right>
+	call Permanent('histL')
+	call Permanent('LogDic')
+	call Permanent('PermanentD')
+	if exists('g:PermanentD')
+		for i in keys(g:PermanentD)
+			exe 'let g:'.g:PermanentD[i].'=string(g:'.i.')'
+		endfor
 	en
-	redir END
+	if has("gui_running")
+		let g:S_GUIFONT=&guifont
+		let g:WINPOS='se co='.&co.' lines='.&lines.
+		\'|winp '.getwinposx().' '.getwinposy() | en
+	se viminfo=!,'20,<1000,s10,/50,:50
+	if g:VIMINFO_FILE==''| wviminfo
+	el| if filereadable(g:VIMINFO_FILE.'.bak')
+		exe	'!rm '.g:VIMINFO_FILE.'.bak' |en
+		exe '!mv '.g:VIMINFO_FILE.' '.g:VIMINFO_FILE.'.bak'
+		exe 'wv! '.g:VIMINFO_FILE
+	en
+	se viminfo=
+endfun
+
+if !exists('do_once') | let do_once=1 | el|finish|en
+se viminfo=!,'20,<1000,s10,/50,:150
+if !exists('VIMINFO_FILE')
+	call Ec('VIMINFO_FILE not defined in .vimrc!')
+	call Ec('...falling back to default')
+	let VIMINFO_FILE=''
+	if argc()==0
+		rviminfo
+	el| try | rv | catch | endtry |en
+el| exe 'rv '.VIMINFO_FILE |en
+se viminfo=
+if !exists('WORKING_DIR') || !isdirectory(glob(WORKING_DIR))
+	call Ec('WORKING_DIR invalid or not defined')
+	if argc()==0| let WORKING_DIR=input('Working directory:',$HOME,'file')
+	el| let WORKING_DIR=$HOME |en
 en
+let sources=['WORKING_DIR/abbrev','WORKING_DIR/cmdnorm','WORKING_DIR/pager']
+for file in sources
+	if filereadable(file)| exe 'so '.file
+	el| call Ec(file.' unreadable')|en
+endfor
+if !exists('INPUT_METH')
+	call Ec('INPUT_METH invalid or not defined!')
+	if argc()==0| let INPUT_METH=input('Input method:','keyboard')
+	el| let INPUT_METH='keyboard' |en	
+en
+call SetOpt(g:INPUT_METH)
+if has("gui_running")
+	colorscheme slate
+	if exists("WINPOS") | exe WINPOS | en
+	if !exists('S_GUIFONT')
+		"se guifont=Envy\ Code\ R\ 10 
+		se guifont=Envy_Code_R:h10 
+		let S_GUIFONT=&guifont
+	el| exe 'se guifont='.S_GUIFONT | en
+en
+if exists('PERMANENTD')
+	let PermanentD=eval(PERMANENTD)
+	for key in keys(PermanentD)
+		exe 'let '.key.'='.eval(PermanentD[key])
+	endfor
+el| let PermanentD={} |en
+if !exists('*InitLog') 
+	let LogDic={'L':[[localtime(),'Logging disabled']]}
+elseif !exists('LogDic')
+	let LogDic=New('Log')
+en
+if !exists('histL') | let histL=[] | en
+call InitHist()
+if !argc()
+	let g:FORMAT_NEW_FILES=1
+	if isdirectory(WORKING_DIR)
+		exe 'cd '.WORKING_DIR |en
+	if len(histL)>0
+		exe 'e '.g:histL[0][0] | call CheckFormatted() | call OnWinEnter()
+	en
+el| let g:FORMAT_NEW_FILES=0 | en
+if glob(g:WORKING_DIR)=='/home/q335/Desktop/Dropbox/q335writings'
+\ && !has("gui_running")
+	map OA <Up>
+	map OB <Down>
+	map OD <Left3b[?>
+	map OC <Right>
+	map! OA <Up>
+	map! OB <Down>
+	map! OD <Left>
+	map! OC <Right>
+en
+
+au BufWinEnter * call OnWinEnter()
+au BufRead * call CheckFormatted()
+au BufNewFile * call OnNewBuf()
+au BufWinLeave * call InsHist(expand('%'),line('.'),col('.'),line('w0'))
+au VimLeavePre * call Write_Viminfo()
+se noshowmode ai guioptions-=T
+se nowrap linebreak sidescroll=1 ignorecase smartcase incsearch cc=81
+se tabstop=4 history=150 mouse=a ttymouse=xterm hidden backspace=2
+se wildmode=list:longest,full display=lastline modeline t_Co=256 ve=
+se whichwrap+=h,l wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
+se stl=\ %l.%02c/%L\ %<%f%=\ %{PrintTime(localtime()-LogDic.L[-1][0])}
+hi ColorColumn guibg=#222222 ctermbg=237
+hi Pmenu ctermbg=26 ctermfg=81
+hi PmenuSel ctermbg=21 ctermfg=81
+hi PmenuSbar ctermbg=23
+hi PmenuThumb ctermfg=81
+hi ErrorMsg ctermbg=9 ctermfg=15
+hi Search ctermbg=21 ctermfg=81
+hi MatchParen ctermfg=9 ctermbg=none
+hi StatusLine cterm=underline ctermfg=244 ctermbg=236
+hi StatusLineNC cterm=underline ctermfg=240 ctermbg=236
+hi Vertsplit guifg=grey15 guibg=grey15 ctermfg=237 ctermbg=237
+redir END
+nohl
 
 "fix `*
 "Permanet
