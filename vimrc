@@ -59,6 +59,43 @@ if has("gui_running")
 	hi Vertsplit guifg=grey15 guibg=grey15
 	se guioptions-=T | en
 
+nno <silent> x :call Undojx('x')<cr>
+nno <silent> X :call Undojx('X')<cr>
+fun! Undojx(cmd)
+	let regsav=@"
+	exe 'norm! '.a:cmd
+	redr
+	let c=getchar()
+	while c==120 || c==88
+		undoj | exe (c==88? 'norm! X' : 'norm! x') | redr
+		let c=getchar()
+	endwhile
+	if c==105
+		startinsert
+	elseif c==111
+		norm! o	
+		startinsert
+	elseif c==79
+		norm! O
+		startinsert
+	elseif c==73
+		norm! ^
+		startinsert
+	elseif c==65
+		startinsert!
+	elseif c==97
+		if col('.')==col('$')-1
+			startinsert!
+		else
+			norm! l
+			startinsert
+		en
+	else
+		exe 'norm! '.(type(c)? c : nr2char(c))
+	en
+	let @"=regsav
+endfun
+
 nno Q q
 vno Q q
 if !exists('Qnrm') | let Qnrm={} | en
@@ -93,8 +130,8 @@ fun! Dialog(...)
 	let Bparx='let pg[0]=pg[0]."'.printf(mg>1? ' %-'.(mg-1).'.'.(mg-1).'s':'%-'.mg.'.'.mg.'s',B).'"'
 	let Amapx='"'.repeat(' ',mg).'".v:val'
 	let Bmapx='printf("%'.(col+off).'.'.(col+off).'s",v:val)'
-	let [AB,input]=['A',input(A.': ')]
 	echohl Question
+	let [AB,input]=['A',input(A.': ')]
 	while input!='.'
 		if !empty(input)
 			let pg=map(BreakLines(input,col),{AB}mapx)
@@ -270,7 +307,7 @@ fun! SoftCapsLock()
 		redr
 		let key=getchar()
 	endwhile
-	undojoin | norm! x
+	undoj | norm! x
 	startinsert
 endfun
 let [Qnrm.99,Qnhelp.c]=[":call SoftCapsLock()\<cr>","Caps lock"]
@@ -295,20 +332,19 @@ let [Qnrm.23,Qnhelp['^W']]=[":if winwidth(0)==&columns | silent call Writeroom(e
 
 if exists('opt_mousepan') && opt_mousepan
 	nn <silent> <leftmouse> :call getchar()<cr><leftmouse>:exe (MousePan()==1? "keepj norm! \<lt>leftmouse>":"")<cr>
-	let MpanRedr=opt_device==?'droid4'? 'redr!' : 'redr'
 	let glidestep=[99999999]+map(range(11),'11*(11-v:val)*(11-v:val)')
 	fun! MousePan()
 		if v:mouse_lnum>line('w$') || (&wrap && v:mouse_col%winwidth(0)==1) || (!&wrap && v:mouse_col>=winwidth(0)+winsaveview().leftcol) || v:mouse_lnum==line('$')
 			if line('$')==line('w0') | exe "keepj norm! \<c-y>" |en
 			return 1 | en
 		exe "norm! \<leftmouse>"
-		let [veon,fr,tl,v]=[(&ve==?'all')*9999999,-1,repeat([[reltime(),0,0]],4),winsaveview()]
-		let [v.col,v.coladd]=[0,v:mouse_col-1]
+		let [veon,fr,tl,v]=[&ve==?'all',-1,repeat([[reltime(),0,0]],4),winsaveview()]
+		let [v.col,v.coladd,redrexpr]=[0,v:mouse_col-1,(g:opt_device==?'droid4' && veon)? 'redr!':'redr']
 		while getchar()=="\<leftdrag>"
-			let [dV,dH,fr]=[min([v:mouse_lnum-v.lnum,v.topline-1]), min([veon,v:mouse_col-v.coladd-1,v.leftcol]),(fr+1)%4]
+			let [dV,dH,fr]=[min([v:mouse_lnum-v.lnum,v.topline-1]), veon? min([v:mouse_col-v.coladd-1,v.leftcol]):0,(fr+1)%4]
 			let [v.topline,v.leftcol,v.lnum,v.coladd,tl[fr]]=[v.topline-dV,v.leftcol-dH,v:mouse_lnum-dV,v:mouse_col-1-dH,[reltime(),dV,dH]]
 			call winrestview(v)
-			exe g:MpanRedr
+			exe redrexpr
 		endwhile
 		if str2float(reltimestr(reltime(tl[(fr+1)%4][0])))<0.2
 			let [glv,glh,vc,hc]=[tl[0][1]+tl[1][1]+tl[2][1]+tl[3][1],tl[0][2]+tl[1][2]+tl[2][2]+tl[3][2],0,0]
@@ -318,7 +354,7 @@ if exists('opt_mousepan') && opt_mousepan
 				if y||x
 					let [v.topline,v.lnum,v.leftcol,v.coladd,glv,vc,glh,hc]-=[eval(tlx),eval(lnx),eval(lcx),eval(cax),y,y*vc,x,x*hc]
 					call winrestview(v)
-					exe g:MpanRedr
+					exe redrexpr
 				en
 			endw
 		en
@@ -553,6 +589,8 @@ fun! LoadFormatting()
 			nn <buffer> <silent> A :call search('\S\s*\n\s*\n\\|\%$','Wc')<CR>a
 		en|en
 	if options=~?'prose'
+		syntax match Bold "\*\S.\{-}\S\*"hs=s+1,he=e-1
+		syntax match Italics "\/\S.\{-}\S\/"hs=s+1,he=e-1
 		setl noai
 		ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
 		if options=~#'Prose' && g:opt_autocap
@@ -723,7 +761,7 @@ if !exists('firstrun')
 		let &t_SI.="\e[6 q"
 		let &t_EI.="\e[2 q"
 		let &t_te.="\e[0 q"
-		se noshowmode | en
+	se noshowmode | en
 	au BufWinEnter * call LoadFormatting()
 	augroup WriteViminfo
 		au VimLeavePre * call WriteViminfo('exit')
