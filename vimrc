@@ -65,7 +65,25 @@ if has("gui_running")
 en
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 
-let Qnrm["\<c-l>"]=":call setline('.','txb:'.line('.'))\<cr>"
+let Pbrush="norm! \<leftmouse>r*"
+fun! Paint()
+	redr
+	let [ve,&ve]=[&ve,'all']
+	let c=getchar()
+	echo c
+	while c!="\<leftdrag>"
+		let c=getchar()
+	endwhile
+	exe g:Pbrush
+	while c!="\<leftrelease>"
+		undoj|exe g:Pbrush
+		redr
+		let c=getchar()
+	endwhile
+	exe g:Pbrush
+	let &ve=ve
+endfun                              
+let Qnrm['`']=":call Paint()\<cr>"
 
 let seed=reltime()[1]
 fun! RAND()
