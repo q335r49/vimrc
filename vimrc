@@ -248,7 +248,7 @@ let [Qnrm.x,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Sour
 let [Qnrm.t,Qnhelp.Tt]=[":cal g:logdic.show()\<cr>","Show log files"]
 let Qnrm.T=Qnrm.t
 let [Qnrm.F,Qnhelp.F]=[":call mruf.show()\<cr>","Show recent files"]
-let [Qnrm.I,Qnhelp.I]=["R","Replace mode"]
+let [Qnrm.I,Qnhelp.I]=[":startreplace\<cr>","Replace mode"]
 	nn R <c-r>
 
 fun! PrintDic(dict,width)
