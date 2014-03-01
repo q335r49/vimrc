@@ -65,7 +65,7 @@ if has("gui_running")
 en
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 
-let Pbrush="norm! \<leftmouse>r*"
+let Pbrush="norm! \<leftmouse>r."
 fun! Paint()
 	redr
 	let [ve,&ve]=[&ve,'all']
@@ -447,7 +447,8 @@ let colorD.113="let continue=0 | if has_key(g:SCHEMES[g:CS_NAME],g:CS_grp) | cal
 let colorD[EscAsc]=colorD.113
 let colorD.10="call CS_hi(g:CS_grp,hl) | let g:SCHEMES[g:CS_NAME][g:CS_grp]=hl | echohl CS_LightOnDark | ec '> SCHEMES.'.g:CS_NAME.'.'.g:CS_grp.' saved' | sleep 700m"
 let colorD.13=colorD.10
-let colorD.101="redr | echohl CS_LightOnDark | let in=input('> let SCHEMES.'.g:CS_NAME.'.'.g:CS_grp.'['.field.'] = ',hl[field]) | if !empty(in) | let hl[field]=in | en"
+let colorD.101="redr | echohl CS_LightOnDark | let in=input('> let SCHEMES.'.g:CS_NAME.'.'.g:CS_grp.'['.field.'] = ') | if !empty(in) | let hl[field]=in | en"
+let colorD.99=colorD.101
 let colorD.74="if hl[0] isnot 'LINK-->' | let hl[field]='NONE' | en"
 let colorD.75="if hl[0] isnot 'LINK-->' | let hl[field]=field==2? 'NONE' : 100 | en"
 let colorD.104='let field=(field+2)%3'
