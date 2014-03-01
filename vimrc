@@ -64,26 +64,42 @@ if has("gui_running")
 	se guioptions-=T
 en
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
-
-let Pbrush="norm! \<leftmouse>r."
+                                  
+let Pbrush={111:"norm! \<leftmouse>r○"}
+for i in [112,113,121,122,123,131,132,133,211,212,213,221,222,223,231,232,233,333]
+	let Pbrush[i]=Pbrush.111
+endfor
+let Pbrush.311="norm! \<leftmouse>r○" "n
+let Pbrush.312="norm! \<leftmouse>r○" "b
+let Pbrush.313="norm! \<leftmouse>r↓"
+let Pbrush.321="norm! \<leftmouse>r○" "u
+let Pbrush.322="norm! \<leftmouse>r○" "y
+let Pbrush.323="norm! \<leftmouse>r↑"
+let Pbrush.331="norm! \<leftmouse>r→"
+let Pbrush.332="norm! \<leftmouse>r←"
 fun! Paint()
 	redr
 	let [ve,&ve]=[&ve,'all']
 	let c=getchar()
-	echo c
 	while c!="\<leftdrag>"
 		let c=getchar()
 	endwhile
-	exe g:Pbrush
+	exe g:Pbrush.333
+	let next=[v:mouse_win,v:mouse_lnum,v:mouse_col]
+	let prev=next
 	while c!="\<leftrelease>"
-		undoj|exe g:Pbrush
+		let diff=join(map([0,1,2],'next[v:val]>prev[v:val]? 1 : next[v:val]<prev[v:val]? 2 : 3'),'')
+		undoj|exe g:Pbrush[diff]
 		redr
 		let c=getchar()
+		let prev=copy(next)
+		let next=[v:mouse_win,v:mouse_lnum,v:mouse_col]
 	endwhile
-	exe g:Pbrush
+	exe g:Pbrush.333
 	let &ve=ve
 endfun                              
-let Qnrm['`']=":call Paint()\<cr>"
+let Qnrm.c=":call Paint()\<cr>"
+let Qnhelp.c="canvas"
 
 let seed=reltime()[1]
 fun! RAND()
@@ -345,7 +361,7 @@ fun! SoftCap()
 		startinsert
 	en
 endfun
-let [Qnrm.99,Qnhelp.c]=[":call SoftCap()\<cr>","Caps lock"]
+let [Qnrm["\<c-m>"],Qnhelp['<enter>']]=[":call SoftCap()\<cr>","Caps lock"]
 ino <c-h> <esc>:call SoftCap()<cr>
 
 com! -nargs=+ -complete=var Editlist call New('NestedList',<args>).show()
