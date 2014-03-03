@@ -70,9 +70,9 @@ for i in [112,113,121,122,123,131,132,133,211,212,213,221,222,223,231,232,233,33
 	let Pbrush[i]=Pbrush.111
 endfor
 let Pbrush.311="norm! \<leftmouse>r○" "n
-let Pbrush.312="norm! \<leftmouse>r○" "b
+let Pbrush.312="norm! \<leftmouse>r." "b
 let Pbrush.313="norm! \<leftmouse>r↓"
-let Pbrush.321="norm! \<leftmouse>r○" "u
+let Pbrush.321="norm! \<leftmouse>r'" "u
 let Pbrush.322="norm! \<leftmouse>r○" "y
 let Pbrush.323="norm! \<leftmouse>r↑"
 let Pbrush.331="norm! \<leftmouse>r→"
@@ -263,7 +263,6 @@ let Qnrm["#"]=":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>"
 let [Qnrm.x,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source paragraph"]
 let [Qnrm.t,Qnhelp.Tt]=[":cal g:logdic.show()\<cr>","Show log files"]
 let Qnrm.T=Qnrm.t
-let [Qnrm.F,Qnhelp.F]=[":call mruf.show()\<cr>","Show recent files"]
 let [Qnrm.I,Qnhelp.I]=[":startreplace\<cr>","Replace mode"]
 	nn R <c-r>
 
@@ -648,9 +647,6 @@ fun! LoadViminfoData()
 	let g:logdic=exists('g:LOGDIC')? New('Log',g:LOGDIC) : New('Log')
 	let g:LOGDIC=g:logdic.L
 	cal g:logdic.setcursor(len(g:LOGDIC)-1)
-	let g:MRUF=exists('g:MRUF')? g:MRUF : {}
-	let g:mruf=New('FileList',g:MRUF)	
-	cal g:mruf.prune(60)
 	let g:SCHEMES=exists('g:SCHEMES')? g:SCHEMES : {'swatches':{},'default':{}}
 	let g:SCHEMES.swatches=has_key(g:SCHEMES,'swatches')? g:SCHEMES.swatches : {}
 	let g:CS_NAME=exists('g:CS_NAME')? g:CS_NAME : 'default'
@@ -706,8 +702,6 @@ if !exists('firstrun')
 		el| exe setViExpr.g:Viminfo_File | en
 	en
 	au VimEnter * call LoadViminfoData()
-	au VimEnter * au BufRead * call mruf.restorepos(expand('%'))
-	au VimEnter * au BufLeave * call mruf.insert(expand('<afile>'),line('.'),col('.'),line('w0'))
 	se linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
 	se ai tabstop=4 history=1000 mouse=a hidden backspace=2 stal=0 ls=0
 	se wildmode=list:longest,full display=lastline modeline t_Co=256
