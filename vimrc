@@ -670,8 +670,11 @@ fun! WriteViminfo(file,...)
 	if a:file==#'exit'  "curdir is necessary to retain relative path
 		exe 'cd '.g:Working_Dir
 		se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
-		if argc() | argd *
-		el | mksession! .lastsession | en
+		if argc()
+			argd *
+		elseif !has('gui_running')
+			mksession! .lastsession
+		en
 		sil exe '!mv '.g:Viminfo_File.' '.g:Viminfo_File.'.bak'
 		exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
 	el| exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".a:file
@@ -721,13 +724,13 @@ if !exists('firstrun')
 	au BufRead * call LoadFormatting()
 	au BufNewFile plane* exe "norm! iProse hardwrap60\<esc>500o\<esc>gg"
 	au VimLeavePre * call WriteViminfo('exit')
-	if !argc() && filereadable('.lastsession')
+	if !argc() && filereadable('.lastsession') && !has('gui_running')
 	 	so .lastsession | en
 	unlet i conflicts file latest_date setViExpr viminfotime
 en
 
-for i in filter(keys(TXBkyCmd),"!has_key(Qnrm,v:val)")
-	let Qnrm[i]=":exe exists('t:txb')? \"call TXBdoCmd('\<c-v>".i."')\" : 'ec \"Plane not loaded!\"'\<cr>"
-endfor
-let Qnrm.o=":exe exists('t:txb')? \"call TXBdoCmd('o')\" : 'ec \"Plane not loaded!\"'\<cr>"
-let Qnrm[':']=""
+"for i in filter(keys(TXBkyCmd),"!has_key(Qnrm,v:val)")
+"	let Qnrm[i]=":exe exists('t:txb')? \"call TXBdoCmd('\<c-v>".i."')\" : 'ec \"Plane not loaded!\"'\<cr>"
+"endfor
+"let Qnrm.o=":exe exists('t:txb')? \"call TXBdoCmd('o')\" : 'ec \"Plane not loaded!\"'\<cr>"
+"let Qnrm[':']=""
