@@ -635,8 +635,20 @@ fun! LoadFormatting()
 	en
 endfun
 
-com! -nargs=+ -complete=file RestoreSettings rv! <args>|call LoadViminfoData()
-fun! LoadViminfoData()
+com! -nargs=? -complete=file RestoreSettings call LoadViminfoData(<f-args>)
+fun! LoadViminfoData(...)
+	if a:0
+		if empty(a:1) && filereadable('viminfo.bak')
+			rv! viminfo.bak
+		elseif filereadable(a:1)
+            exe 'rv!' a:1
+		else
+			echohl ErrorMsg
+            	echo 'File unreadable: ' a:1
+			echohl None
+			return
+		en
+	en
 	silent exe "norm! :let v=g:SAVED_\<c-a>'\<c-b>\<right>\<right>\<right>\<right>\<right>\<right>'\<cr>"
 	if exists('v') && len(v)>8
 		for var in split(v)
@@ -696,13 +708,16 @@ if !exists('firstrun')
 	if !exists('g:Viminfo_File')
 		ec "Warning: g:Viminfo_File undefined, falling back to default"
 		exe setViExpr[:-3]
-	el| let viminfotime=strftime("%Y-%m-%d-%H-%M-%S",getftime(glob(g:Viminfo_File)))
-		let conflicts=sort(split(glob(g:Viminfo_File.' (conflicted*'),"\n"))
-		let latest_date=matchstr(get(conflicts,-1,''),'conflicted copy \zs.*\ze)')
-		if !empty(latest_date) && latest_date>viminfotime && input("\nCurrent viminfo (".viminfotime.") older than ".conflicts[-1]."; load latter instead? (y/n)")=~?'^y'
-			echo "Loading" conflicts[-1] "...\nUse :wv to overrite current viminfo."
-			exe setViExpr.conflicts[-1]
-		el| exe setViExpr.g:Viminfo_File | en
+	else
+"		let viminfotime=strftime("%Y-%m-%d-%H-%M-%S",getftime(glob(g:Viminfo_File)))
+"		let conflicts=sort(split(glob(g:Viminfo_File.' (conflicted*'),"\n"))
+"		let latest_date=matchstr(get(conflicts,-1,''),'conflicted copy \zs.*\ze)')
+"		if !empty(latest_date) && latest_date>viminfotime && input("\nCurrent viminfo (".viminfotime.") older than ".conflicts[-1]."; load latter instead? (y/n)")=~?'^y'
+"			echo "Loading" conflicts[-1] "...\nUse :wv to overrite current viminfo."
+"			exe setViExpr.conflicts[-1]
+"		else
+			exe setViExpr.g:Viminfo_File
+"		en
 	en
 	au VimEnter * call LoadViminfoData()
 	se linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
@@ -726,8 +741,19 @@ if !exists('firstrun')
 	au VimLeavePre * call WriteViminfo('exit')
 	if !argc() && filereadable('.lastsession') && !has('gui_running')
 	 	so .lastsession | en
-	unlet i conflicts file latest_date setViExpr viminfotime
+	unlet! i conflicts file latest_date setViExpr viminfotime
 en
+
+fun! <SID>G(count)
+	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')+1,1)+search('\S\s*\n\s*\n\s*\n\s*\n\s*\n\s*\n','W')? line('.') : line('$')]
+	return (mode=='no'? "\<esc>0".v:operator : mode==?'v'? "\<esc>".mode : "\<esc>").line.'G'.(mode=='v'? '$' : '')
+endfun
+fun! <SID>gg(count)
+	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')-1,1)+search('\S\s*\n\s*\n\s*\n\s*\n\s*\n\s*\n','Wb')? line('.') : 1]
+	return (mode=='no'? "\<esc>$".v:operator :  mode==?'v'? "\<esc>".mode : "\<esc>").line.'G'.(mode=='v'? '0' : '')
+endfun
+no <expr> G <SID>G(v:count)        "G goes to the next nonblank line followed by 6 blank lines (counts still work normally)
+no <expr> gg <SID>gg(v:count)      "gg goes to the previous nonblank line followed by 6 blank lines (counts still work normally)
 
 "for i in filter(keys(TXBkyCmd),"!has_key(Qnrm,v:val)")
 "	let Qnrm[i]=":exe exists('t:txb')? \"call TXBdoCmd('\<c-v>".i."')\" : 'ec \"Plane not loaded!\"'\<cr>"
