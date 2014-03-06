@@ -238,7 +238,7 @@ let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
 let [Qvis.115,Qvhelp.s]=["y/\<c-r>\"\<cr>","Search"]
 
 let Qnrm.default=":ec PrintDic(g:Qnhelp,28)\<cr>"
-let [Qnrm.f,Qnhelp.f]=[":ec search('^\\S*\\ \\S*'.expand('<cword>').'(')\<cr>","Go to function"]
+let [Qnrm.f,Qnhelp.f]=[":ec search('^f\\S*\\ \\S*'.expand('<cword>').'(')\<cr>","Go to function"]
 let [Qnrm[':'],Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.i,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
 let [Qnrm.v,Qnhelp.v]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
@@ -749,7 +749,7 @@ fun! <SID>G(count)
 	return (mode=='no'? "\<esc>0".v:operator : mode==?'v'? "\<esc>".mode : "\<esc>").line.'G'.(mode=='v'? '$' : '')
 endfun
 fun! <SID>gg(count)
-	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')-1,1)+search('\S\s*\n\s*\n\s*\n\s*\n\s*\n\s*\n','Wb')? line('.') : 1]
+	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')-1,1)+search('\s*\n\s*\n\s*\n\s*\n\s*\n\s*\n\S\zs','Wb')? line('.') : 1]
 	return (mode=='no'? "\<esc>$".v:operator :  mode==?'v'? "\<esc>".mode : "\<esc>").line.'G'.(mode=='v'? '0' : '')
 endfun
 no <expr> G <SID>G(v:count)        "G goes to the next nonblank line followed by 6 blank lines (counts still work normally)
