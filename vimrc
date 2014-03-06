@@ -684,8 +684,12 @@ fun! WriteViminfo(file,...)
 		se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
 		if argc()
 			argd *
-		elseif !has('gui_running')
-			mksession! .lastsession
+		else
+			if !has('gui_running')
+				mksession! .lastsession
+			else
+				mksession! .lastsession-gvim
+			en
 		en
 		sil exe '!mv '.g:Viminfo_File.' '.g:Viminfo_File.'.bak'
 		exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
@@ -739,8 +743,13 @@ if !exists('firstrun')
 	au BufRead * call LoadFormatting()
 	au BufNewFile plane* exe "norm! iProse hardwrap60\<esc>500o\<esc>gg"
 	au VimLeavePre * call WriteViminfo('exit')
-	if !argc() && filereadable('.lastsession') && !has('gui_running')
-	 	so .lastsession | en
+	if !argc() && filereadable('.lastsession')
+		if !has('gui_running')
+	 		so .lastsession
+		else
+			so .lastsession-gvim
+		en
+	en
 	unlet! i conflicts file latest_date setViExpr viminfotime
 en
 
