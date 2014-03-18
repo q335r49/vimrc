@@ -105,6 +105,8 @@ nno U gUww
 
 vn p "_xP
 
+let [Qnrm[','],Qnhelp[',']]=[":let q_num=line('.')|exe 'norm! dd}P'.q_num.'G'\<cr>",'Rotate line']
+
 let seed=reltime()[1]
 fun! RAND()
 	let g:seed=g:seed*1664525+1013904223
