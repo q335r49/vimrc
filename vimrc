@@ -243,7 +243,7 @@ let [Qnrm[':'],Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.i,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
 let [Qnrm.W,Qnhelp.W]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
 let [Qnrm.z,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
-let [Qnrm.R,Qnhelp.R]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
+let [Qnrm.D,Qnhelp.D]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
 let Qnrm["\<c-[>"]=""
 let Qnrm.v=""
 let [Qnrm.g,Qnhelp.g]=[":noh\<cr>","go away highlight"]
