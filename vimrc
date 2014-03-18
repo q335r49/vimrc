@@ -231,7 +231,8 @@ fun! Qmenuv()
 endfun
 let [Qvis.118,Qvhelp.v]=["","exit"]
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
-let [Qvis.42,Qvhelp['*']]=["y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>","Replace selection"]
+"let [Qvis.42,Qvhelp['*']]=["y:,$s/\\V\<c-r>=@\"\<cr>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>","Replace selection"]
+let [Qvis.42,Qvhelp['*']]=["y:,$s/\\V\<c-r>=@\"\<cr>//gce|echo 'Continue at beginning of file? (y/q)'|if getchar()!=113|1,''-&&|en".repeat("\<left>",77),"Replace selection"]
 let [Qvis.120,Qvhelp.x]=["y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source selection"]
 let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy to clipboard"]
 let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
@@ -257,7 +258,7 @@ let [Qnrm.d,Qnrm.s,Qnhelp.sd]=[":wincmd w|let g:qmenuExitIfNoCycle=1|call feedke
 let [Qnrm.w,Qnrm.e,Qnhelp.we]=[":norm! g;zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>",":norm! g,zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>","Changes <>"]
 let [Qnrm["\<c-w>"],Qnhelp['^W']]=[":tabc|let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>","tabc"]
 let [Qnrm.M,Qnrm.m,Qnhelp['mM']]=[":tabm -1|let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>",":tabm +1|let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>","tabm <>"]
-let Qnrm["*"]=":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|1,''-&&\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>\<left>"
+let Qnrm["*"]=":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|echo 'Continue at beginning of file? (y/q)'|if getchar()!=113|1,''-&&|en".repeat("\<left>",77)
 let Qnrm["#"]=":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>"
 	let Qnhelp['*#']="Replace word"
 let [Qnrm.x,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source paragraph"]
