@@ -646,13 +646,22 @@ endfun
 com! -nargs=? -complete=file RestoreSettings call LoadViminfoData(<f-args>)
 fun! LoadViminfoData(...)
 	if a:0
-		if empty(a:1) && filereadable('viminfo.bak')
+		if a:0 isnot 0
+			if filereadable(a:1)
+				exe 'rv!' a:1
+			else
+				echohl ErrorMsg
+					echo 'File unreadable: ' a:1
+				echohl None
+				return
+			en
+		en
+	else
+		if filereadable('viminfo.bak')
 			rv! viminfo.bak
-		elseif filereadable(a:1)
-            exe 'rv!' a:1
 		else
 			echohl ErrorMsg
-            	echo 'File unreadable: ' a:1
+				echo 'viminfo.bak unreadable'
 			echohl None
 			return
 		en
@@ -731,7 +740,7 @@ if !exists('firstrun')
 			exe setViExpr.g:Viminfo_File
 "		en
 	en
-	au VimEnter * call LoadViminfoData()
+	au VimEnter * call LoadViminfoData(0)
 	se linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
 	se ai tabstop=4 history=1000 mouse=a hidden backspace=2 stal=0 ls=0
 	se wildmode=list:longest,full display=lastline modeline t_Co=256
