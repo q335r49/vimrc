@@ -193,7 +193,9 @@ endfun
 nno <silent> x :<c-u>call Undojx('x')<cr>
 nno <silent> X :<c-u>call Undojx('X')<cr>
 
-nno vv :call Qmenu()<cr>
+nno q :call Qmenu()<cr>
+nno Q q
+vno Q q
 fun! QmenuKeyHandler(c)
 	let [&stal,&ls]=g:qmenuView[1:]
 	call winrestview(g:qmenuView[0])
@@ -201,9 +203,7 @@ fun! QmenuKeyHandler(c)
 	if g:qmenuExitIfNoCycle
 		let g:qmenuExitIfNoCycle=0
 		if index(["\<c-i>"," ",'s','d','w','e',"\<c-w>",'M','m'],a:c)==-1
-			if a:c!='v'
-				call feedkeys(a:c)
-			en
+			call feedkeys(a:c)
 		else
 			call feedkeys(get(g:Qnrm,a:c,a:c[0]=="\e"? a:c[1] : g:Qnrm.default))
 		en
@@ -223,7 +223,7 @@ fun! Qmenu()
 endfun
 
 let g:qmenuExitIfNoCycle=0
-vmap <expr> vv Qmenuv()
+vmap <expr> q Qmenuv()
 fun! Qmenuv()
 	let [view,stal]=[winsaveview(),&stal]
 	let [view.topline,&stal,&ls,ls]=[view.topline+!stal,1,2,&ls]
@@ -235,7 +235,7 @@ fun! Qmenuv()
 	redr
    	return get(g:Qvis,c,g:Qvis.default)
 endfun
-let [Qvis.118,Qvhelp.v]=["","exit"]
+let [Qvis.113,Qvhelp.q]=["","exit"]
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
 let [Qvis.42,Qvhelp['*']]=["y:,$s/\\V\<c-r>=@\"\<cr>//gce|echo 'Continue at beginning of file? (y/q)'|if getchar()==121|1,''-&&|en".repeat("\<left>",77),"Replace selection"]
 let [Qvis.120,Qvhelp.x]=["y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source selection"]
@@ -248,22 +248,22 @@ let Qnrm.default=":ec PrintDic(g:Qnhelp,28)\<cr>"
 let [Qnrm.f,Qnhelp.f]=[":ec search('^f\\S*\\ \\S*'.expand('<cword>').'(')\<cr>","Go to function"]
 let [Qnrm[':'],Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.i,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
-let [Qnrm.W,Qnhelp.W]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
+let [Qnrm.v,Qnhelp.v]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
 let [Qnrm.z,Qnhelp.z]=[":wa\<cr>","Write all buffers"]
 let [Qnrm.D,Qnhelp.D]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<cr>\<bs>*","Remove this swap file"]
+let [Qnrm.q,Qnhelp.q]=["","exit"]
 let Qnrm["\<c-[>"]=""
-let Qnrm.v=""
 let [Qnrm.g,Qnhelp.g]=[":noh\<cr>","go away highlight"]
 let [Qnrm["\<f1>"],Qnhelp["<f1>"]]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>\<cr>","Help word under cursor"]
 let [Qnrm.1,Qnrm.2,Qnrm.3]=map(range(1,3),'":tabn".v:val."\<cr>"')
 	let Qnhelp['1..3']="Switch tabs"
 let [Qnrm.4,Qnrm.5,Qnrm.6]=map(range(4,6),'"@".v:val')
 	let Qnhelp['4..6']="Playback macro"
-let [Qnrm["\<c-i>"],Qnrm[" "],Qnhelp['<tab,space']]=[":tabp|let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>",":tabn|let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>","Tabs <>"]
-let [Qnrm.d,Qnrm.s,Qnhelp.sd]=[":wincmd w|let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>",":wincmd W|let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>","Columns <>"]
-let [Qnrm.w,Qnrm.e,Qnhelp.we]=[":norm! g;zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>",":norm! g,zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>","Changes <>"]
-let [Qnrm["\<c-w>"],Qnhelp['^W']]=[":tabc|let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>","tabc"]
-let [Qnrm.M,Qnrm.m,Qnhelp['mM']]=[":tabm -1|let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>",":tabm +1|let g:qmenuExitIfNoCycle=1|call feedkeys('vv')\<cr>","tabm <>"]
+let [Qnrm["\<c-i>"],Qnrm[" "],Qnhelp['<tab,space']]=[":tabp|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":tabn|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","Tabs <>"]
+let [Qnrm.d,Qnrm.s,Qnhelp.sd]=[":wincmd w|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":wincmd W|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","Columns <>"]
+let [Qnrm.w,Qnrm.e,Qnhelp.we]=[":norm! g;zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":norm! g,zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","Changes <>"]
+let [Qnrm["\<c-w>"],Qnhelp['^W']]=[":tabc|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","tabc"]
+let [Qnrm.M,Qnrm.m,Qnhelp['mM']]=[":tabm -1|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":tabm +1|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","tabm <>"]
 let Qnrm["*"]=":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|echo 'Continue at beginning of file? (y/q)'|if getchar()==121|1,''-&&|en".repeat("\<left>",77)
 let Qnrm["#"]=":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>"
 	let Qnhelp['*#']="Replace word"
