@@ -1,4 +1,4 @@
-se noloadplugins
+"se noloadplugins
 
 let opt_autocap=0
 if !exists('opt_device')
@@ -757,7 +757,7 @@ if !exists('firstrun')
 		let &t_te.="\e[0 q"
 	se noshowmode | en
 	au BufRead * call LoadFormatting()
-	au BufNewFile plane* exe "norm! iProse hardwrap60\<esc>500o\<esc>gg"
+	au BufNewFile plane* exe "norm! iProse hardwrap60\<esc>500o\<esc>gg" | call LoadFormatting()
 	au VimLeavePre * call WriteViminfo('exit')
 	if !argc() && filereadable('.lastsession')
 		if !has('gui_running')
