@@ -757,7 +757,7 @@ if !exists('firstrun')
 		let &t_te.="\e[0 q"
 	se noshowmode | en
 	au BufRead * call LoadFormatting()
-	au BufReadPost * if &key != "" | set noswapfile nowritebackup viminfo= nobackup noshelltemp history=0 secure | endif
+	au BufReadPost * if &key != "" | set noswapfile nowritebackup viminfo= nobackup noshelltemp secure | endif
 	au BufNewFile plane* exe "norm! iProse hardwrap60\<esc>500o\<esc>gg" | call LoadFormatting()
 	au VimLeavePre * call WriteViminfo('exit')
 	if !argc() && filereadable('.lastsession')
