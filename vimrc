@@ -1,4 +1,4 @@
-"se noloadplugins
+se noloadplugins
 
 let opt_autocap=0
 if !exists('opt_device')
@@ -29,7 +29,7 @@ if opt_device=~?'notepad'
 	nno <c-s> :wa<cr>
 	nno <c-w> :wqa<cr>
 	nno <c-v> "*p
-	nno <c-q> <c-v> 
+	nno <c-q> <c-v>
 	let Viminfo_File= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings/viminfo-notepad'
 en
 if opt_device=~?'droid4'
@@ -54,17 +54,17 @@ if opt_device=~?'droid4'
 	let EscChar='@'
 	let opt_autocap=1
 	ino <c-b> <c-w>
-	nn <c-r> <nop> 
+	nn <c-r> <nop>
 en
 if has("gui_running")
 	se guifont=Envy_Code_R:h11:cANSI
 	colorscheme solarized
-	hi ColorColumn guibg=#222222 
+	hi ColorColumn guibg=#222222
 	hi Vertsplit guifg=grey15 guibg=grey15
 	se guioptions-=T
 en
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
-                                  
+
 let Pbrush={111:"norm! \<leftmouse>r○"}
 for i in [112,113,121,122,123,131,132,133,211,212,213,221,222,223,231,232,233,333]
 	let Pbrush[i]=Pbrush.111
@@ -97,7 +97,7 @@ fun! Paint()
 	endwhile
 	exe g:Pbrush.333
 	let &ve=ve
-endfun                              
+endfun
 let Qnrm.c=":call Paint()\<cr>"
 let Qnhelp.c="canvas"
 
@@ -128,8 +128,8 @@ fun! Normgg(count)
 	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')-1,1)+search('\S\s*\n\s*\n\s*\n\s*\n\s*\n\s*\n','Wb')? line('.') : 1]
 	return (mode=='no'? "\<esc>$".v:operator :  mode==?'v'? "\<esc>".mode : "\<esc>").line.'G'.(mode=='v'? '0' : '')
 endfun
-no <expr> G NormG(v:count) 
-no <expr> gg Normgg(v:count) 
+no <expr> G NormG(v:count)
+no <expr> gg Normgg(v:count)
 
 fun! Writeroom(...)
 	let margin=a:0? a:1 : input("margin: ", &tw? max([(&columns-&tw-3)/2,10]) : 25)
@@ -152,7 +152,7 @@ let [pvft,pvftc]=[1,32]
 fun! Multift(x,c,i)
 	let [g:pvftc,g:pvft]=[a:c,a:i]
     let pos=searchpos((a:x==2? mode(1)=='no'? '\C\V\_.\zs' : '\C\V\_.' : '\C\V').(a:x==1 && mode(1)=='no' || a:x==-2? nr2char(g:pvftc).'\zs' : nr2char(g:pvftc)),a:x<0? 'bW':'W')
-	call setpos("'x", pos[0]? [0,pos[0],pos[1],0] : [0,line('.'),col('.'),0]) 
+	call setpos("'x", pos[0]? [0,pos[0],pos[1],0] : [0,line('.'),col('.'),0])
 	return "`x"
 endfun
 no <expr> F Multift(-1,getchar(),-1)
@@ -218,7 +218,7 @@ fun! Qmenu()
 	cal winrestview(g:qmenuView[0])
 	redr
 	let g:qmenuView[0].topline=g:qmenuView[0].topline-!g:qmenuView[1]
-	let g:TXBkeyhandler=function("QmenuKeyHandler")
+	let g:TxbKeyHandler=function("QmenuKeyHandler")
 	cal feedkeys("\<plug>TxbZ")
 endfun
 
@@ -404,7 +404,7 @@ fun! CompleteSchemes(Arglead,CmdLine,CurPos)
 endfun
 fun! CS_UI()
     cno <expr> = g:CS_input=='group'? "\<cr>" : "="
-    cno <expr> <bs> g:CS_input=='group' && getcmdline()==''? "CS_EXIT\<cr>" : "\<bs>" 
+    cno <expr> <bs> g:CS_input=='group' && getcmdline()==''? "CS_EXIT\<cr>" : "\<bs>"
     exe "cno <expr> ".nr2char(31)." g:CS_input=='group' && getcmdline()==''? \"CS_EXIT\\<cr>\" : \"\\<c-u>\""
     cno . <cr>
 	sil exe "norm! :hi \<c-a>')\<c-b>let \<right>\<right>=split('\<del>\<cr>"
@@ -497,7 +497,7 @@ let colorD["\<bs>"]="if has_key(g:SCHEMES[g:CS_NAME],g:CS_grp)\n
 	\redr\n
 	\let g:CS_input='scheme'\n
 	\echohl CS_LightOnDark\n
-	\let name=input('> let SCHEMES.',g:CS_NAME,'customlist,CompleteSchemes')\n    
+	\let name=input('> let SCHEMES.',g:CS_NAME,'customlist,CompleteSchemes')\n
 	\let g:CS_input=''\n
 	\if !empty(name)\n
 		\let g:CS_NAME=name\n
@@ -564,12 +564,12 @@ fun! CapWait(prev)
 	elseif stridx(b:CapSeparators,a:prev)!=-1
 		let g:charL=[]
 		return (next=~#'[A-Z]'? tolower(next) : toupper(next)). "\<del>"
-	el| let g:charL=[] 
+	el| let g:charL=[]
 		return next."\<del>"
 	endif
 endfun
 fun! CapHere()
-	let trunc = getline(".")[:col(".")-2] 
+	let trunc = getline(".")[:col(".")-2]
 	return col(".")==1 ? (b:CapSeparators!=' '? CapWait("\r") : "\<del>") : (trunc=~'[?!.]\s*$\|^\s*$' && trunc!~'\.\.\s*$') ? (CapWait(trunc[-1:-1])) : "\<del>"
 endfun
 fun! LoadFormatting()
@@ -591,14 +591,14 @@ fun! LoadFormatting()
 		setl fdt=getline(v:foldstart) | en
 	if options=~?'hardwrap'
 		setl nowrap fo=aw
-		let number=matchstr(options,'hardwrap\zs\d*') 
+		let number=matchstr(options,'hardwrap\zs\d*')
 		exe "setl tw=".(empty(number)? 70 : number)
 		nn <buffer>	<cr> +
 		nn <buffer> <silent> > :se ai<CR>mt>apgqap't:se noai<CR>
 		nn <buffer> <silent> < :se ai<CR>mt<apgqap't:se noai<CR>
 	elseif options=~?'prose' |  setl wrap | en
 	if &fo=~#'a'
-		if &fo=~#'w'	
+		if &fo=~#'w'
 			no <buffer> <silent> <expr> { WWGoPar(v:count1,1)
 			no <buffer> <silent> <expr> } WWGoPar(v:count1,0)
 			nn <buffer> <silent> I :call search('\S\n\s*.\\|\n\s*\n\s*.\\|\%^','Wbe')<CR>i
@@ -669,7 +669,7 @@ fun! LoadViminfoData(...)
 	if exists('v') && len(v)>8
 		for var in split(v)
 			unlet! {'g:'.var[8:]}
-			let {'g:'.var[8:]}=eval({var})	
+			let {'g:'.var[8:]}=eval({var})
 		endfor
 	en
 	let g:logdic=exists('g:LOGDIC')? New('Log',g:LOGDIC) : New('Log')
@@ -685,8 +685,8 @@ fun! WriteViminfo(file,...)
 	if v:version<703 || v:version==703 && !has("patch30") || a:0>=1 && !empty(a:1)
 		sil exe "norm! :unlet! g:SAVED_\<c-a>\<cr>"
 		sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
-		for name in split(v)  
-			if name[2:]==#toupper(name[2:])	
+		for name in split(v)
+			if name[2:]==#toupper(name[2:])
 				if "000110"[type({name})]
 					let {"g:SAVED_".name[2:]}=substitute(string({name}),"\n",'''."\\n".''',"g")
 					if a:file==#'exit'
@@ -744,10 +744,11 @@ if !exists('firstrun')
 	se ai tabstop=4 history=1000 mouse=a hidden backspace=2 stal=0 ls=0
 	se wildmode=list:longest,full display=lastline modeline t_Co=256
 	se whichwrap+=b,s,h,l,,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-	se fcs=vert:\  showbreak=.\  
+	se fcs=vert:\  showbreak=.\ 
     se ttymouse=sgr
-	se stl=%f\ %l/%L\ %c%V
-	if opt_device!~?'windows'	
+	"se stl=%f\ %l/%L\ %c%V
+	se stl=%t\ %{line('w0')}-%l/%L\ %c%V
+	if opt_device!~?'windows'
 		se term=screen-256color
 	en
 	if opt_device=~?'cygwin'
@@ -781,8 +782,8 @@ endfun
 no <expr> G <SID>G(v:count)        "G goes to the next nonblank line followed by 6 blank lines (counts still work normally)
 no <expr> gg <SID>gg(v:count)      "gg goes to the previous nonblank line followed by 6 blank lines (counts still work normally)
 
-for i in filter(keys(TXBkyCmd),"!has_key(Qnrm,v:val)")
-	let Qnrm[i]=":exe exists('t:txb')? \"call TXBdoCmd('\<c-v>".i."')\" : 'ec \"Plane not loaded!\"'\<cr>"
+for i in filter(keys(TxbKyCmd),"!has_key(Qnrm,v:val)")
+	let Qnrm[i]=":exe exists('t:txb')? \"call TxbExe('\<c-v>".i."')\" : 'ec \"Plane not loaded!\"'\<cr>"
 endfor
-let Qnrm.o=":exe exists('t:txb')? \"call TXBdoCmd('o')\" : 'ec \"Plane not loaded!\"'\<cr>"
+let Qnrm.o=":exe exists('t:txb')? \"call TxbExe('o')\" : 'ec \"Plane not loaded!\"'\<cr>"
 let Qnrm[':']=""
