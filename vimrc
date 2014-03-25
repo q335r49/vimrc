@@ -250,6 +250,7 @@ let Qvis.124=":\<c-u>let q_sav=[&fo,&tw]|let &tw=&tw-4|exe stridx(&fo,'a')==-1? 
 
 let Qnrm.default=":ec PrintDic(g:Qnhelp,28)\<cr>"
 let [Qnrm.f,Qnhelp.f]=[":ec search('^f\\S*\\ \\S*'.expand('<cword>').'(')\<cr>","Go to function"]
+let [Qnrm.F,Qnhelp.F]=[":if !&ls|se stal=2|se ls=2|else|se stal=0|se ls=0|en\n","Enable status & tab"]
 let [Qnrm[':'],Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.i,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
 let [Qnrm.v,Qnhelp.v]=[":se invwrap|echo 'Wrap '.(&wrap? 'on' : 'off')\<cr>","Wrap toggle"]
