@@ -226,8 +226,9 @@ fun! Qmenu()
 endfun
 
 let g:qmenuExitIfNoCycle=0
-vmap <expr> q Qmenuv()
-fun! Qmenuv()
+vmap <expr> q Qmenuv(v:count)
+fun! Qmenuv(count)
+	let g:q_count=v:count
 	let [view,stal]=[winsaveview(),&stal]
 	let [view.topline,&stal,&ls,ls]=[view.topline+!stal,1,2,&ls]
 	echo strftime('%c').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
@@ -240,7 +241,7 @@ fun! Qmenuv()
 endfun
 let [Qvis.113,Qvhelp.q]=["","exit"]
 let Qvis.default=":\<c-u>ec PrintDic(Qvhelp,28)\<cr>"
-let [Qvis.42,Qvhelp['*']]=["y:,$s/\\V\<c-r>=@\"\<cr>//gce|echo 'Continue at beginning of file? (y/q)'|if getchar()==121|1,''-&&|en".repeat("\<left>",77),"Replace selection"]
+let [Qvis.42,Qvhelp['*']]=["y:if g:q_count && g:q_count<=3|exe g:q_count.'match Match'.g:q_count.' \"'.escape(@\",'\"').'\"'|else|,$s/\\V\<c-r>=@\"\<cr>//gce|echo 'Continue at beginning of file? (y/q)'|if getchar()==121|1,''-&&|en|en".repeat("\<left>",80),"Replace selection"]
 let [Qvis.120,Qvhelp.x]=["y: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source selection"]
 let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy to clipboard"]
 let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
@@ -268,7 +269,7 @@ let [Qnrm.d,Qnrm.s,Qnhelp.sd]=[":wincmd w|let g:qmenuExitIfNoCycle=1|call feedke
 let [Qnrm.w,Qnrm.e,Qnhelp.we]=[":norm! g;zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":norm! g,zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","Changes <>"]
 let [Qnrm["\<c-w>"],Qnhelp['^W']]=[":tabc|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","tabc"]
 let [Qnrm.M,Qnrm.m,Qnhelp['mM']]=[":tabm -1|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":tabm +1|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","tabm <>"]
-let Qnrm["*"]=":if g:q_count && g:q_count<=3|exe g:q_count.'match Match'.g:q_count.' '''.expand('<cword>').''''|else|,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|echo 'Continue at beginning of file? (y/q)'|if getchar()==121|1,''-&&|en|en".repeat("\<left>",80)
+let Qnrm["*"]=":if g:q_count && g:q_count<=3|exe g:q_count.'match Match'.g:q_count.' \"'.escape(expand('<cword>'),'\"').'\"'|else|,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|echo 'Continue at beginning of file? (y/q)'|if getchar()==121|1,''-&&|en|en".repeat("\<left>",80)
 let Qnrm["#"]=":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>"
 	let Qnhelp['*#']="Replace word"
 let [Qnrm.x,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source paragraph"]
