@@ -65,6 +65,10 @@ if has("gui_running")
 en
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 
+se cb=
+noremap <expr> p '"'.(v:register=='"'? '*' : v:register).'p'
+noremap <expr> y '"'.(v:register=='"'? '*' : v:register).'y'
+
 let Pbrush={111:"norm! \<leftmouse>r○"}
 for i in [112,113,121,122,123,131,132,133,211,212,213,221,222,223,231,232,233,333]
 	let Pbrush[i]=Pbrush.111
@@ -102,8 +106,6 @@ let Qnrm.c=":call Paint()\<cr>"
 let Qnhelp.c="canvas"
 
 nno U gUww
-
-vn p "_xP
 
 let [Qnrm[','],Qnhelp[',']]=[":let q_num=line('.')|exe 'norm! dd}P'.q_num.'G'\<cr>",'Rotate line']
 
