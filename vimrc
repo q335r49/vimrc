@@ -195,7 +195,7 @@ endfun
 nno <silent> x :<c-u>call Undojx('x')<cr>
 nno <silent> X :<c-u>call Undojx('X')<cr>
 
-nno q :call Qmenu()<cr>
+nno q :<c-u>call Qmenu()<cr>
 nno Q q
 vno Q q
 fun! QmenuKeyHandler(c)
@@ -214,6 +214,7 @@ fun! QmenuKeyHandler(c)
 	en
 endfun
 fun! Qmenu()
+	let g:q_count=v:count
 	let g:qmenuView=[winsaveview(),&stal,&ls]
 	let [g:qmenuView[0].topline,&stal,&ls]=[g:qmenuView[0].topline+!g:qmenuView[1],2,2]
 	ech strftime('%c').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
@@ -256,6 +257,7 @@ let [Qnrm.D,Qnhelp.D]=[":redi@t|sw|redi END\<cr>:!rm \<c-r>=escape(@t[1:],' ')\<
 let [Qnrm.q,Qnhelp.q]=["","exit"]
 let Qnrm["\<c-[>"]=""
 let [Qnrm.g,Qnhelp.g]=[":noh\<cr>","go away highlight"]
+let [Qnrm.G,Qnhelp.G]=[":noh|match|2match|3match\<cr>","go away highlight"]
 let [Qnrm["\<f1>"],Qnhelp["<f1>"]]=["vawly:h \<c-r>=@\"[-1:-1]=='('? @\":@\"[:-2]\<cr>\<cr>","Help word under cursor"]
 let [Qnrm.1,Qnrm.2,Qnrm.3]=map(range(1,3),'":tabn".v:val."\<cr>"')
 	let Qnhelp['1..3']="Switch tabs"
@@ -266,7 +268,7 @@ let [Qnrm.d,Qnrm.s,Qnhelp.sd]=[":wincmd w|let g:qmenuExitIfNoCycle=1|call feedke
 let [Qnrm.w,Qnrm.e,Qnhelp.we]=[":norm! g;zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":norm! g,zz\<cr>:let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","Changes <>"]
 let [Qnrm["\<c-w>"],Qnhelp['^W']]=[":tabc|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","tabc"]
 let [Qnrm.M,Qnrm.m,Qnhelp['mM']]=[":tabm -1|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>",":tabm +1|let g:qmenuExitIfNoCycle=1|call feedkeys('q')\<cr>","tabm <>"]
-let Qnrm["*"]=":,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|echo 'Continue at beginning of file? (y/q)'|if getchar()==121|1,''-&&|en".repeat("\<left>",77)
+let Qnrm["*"]=":if g:q_count && g:q_count<=3|exe g:q_count.'match Match'.g:q_count.' '''.expand('<cword>').''''|else|,$s/\\<\<c-r>=expand('<cword>')\<cr>\\>//gce|echo 'Continue at beginning of file? (y/q)'|if getchar()==121|1,''-&&|en|en".repeat("\<left>",80)
 let Qnrm["#"]=":'<,'>s/\<c-r>=expand('<cword>')\<cr>//gc\<left>\<left>\<left>"
 	let Qnhelp['*#']="Replace word"
 let [Qnrm.x,Qnhelp.x]=["vipy: exe substitute(@\",\"\\n\\\\\",'','g')\<cr>","Source paragraph"]
