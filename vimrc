@@ -207,10 +207,10 @@ fun! QmenuKeyHandler(c)
 		if index(["\<c-i>"," ",'s','d','w','e',"\<c-w>",'M','m'],a:c)==-1
 			call feedkeys(a:c)
 		else
-			call feedkeys(get(g:Qnrm,a:c,a:c[0]=="\e"? a:c[1] : g:Qnrm.default))
+			call feedkeys(get(g:Qnrm,a:c,a:c[0]=="\e"? a:c[1] : g:Qnrm.default),'n')
 		en
 	else
-		call feedkeys(get(g:Qnrm,a:c,a:c[0]=="\e"? a:c[1] : g:Qnrm.default))
+		call feedkeys(get(g:Qnrm,a:c,a:c[0]=="\e"? a:c[1] : g:Qnrm.default),'n')
 	en
 endfun
 fun! Qmenu()
