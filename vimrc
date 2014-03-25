@@ -107,7 +107,8 @@ let Qnhelp.c="canvas"
 
 nno U gUww
 
-let [Qnrm[','],Qnhelp[',']]=[":let q_num=line('.')|exe 'norm! dd}P'.q_num.'G'\<cr>",'Rotate line']
+let [Qnrm[','],Qnhelp[',']]=[":let q_num=line('.')|exe 'norm! dd}P'.q_num.'G'\<cr>",'Rotate line dn']
+let [Qnrm['<'],Qnhelp['<']]=[":let q_num=line('.')|exe 'norm! dd{p'.q_num.'G'\<cr>",'Rotate line up']
 
 let seed=reltime()[1]
 fun! RAND()
