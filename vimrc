@@ -748,8 +748,7 @@ if !exists('firstrun')
 	se whichwrap+=b,s,h,l,,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
 	se fcs=vert:\  showbreak=.\ 
     se ttymouse=sgr
-	"se stl=%f\ %l/%L\ %c%V
-	se stl=%t\ %{line('w0')}-%l/%L\ %c%V
+	se stl=%t\ %{getwinvar(0,'txbi','-').'\ '.line('w0')}-%l/%L\ %c%V
 	if opt_device!~?'windows'
 		se term=screen-256color
 	en
