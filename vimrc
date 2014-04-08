@@ -65,9 +65,8 @@ if has("gui_running")
 en
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 
-se cb=
-noremap <expr> p '"'.(v:register=='"'? '*' : v:register).'p'
-noremap <expr> y '"'.(v:register=='"'? '*' : v:register).'y'
+let [Qnrm[','],Qnhelp[',']]=[":let q_num=line('.')|exe 'norm! dd}P'.q_num.'G'\<cr>",'Rotate line dn']
+let [Qnrm['.'],Qnhelp['.']]=[":let q_num=line('.')|exe 'norm! dd{p'.q_num.'G'\<cr>",'Rotate line up']
 
 let Pbrush={111:"norm! \<leftmouse>r○"}
 for i in [112,113,121,122,123,131,132,133,211,212,213,221,222,223,231,232,233,333]
@@ -106,9 +105,6 @@ let Qnrm.c=":call Paint()\<cr>"
 let Qnhelp.c="canvas"
 
 nno U gUww
-
-let [Qnrm[','],Qnhelp[',']]=[":let q_num=line('.')|exe 'norm! dd}P'.q_num.'G'\<cr>",'Rotate line dn']
-let [Qnrm['<'],Qnhelp['<']]=[":let q_num=line('.')|exe 'norm! dd{p'.q_num.'G'\<cr>",'Rotate line up']
 
 let seed=reltime()[1]
 fun! RAND()
@@ -616,6 +612,7 @@ fun! LoadFormatting()
 	if options=~?'prose'
 		syntax region Bold matchgroup=Normal start=+\(\W\|^\)\zs\*\ze\w+ end=+\w\zs\*+ concealends
 		syntax region Underline matchgroup=Normal start=+\(\W\|^\)\zs\/\ze\w+ end=+\w\zs\/+ concealends
+		syntax region Label matchgroup=Normal start=+^txb:\zs+ end=+$+ concealends
 		setl noai
 		ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
 		if options=~#'Prose' && g:opt_autocap
@@ -788,8 +785,9 @@ endfun
 no <expr> G <SID>G(v:count)        "G goes to the next nonblank line followed by 6 blank lines (counts still work normally)
 no <expr> gg <SID>gg(v:count)      "gg goes to the previous nonblank line followed by 6 blank lines (counts still work normally)
 
-for i in filter(keys(TxbKyCmd),"!has_key(Qnrm,v:val)")
-	let Qnrm[i]=":exe exists('t:txb')? \"call TxbExe('\<c-v>".i."')\" : 'ec \"Plane not loaded!\"'\<cr>"
+for i in filter(keys(txbCmd),"!has_key(Qnrm,v:val)")
+	let Qnrm[i]=":exe exists('t:txb')? \"call TxbKey('\<c-v>".i."')\" : 'ec \"Plane not loaded!\"'\<cr>"
 endfor
-let Qnrm.o=":exe exists('t:txb')? \"call TxbExe('o')\" : 'ec \"Plane not loaded!\"'\<cr>"
+let Qnrm.o=":exe exists('t:txb')? \"call TxbKey('o')\" : 'ec \"Plane not loaded!\"'\<cr>"
+let Qnrm.O=":exe exists('t:txb')? \"call TxbKey('O')\" : 'ec \"Plane not loaded!\"'\<cr>"
 let Qnrm[':']=""
