@@ -65,6 +65,9 @@ if has("gui_running")
 en
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 
+let [Qnrm['-'],Qnhelp[',']]=[":earlier\<cr>",'earlier']
+let [Qnrm['+'],Qnhelp['.']]=[":later\<cr>",'later']
+
 let [Qnrm[','],Qnhelp[',']]=[":let q_num=line('.')|exe 'norm! dd}P'.q_num.'G'\<cr>",'Rotate line dn']
 let [Qnrm['.'],Qnhelp['.']]=[":let q_num=line('.')|exe 'norm! dd{p'.q_num.'G'\<cr>",'Rotate line up']
 
@@ -140,12 +143,12 @@ fun! Writeroom(...)
 endfun
 com! Write call Writeroom()
 
-let g:debug_on=1
+let g:db=1
 fun! PRINT(vars)
 	redr
-	return g:debug_on? "exe eval('\"'.input(join(map(split('".a:vars."','|'),'v:val.\":\".eval(v:val)'),' '),'').'\"')" : '""'
+	return g:db? "exe eval('\"'.input(join(map(split('".a:vars."','|'),'v:val.\":\".eval(v:val)'),' '),'').'\"')" : '""'
 endfun
-let [Qnrm["\e[15~"],Qnhelp['<f5>']]=[":let g:debug_on=!g:debug_on|ec g:debug_on? 'DEBUG ON' : 'DEBUG OFF'\<cr>","Toggle PRINT()"]
+let [Qnrm["\e[15~"],Qnhelp['<f5>']]=[":let g:db=!g:db|ec g:db? 'DEBUG ON' : 'DEBUG OFF'\<cr>","Toggle PRINT()"]
 
 let [pvft,pvftc]=[1,32]
 fun! Multift(x,c,i)
