@@ -70,6 +70,8 @@ let [Qnrm['+'],Qnhelp['.']]=[":later\<cr>",'later']
 
 let [Qnrm[','],Qnhelp[',']]=[":let q_num=line('.')|exe 'norm! dd}P'.q_num.'G'\<cr>",'Rotate line dn']
 let [Qnrm['.'],Qnhelp['.']]=[":let q_num=line('.')|exe 'norm! dd{p'.q_num.'G'\<cr>",'Rotate line up']
+let [Qvis.44,Qvhelp[',']]=["x}P\<c-o>","Rotate line dn"]
+let [Qvis.46,Qvhelp['.']]=["x{p\<c-o>k","Rotate line up"]
 
 let Pbrush={111:"norm! \<leftmouse>r○"}
 for i in [112,113,121,122,123,131,132,133,211,212,213,221,222,223,231,232,233,333]
