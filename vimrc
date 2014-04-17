@@ -148,8 +148,8 @@ com! Write call Writeroom()
 
 let g:db=1
 fun! PRINT(vars)
-	redr
-	return g:db? "exe eval('\"'.input(join(map(split('".a:vars."','|'),'v:val.\":\".eval(v:val)'),' '),'').'\"')" : '""'
+	redr!
+	return g:db? "exe eval('\"'.input('\n'.join(map(split('".a:vars."','|'),'v:val.\":\".string(eval(v:val))'),'\n'),'').'\"')" : '""'
 endfun
 let [Qnrm["\e[15~"],Qnhelp['<f5>']]=[":let g:db=!g:db|ec g:db? 'DEBUG ON' : 'DEBUG OFF'\<cr>","Toggle PRINT()"]
 
