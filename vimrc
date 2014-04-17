@@ -65,8 +65,8 @@ if has("gui_running")
 en
 let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 
-let [Qnrm['-'],Qnhelp[',']]=[":earlier\<cr>",'earlier']
-let [Qnrm['+'],Qnhelp['.']]=[":later\<cr>",'later']
+let [Qnrm['-'],Qnhelp['-']]=[":earlier\<cr>",'earlier']
+let [Qnrm['='],Qnhelp['=']]=[":later\<cr>",'later']
 
 let [Qnrm[','],Qnhelp[',']]=[":let q_num=line('.')|exe 'norm! dd}P'.q_num.'G'\<cr>",'Rotate line dn']
 let [Qnrm['.'],Qnhelp['.']]=[":let q_num=line('.')|exe 'norm! dd{p'.q_num.'G'\<cr>",'Rotate line up']
@@ -108,6 +108,7 @@ fun! Paint()
 endfun
 let Qnrm.c=":call Paint()\<cr>"
 let Qnhelp.c="canvas"
+
 
 nno U gUww
 
@@ -617,7 +618,7 @@ fun! LoadFormatting()
 	if options=~?'prose'
 		syntax region Bold matchgroup=Normal start=+\(\W\|^\)\zs\*\ze\w+ end=+\w\zs\*+ concealends
 		syntax region Underline matchgroup=Normal start=+\(\W\|^\)\zs\/\ze\w+ end=+\w\zs\/+ concealends
-		syntax region Label matchgroup=Normal start=+^txb:\zs+ end=+$+ concealends
+		syntax match Label +^txb\S*: \zs.[^#\n]*+ oneline display
 		setl noai
 		ino <buffer> <silent> <F6> <ESC>mt:call search("'",'b')<CR>x`ts
 		if options=~#'Prose' && g:opt_autocap
