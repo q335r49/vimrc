@@ -250,9 +250,9 @@ let [Qvis.67,Qvhelp.C]=["\"*y:let @*=substitute(@*,\" \\n\",' ','g')\<cr>","Copy
 let [Qvis.103,Qvhelp.g]=["y:\<c-r>\"","Copy to command line"]
 let [Qvis.115,Qvhelp.s]=["y/\<c-r>\"\<cr>","Search"]
 let Qvis.124=":\<c-u>let q_sav=[&fo,&tw]|let &tw=&tw-4|exe stridx(&fo,'a')==-1? '' : 'norm! gvgq'|let &fo=''|'<,'>norm! I  | \<cr>:let [&fo,&tw]=q_sav\<cr>"
-
 let Qnrm.default=":ec PrintDic(g:Qnhelp,28)\<cr>"
-let [Qnrm.f,Qnhelp.f]=[":ec search('^f\\S*\\ \\S*'.expand('<cword>').'(')\<cr>","Go to function"]
+let g:LASTFUNC=exists('g:LASTFUNC')? g:LASTFUNC : ''
+let [Qnrm.f,Qnhelp.f]=[":if g:q_count|call search('^f\\S*\\ \\S*'.g:LASTFUNC.'(')|exe 'norm! '.g:q_count.'j'|else|let g:LASTFUNC=expand('<cword>')|call search('^f\\S*\\ \\S*'.expand('<cword>').'(')|en\<cr>","Go to function"]
 let [Qnrm.F,Qnhelp.F]=[":if !&ls|se stal=2|se ls=2|else|se stal=0|se ls=0|en\n","Enable status & tab"]
 let [Qnrm[':'],Qnhelp[':']]=["q:","commandline normal"]
 let [Qnrm.i,Qnhelp.i]=[":se invlist\<cr>","List invisible chars"]
