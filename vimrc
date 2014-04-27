@@ -554,7 +554,7 @@ fun! New(class,...)
 endfun
 
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
-cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'up\|so%':'ws')
+cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'echom "========================== sourcing ".expand("%").": ".strftime("%c")." =========================="\|up\|so%' : 'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
 
 let g:charL=[]
