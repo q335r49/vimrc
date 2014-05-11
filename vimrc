@@ -204,7 +204,7 @@ vno Q q
 fun! QmenuKeyHandler(c)
 	let [&stal,&ls]=g:qmenuView[1:]
 	call winrestview(g:qmenuView[0])
-	echo strftime('%c').' <'.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.'>'
+	echo strftime('%r %x').' <'.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.'>'
 	if g:qmenuExitIfNoCycle
 		let g:qmenuExitIfNoCycle=0
 		if index(["\<c-i>"," ",'s','d','w','e',"\<c-w>",'M','m'],a:c)==-1
@@ -220,7 +220,7 @@ fun! Qmenu()
 	let g:q_count=v:count
 	let g:qmenuView=[winsaveview(),&stal,&ls]
 	let [g:qmenuView[0].topline,&stal,&ls]=[g:qmenuView[0].topline+!g:qmenuView[1],2,2]
-	ech strftime('%c').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
+	ech strftime('%r %x').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
 	cal winrestview(g:qmenuView[0])
 	redr
 	let g:qmenuView[0].topline=g:qmenuView[0].topline-!g:qmenuView[1]
@@ -234,7 +234,7 @@ fun! Qmenuv(count)
 	let g:q_count=v:count
 	let [view,stal]=[winsaveview(),&stal]
 	let [view.topline,&stal,&ls,ls]=[view.topline+!stal,1,2,&ls]
-	echo strftime('%c').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
+	echo strftime('%r %x').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
 	call winrestview(view)
 	redr
 	let [c,view.topline,&stal,&ls]=[getchar(),view.topline-!stal,stal,ls]
