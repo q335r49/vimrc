@@ -68,6 +68,9 @@ let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 let [Qnrm['-'],Qnhelp['-']]=[":earlier\<cr>",'earlier']
 let [Qnrm['='],Qnhelp['=']]=[":later\<cr>",'later']
 
+let QKX=exists('QKX')? QKX : 'to 25sp'
+nno <silent> <f3> :let qkx=QKX[0]=='1'? 'to '.winheight(1).'sp '.fnameescape(bufname(winbufnr(1))) : '1winc w\|q\|'.winnr().'winc w'\|exe QKX\|let QKX=qkx<cr>
+
 let [Qnrm[','],Qnhelp[',']]=[":let q_num=line('.')|exe 'norm! dd}P'.q_num.'G'\<cr>",'Rotate line dn']
 let [Qnrm['.'],Qnhelp['.']]=[":let q_num=line('.')|exe 'norm! dd{p'.q_num.'G'\<cr>",'Rotate line up']
 let [Qvis.44,Qvhelp[',']]=["x}P\<c-o>","Rotate line dn"]
@@ -204,7 +207,7 @@ vno Q q
 fun! QmenuKeyHandler(c)
 	let [&stal,&ls]=g:qmenuView[1:]
 	call winrestview(g:qmenuView[0])
-	echo strftime('%r %x').' <'.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.'>'
+	ec strftime('%r %x').' <'.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.'>'
 	if g:qmenuExitIfNoCycle
 		let g:qmenuExitIfNoCycle=0
 		if index(["\<c-i>"," ",'s','d','w','e',"\<c-w>",'M','m'],a:c)==-1
@@ -220,7 +223,7 @@ fun! Qmenu()
 	let g:q_count=v:count
 	let g:qmenuView=[winsaveview(),&stal,&ls]
 	let [g:qmenuView[0].topline,&stal,&ls]=[g:qmenuView[0].topline+!g:qmenuView[1],2,2]
-	ech strftime('%r %x').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
+	ec strftime('%r %x').' ['.g:LOGDIC[-1][1].(localtime()-g:LOGDIC[-1][0])/60.']'
 	cal winrestview(g:qmenuView[0])
 	redr
 	let g:qmenuView[0].topline=g:qmenuView[0].topline-!g:qmenuView[1]
