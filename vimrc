@@ -68,8 +68,8 @@ let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 let [Qnrm['-'],Qnhelp['-']]=[":earlier\<cr>",'earlier']
 let [Qnrm['='],Qnhelp['=']]=[":later\<cr>",'later']
 
-let QKX=exists('QKX')? QKX : 'to 25sp'
-nno <silent> <f3> :let qkx=QKX[0]=='1'? 'to '.winheight(1).'sp '.fnameescape(bufname(winbufnr(1))) : '1winc w\|q\|'.winnr().'winc w'\|exe QKX\|let QKX=qkx<cr>
+let QK=exists('QK')? QK : ':to 25sp'
+nn <silent> <expr> <f3> QK."\|let QK=':".(QK[1]=='1'? 'to'.winheight(1).'sb'.winbufnr(1)."'\n" : '1winc w\|q\|'.winnr()."winc w'\n")
 
 let [Qnrm[','],Qnhelp[',']]=[":let q_num=line('.')|exe 'norm! dd}P'.q_num.'G'\<cr>",'Rotate line dn']
 let [Qnrm['.'],Qnhelp['.']]=[":let q_num=line('.')|exe 'norm! dd{p'.q_num.'G'\<cr>",'Rotate line up']
