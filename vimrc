@@ -7,7 +7,6 @@ if !exists('opt_device')
 	echom "Warning: opt_device is undefined."
 	let opt_device=''
 en
-
 if opt_device=~?'cygwin'
 	no! <c-h> <left>
 	no! <c-j> <down>
@@ -22,9 +21,12 @@ if opt_device=~?'cygwin'
 	vno <c-v> "*p
 	no! <c-_> <c-w>
 	nno <c-_> db
-	let Viminfo_File= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings/viminfo'
+	let &t_ti.="\e[2 q"
+	let &t_SI.="\e[6 q"
+	let &t_EI.="\e[2 q"
+	let &t_te.="\e[0 q"
+	se noshowmode
 en
-
 if opt_device=~?'droid4'
 	set diffexpr=MyDiff()
 	fun! MyDiff()
@@ -42,11 +44,13 @@ if opt_device=~?'droid4'
 	exe "map \<c-v>\[19~ *" | exe "map! \<c-v>\[19~ *"
 	exe "map \<c-v>\[20~ (" | exe "map! \<c-v>\[20~ ("
 	exe "map \<c-v>\[21~ )" | exe "map! \<c-v>\[21~ )"
-	let Viminfo_File='/sdcard/q335writings/viminfo-d4'
 	let EscChar='@'
 	let opt_autocap=1
 	ino <c-b> <c-w>
 	nn <c-r> <nop>
+en
+if opt_device!~?'windows'
+	se term=screen-256color
 en
 if has("gui_running")
 	se guifont=Envy_Code_R:h11:cANSI
@@ -55,8 +59,21 @@ if has("gui_running")
 	hi Vertsplit guifg=grey15 guibg=grey15
 	se guioptions-=T
 en
-let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 
+se viminfo=!,'120,<100,s10,/50,:500,h
+se linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
+se ai tabstop=4 history=1000 mouse=a hidden backspace=2 stal=0 ls=0
+se wildmode=list:longest,full display=lastline modeline t_Co=256
+se whichwrap+=b,s,h,l,,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
+se fcs=vert:\  showbreak=.\ 
+se ttymouse=sgr
+se stl=%t\ %{getwinvar(0,'txbi','-').'\ '.line('w0')}-%l/%L\ %c%V
+
+if !exists('firstrun')
+	au BufReadPost * if &key != "" | set noswapfile nowritebackup viminfo= nobackup noshelltemp secure | endif
+en
+
+let [Qnrm,Qnhelp,Qvis,Qvhelp]=[{},{},{},{}]
 let [Qnrm['-'],Qnhelp['-']]=[":earlier\<cr>",'earlier']
 let [Qnrm['='],Qnhelp['=']]=[":later\<cr>",'later']
 
@@ -647,6 +664,18 @@ fun! LoadFormatting()
 	en
 endfun
 
+if !exists('firstrun')
+	au BufRead * call LoadFormatting()
+	au BufNewFile plane* exe "norm! iProse hardwrap60\<esc>500o\<esc>gg" | call LoadFormatting()
+	if !argc() && filereadable('.lastsession')
+		if !has('gui_running')
+	 		so .lastsession
+		else
+			so .lastsession-gvim
+		en
+	en
+en
+
 fun! CIcompare(a,b)
 	return toupper(a:a)<toupper(a:b)? -1:1
 endfun
@@ -1203,52 +1232,6 @@ fun! InitFileList(list) dict
 	let self.prune=function('FileListPrune')
 endfun
 
-if !exists('firstrun')
-	let firstrun=0
-	let setViExpr="se viminfo=!,'120,<100,s10,/50,:500,h,n"
-	if !exists('g:Viminfo_File')
-		ec "Warning: g:Viminfo_File undefined, falling back to default"
-		exe setViExpr[:-3]
-	else
-"		let viminfotime=strftime("%Y-%m-%d-%H-%M-%S",getftime(glob(g:Viminfo_File)))
-"		let conflicts=sort(split(glob(g:Viminfo_File.' (conflicted*'),"\n"))
-"		let latest_date=matchstr(get(conflicts,-1,''),'conflicted copy \zs.*\ze)')
-"		if !empty(latest_date) && latest_date>viminfotime && input("\nCurrent viminfo (".viminfotime.") older than ".conflicts[-1]."; load latter instead? (y/n)")=~?'^y'
-"			echo "Loading" conflicts[-1] "...\nUse :wv to overrite current viminfo."
-"			exe setViExpr.conflicts[-1]
-"		else
-			exe setViExpr.g:Viminfo_File
-"		en
-	en
-	se linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
-	se ai tabstop=4 history=1000 mouse=a hidden backspace=2 stal=0 ls=0
-	se wildmode=list:longest,full display=lastline modeline t_Co=256
-	se whichwrap+=b,s,h,l,,>,~,[,] wildmenu sw=4 hlsearch listchars=tab:>\ ,eol:<
-	se fcs=vert:\  showbreak=.\ 
-    se ttymouse=sgr
-	se stl=%t\ %{getwinvar(0,'txbi','-').'\ '.line('w0')}-%l/%L\ %c%V
-	if opt_device!~?'windows'
-		se term=screen-256color
-	en
-	if opt_device=~?'cygwin'
-		let &t_ti.="\e[2 q"
-		let &t_SI.="\e[6 q"
-		let &t_EI.="\e[2 q"
-		let &t_te.="\e[0 q"
-		se noshowmode
-	en
-	au BufRead * call LoadFormatting()
-	au BufReadPost * if &key != "" | set noswapfile nowritebackup viminfo= nobackup noshelltemp secure | endif
-	au BufNewFile plane* exe "norm! iProse hardwrap60\<esc>500o\<esc>gg" | call LoadFormatting()
-	if !argc() && filereadable('.lastsession')
-		if !has('gui_running')
-	 		so .lastsession
-		else
-			so .lastsession-gvim
-		en
-	en
-	unlet! i conflicts file latest_date setViExpr viminfotime
-en
 
 fun! <SID>G(count)
 	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')+1,1)+search('\S\s*\n\s*\n\s*\n\s*\n\s*\n\s*\n','W')? line('.') : line('$')]
@@ -3001,3 +2984,7 @@ let txbCmd={'S':"let mes=''\ncall call('s:settingsPager',exists('w:txbi')? [t:tx
 		\cd -",
 	\'r':"call s:redraw(1)|redr|let mes='Redraw complete'"}
 call extend(txbCmd,{"\<right>":txbCmd.l,"\<left>":txbCmd.h,"\<down>":txbCmd.j,"\<up>":txbCmd.k,"\e":txbCmd.q})
+
+
+
+let firstrun=0
