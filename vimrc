@@ -1,12 +1,13 @@
 se noloadplugins
 
 let opt_autocap=0
+se ttimeoutlen=10
+
 if !exists('opt_device')
 	echom "Warning: opt_device is undefined."
-	let opt_device='' | en
-if opt_device=~?'windows'
-	let Working_Dir='C:\Users\q335r49\Desktop\Dropbox\q335writings'
-	let Viminfo_File='C:\Users\q335r49\Desktop\Dropbox\q335writings\viminfo' | en
+	let opt_device=''
+en
+
 if opt_device=~?'cygwin'
 	no! <c-h> <left>
 	no! <c-j> <down>
@@ -22,16 +23,8 @@ if opt_device=~?'cygwin'
 	no! <c-_> <c-w>
 	nno <c-_> db
 	let Viminfo_File= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings/viminfo'
-	let Working_Dir= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings' | en
-	se ttimeoutlen=10
-if opt_device=~?'notepad'
-	se noswapfile
-	nno <c-s> :wa<cr>
-	nno <c-w> :wqa<cr>
-	nno <c-v> "*p
-	nno <c-q> <c-v>
-	let Viminfo_File= '/cygdrive/c/Documents\ and\ Settings/q335r49/Desktop/Dropbox/q335writings/viminfo-notepad'
 en
+
 if opt_device=~?'droid4'
 	set diffexpr=MyDiff()
 	fun! MyDiff()
@@ -50,7 +43,6 @@ if opt_device=~?'droid4'
 	exe "map \<c-v>\[20~ (" | exe "map! \<c-v>\[20~ ("
 	exe "map \<c-v>\[21~ )" | exe "map! \<c-v>\[21~ )"
 	let Viminfo_File='/sdcard/q335writings/viminfo-d4'
-	let Working_Dir='/sdcard/q335writings'
 	let EscChar='@'
 	let opt_autocap=1
 	ino <c-b> <c-w>
@@ -709,7 +701,6 @@ fun! WriteViminfo(file,...)
 		endfor
 	en
 	if a:file==#'exit'  "curdir is necessary to retain relative path
-		exe 'cd '.g:Working_Dir
 		se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
 		if argc()
 			argd *
@@ -1282,24 +1273,8 @@ fun! InitFileList(list) dict
 	let self.prune=function('FileListPrune')
 endfun
 
-
 if !exists('firstrun')
 	let firstrun=0
-	if !exists('Working_Dir')
-		ec 'Warning: g:Working_Dir undefined; using '.$HOME
-		let Working_Dir=$HOME
-	elseif !isdirectory(glob(Working_Dir))
-		ec 'Warning: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME
-		let Working_Dir=$HOME
-	en
-	for file in ['abbrev']   "+utils
-		if !empty(glob(Working_Dir.'/'.file))
-			exe 'so '.Working_Dir.'/'.file
-		el
-			ec 'Warning:' Working_Dir.'/'.file 'doesn''t exist'
-		en
-	endfor
-	if !argc() | exe 'cd '.Working_Dir | en
 	let setViExpr="se viminfo=!,'120,<100,s10,/50,:500,h,n"
 	if !exists('g:Viminfo_File')
 		ec "Warning: g:Viminfo_File undefined, falling back to default"
@@ -1331,7 +1306,8 @@ if !exists('firstrun')
 		let &t_SI.="\e[6 q"
 		let &t_EI.="\e[2 q"
 		let &t_te.="\e[0 q"
-	se noshowmode | en
+		se noshowmode
+	en
 	au BufRead * call LoadFormatting()
 	au BufReadPost * if &key != "" | set noswapfile nowritebackup viminfo= nobackup noshelltemp secure | endif
 	au BufNewFile plane* exe "norm! iProse hardwrap60\<esc>500o\<esc>gg" | call LoadFormatting()
