@@ -119,13 +119,6 @@ fun! RAND()
 	return g:seed
 endfun
 
-fun! WWGoPar(count,dir)
-	for i in range(a:count)
-		let NUL=a:dir? search('\S\n\s*.\|\n\s*\n\s*.\|\%^','Wbe') : cursor(line('.'),col('.')+1)+search('\S\n\|\s\n\s*\n\|\%$','W')
-	endfor
-	return setpos("'t",[0,line('.'),col('.'),0])? "\<esc>" : "`t"
-endfun
-
 fun! NormG(count)
 	let [mode,line]=[mode(1),a:count? a:count : cursor(line('.')+1,1)+search('\S\s*\n\s*\n\s*\n\s*\n\s*\n\s*\n','W')? line('.') : line('$')]
 	return (mode=='no'? "\<esc>0".v:operator : mode==?'v'? "\<esc>".mode : "\<esc>").line.'G'.(mode=='v'? '$' : '')
@@ -136,16 +129,6 @@ fun! Normgg(count)
 endfun
 no <expr> G NormG(v:count)
 no <expr> gg Normgg(v:count)
-
-fun! Writeroom(...)
-	let margin=a:0? a:1 : input("margin: ", &tw? max([(&columns-&tw-3)/2,10]) : 25)
-	if margin
-		only
-		exe 'topleft'.margin.'vsp blank'
-		wincmd l
-	en
-endfun
-com! Write call Writeroom()
 
 let g:db=1
 fun! PRINT(vars)
@@ -557,6 +540,13 @@ endfun
 cnorea <expr> we ((getcmdtype()==':' && getcmdpos()<4)? 'w\|e' :'we')
 cnorea <expr> ws ((getcmdtype()==':' && getcmdpos()<4)? 'echom "========================== sourcing ".expand("%").": ".strftime("%c")." =========================="\|up\|so%' : 'ws')
 cnorea <expr> wd ((getcmdtype()==':' && getcmdpos()<4)? 'w\|bd':'wd')
+
+fun! WWGoPar(count,dir)
+	for i in range(a:count)
+		let NUL=a:dir? search('\S\n\s*.\|\n\s*\n\s*.\|\%^','Wbe') : cursor(line('.'),col('.')+1)+search('\S\n\|\s\n\s*\n\|\%$','W')
+	endfor
+	return setpos("'t",[0,line('.'),col('.'),0])? "\<esc>" : "`t"
+endfun
 
 let g:charL=[]
 fun! CapWait(prev)
