@@ -726,14 +726,577 @@ fun! WriteViminfo(file,...)
 		wv! |en
 endfun
 
+fun! CIcompare(a,b)
+	return toupper(a:a)<toupper(a:b)? -1:1
+endfun
+fun! MyCompare(i1, i2)
+   return a:i1 == a:i2 ? 0 : a:i1 > a:i2 ? 1 : -1
+endfunc
+fun! PagerSearch() dict
+	let self.searchterm=input('Search: ',self.searchterm)
+	let match=match(self.type==3? self.L : self.Lkeys,self.searchterm,self.cursor+1)
+	if match==-1 | let match=match(self.type==3? self.L : self.Lkeys,self.searchterm) | en
+	if match!=-1 | let self.cursor=match | en
+endfun
+fun! PagerEval() dict
+	let ix=self.type==4? self.Lkeys[self.cursor] : self.cursor
+	let self.L[ix]=eval(self.L[ix])
+endfun
+fun! PagerPrint() dict
+	if self.type==3
+		echon "\n" join(map(range(self.offset,self.offset+&lines-2),'(v:val<0 || v:val>='.len(self.L).')? "" : (('.self.cursor.'==v:val? ">":" ").'.(self._shownum? 'v:val.' : '').'(type(self.L[v:val])>1? string(self.L[v:val]) : self.L[v:val]))[:&columns-4]'),"\n") "\n" self.cursor ' / ' len(self.L)
+	else
+		echon "\n" join(map(range(self.offset,self.offset+&lines-2),'(v:val<0 || v:val>='.len(self.L).')? "" : (('.self.cursor.'==v:val? ">":" ").self.Lkeys[v:val]." ".(type(self.L[self.Lkeys[v:val]])>1? string(self.L[self.Lkeys[v:val]]) : self.L[self.Lkeys[v:val]]))[:&columns-4]'),"\n") "\n"
+	en
+endfun
+fun! PagerT() dict
+	let self.cursor=0
+endfun
+fun! PagerG() dict
+	let self.cursor=len(self.L)-1
+endfun
+fun! PagerA() dict
+	if self.type==4 | call self.dictchange() | return | en
+	let in=input("Append: ")
+	if !empty(in)
+		call add(self.L,in)
+		let self.cursor=len(self.L)-1 |en
+endfun
+fun! Pageri() dict
+	if self.type==4 | call self.dictchange() | return | en
+	let in=input("Insert before: ")
+	if !empty(in)
+		if len(self.L)==0
+			call insert(self.L,in)
+			let self.cursor==0
+		el| call insert(self.L,in,self.cursor) |en
+	en
+endfun
+fun! Pagera() dict
+	if self.type==4 | call self.dictchange() | return | en
+	let in=input("Insert after: ")
+	call insert(self.L,in,self.cursor+1)
+	let self.cursor+=1
+endfun
+fun! PagerDictChange() dict
+	let key=input("Enter key: ",self.Lkeys[self.cursor])
+	if has_key(self.L,key)
+		let self.L[key]=input("Change: ",type(self.L[key])>1? string(self.L[key]):self.L[key])
+		let self.cursor=match(self.Lkeys,'^'.key.'$')
+	el| let self.L[key]=input("New: ")
+		call add(self.Lkeys,key)
+		let self.cursor=len(self.Lkeys)-1 |en
+endfun
+fun! Pagerq() dict
+	let self.ent=g:EscAsc
+endfun
+fun! PagerDictPaste()
+	let key=input("Enter key: ",self.Lkeys[self.cursor])
+	if has_key(self.L,key)
+		if input("Overwrite existing key?(y/n)")==?'y'
+			let self.L[key]=@"	
+		en
+		let self.cursor=match(self.Lkeys,'^'.key.'$')
+	el| let self.L[key]=@"
+		call add(self.Lkeys,key)
+		let self.cursor=len(self.Lkeys)-1 |en
+endfun
+fun! Pagerp() dict
+	if self.type==3
+		call insert(self.L,@",self.cursor+1)
+		let self.cursor+=1
+	el| call self.dictpaste() | en
+endfun
+fun! PagerP() dict
+	if self.type==4 | call self.dictpaste() | return | en
+	if len(self.L)==0
+		call insert(self.L,@",self.cursor+1)
+		let self.cursor+=1
+	el| call insert(self.L,@",self.cursor) |en
+endfun
+fun! Pagerm() dict
+	let ix=self.type==4? self.Lkeys[self.cursor] : self.cursor
+	if type(self.L[ix])<=1
+		if self.L[ix][:1]=='x '
+			let self.L[ix]='+ '.self.L[ix][2:]
+		elseif self.L[ix][:1]=='+ '
+			let self.L[ix]=self.L[ix][2:]
+		el | let self.L[ix]='x '.self.L[ix] |en
+	en
+endfun
+fun! Pagerc() dict
+	if self.type==3
+		let ix=self.cursor
+		let in=input("Change: ",type(self.L[ix])>1? string(self.L[ix]) : self.L[ix])
+		if !empty(in) | let self.L[ix]=in | en
+	el| let ix=self.Lkeys[self.cursor]
+		let in=input("Change key: ")
+		if !empty(in)
+			let self.L[in]=self.L[ix]
+			unlet self.L[ix]
+			let self.Lkeys=keys(self.L)
+		en
+	en
+endfun
+fun! Pagerj() dict
+	if self.cursor<len(self.L)-1 | let self.cursor+=1 | en
+endfun
+fun! Pagerk() dict
+	if self.cursor>0 | let self.cursor-=1 | en
+endfun
+fun! Pagery() dict
+	if self.type==3
+		let @"=type(self.L[self.cursor])>1? string(self.L[self.cursor]) : self.L[self.cursor]
+	else
+		let @"=type(self.L[self.Lkeys[self.cursor]]])>1? string(self.L[self.Lkeys[self.cursor]]) : self.L[self.Lkeys[self.cursor]]
+	en
+endfun
+fun! Pagerx() dict
+	let ix=self.type==4? self.Lkeys[self.cursor] : self.cursor
+	let @"=type(self.L[ix])%5>1? string(self.L[ix]) : self.L[ix]
+	unlet self.L[ix]
+	if self.type==4
+		unlet self.Lkeys[self.cursor]
+	en
+	if self.cursor==len(self.L) | let self.cursor=len(self.L)-1 | en
+endfun
+fun! PagerSetCursor(pos) dict
+	let self.cursor=a:pos	
+	let self.offset=self.cursor<self.offset? self.cursor : self.cursor>self.offset+&lines-2? self.cursor-&lines+2 : self.offset
+endfun
+fun! PagerShow() dict
+	let self.ent=''
+	let moresave=&more
+	se nomore
+	call self.print()
+	while self.ent!=g:EscAsc
+		let self.ent=getchar()
+		if has_key(self,self.ent)
+			call self[self.ent]()
+			let self.offset=self.cursor<self.offset? self.cursor : self.cursor>self.offset+&lines-2? self.cursor-&lines+2 : self.offset
+			call self.print()
+		elseif self.ent!=g:EscAsc
+			ec PrintDic(self.helpD,18)
+		en
+	endw
+	redr! | let &more=moresave
+endfun
+fun! InitPager(list) dict
+	let self.L=a:list
+	let self.type=type(a:list)
+	if self.type==4
+		let self.Lkeys=sort(keys(self.L),"CIcompare")
+	elseif self.type!=3
+		echoerr "Must be list or dictionary!"
+		return | en
+	let self.helpD={}
+	let self.cursor=0
+	let self.offset=0
+	let self.searchterm=''
+	let self._shownum=0
+	let self.setcursor=function('PagerSetCursor')
+	let self.show=function('PagerShow')
+	let self.print=function('PagerPrint')
+	let self.dictchange=function('PagerDictChange')
+	let self.dictpaste=function('PagerDictPaste')
+	let [self.107,self.helpD.k]=[function('Pagerk'),'cursor up']
+	let [self.106,self.helpD.j]=[function('Pagerj'),'cursor down']
+	let [self.113,self.helpD.q]=[function('Pagerq'),'quit']
+	let [self.84,self.helpD.T]=[function('PagerT'),'goto top']
+	let [self.120,self.helpD.x]=[function('Pagerx'),'delete']
+	let [self.47,self.helpD['/']]=[function('PagerSearch'),'search']
+	let [self.121,self.helpD.y]=[function('Pagery'),'yank']
+	let [self.69,self.helpD.E]=[function('PagerEval'),'Eval']
+	let [self.71,self.helpD.G]=[function('PagerG'),'goto end']
+	let [self.99,self.helpD.c]=[function('Pagerc'),'change']
+	let [self.109,self.helpD.m]=[function('Pagerm'),'mark']
+	let [self.105,self.helpD.i]=[function('Pageri'),'insert']
+	let [self.79,self.helpD.O]=[function('Pageri'),'insert']
+	let [self.65,self.helpD.A]=[function('PagerA'),'append to end']
+	let [self.97,self.helpD.a]=[function('Pagera'),'append']
+	let [self.111,self.helpD.o]=[function('Pagera'),'append']
+	let [self.80,self.helpD.P]=[function('PagerP'),'paste before']
+	let [self.112,self.helpD.p]=[function('Pagerp'),'paste after']
+endfun
+
+let s:pagerhlarray={0:'echohl visual',1:'echohl none'}
+fun! LogPrint() dict
+	echon "\n"
+	let loct=[localtime()]
+	let sftexpr='printf("%%2d%%s%d %%2d:%M%%s %%4.1f %%.'.(&columns-20).'s",%m,"smtwrfa"[%w],%I,tolower("%p"[0]),(get(self.L,i+1,loct)[0]-self.L[i][0])/3600.0,self.L[i][1])'
+	for i in range(max([0,self.offset]),min([len(self.L)-1,self.offset+&lines-2]))
+		exe get(s:pagerhlarray,i-self.cursor,'')
+		echo eval(strftime(sftexpr,self.L[i][0]))
+	endfor
+	echohl None
+	echon repeat("\n",self.offset+&lines-len(self.L))
+	echo strftime('%c',localtime()) self.cursor '/' (len(self.L)-1)
+endfun
+fun! LogChange() dict
+	let in=input('Change: ',self.L[self.cursor][1])
+	if !empty(in) | let self.L[self.cursor][1]=in | en
+endfun
+fun! LogStill() dict
+	let self.L[len(self.L)-1][0]=localtime()
+	let self.cursor=len(self.L)-1
+endfun
+fun! LogInsert() dict
+	if len(self.L)==0 | let time=localtime()
+	el| let time=self.L[self.cursor][0] |en
+	let in=input('Insert: ')
+	if !empty(in) | call insert(self.L,[time,in],self.cursor) | en
+endfun
+fun! LogAppend(...) dict
+	let in=input('Append: '.strftime('%m.%d %I:%M ',localtime()).'0m ')
+	if !empty(in)
+		call insert(self.L,[localtime(),in],len(self.L))
+		let self.cursor=len(self.L)-1
+			if self.cursor<self.offset
+				let self.offset=self.cursor
+			elseif self.cursor>self.offset+&lines-2
+				let self.offset=self.cursor-&lines+2
+			endif
+		en
+endfun
+fun! LogBkmrk() dict
+	let sepix=stridx(self.L[self.cursor][1],' | ')
+	if sepix==-1 | let self.L[self.cursor][1].=' | '.line('.').' '.expand('%')
+	el| let self.L[self.cursor][1]=self.L[self.cursor][1][:sepix-1] | en
+endfun
+fun! Logx() dict
+	if len(self.L)>1 | call remove(self.L,self.cursor) | en
+	if self.cursor==len(self.L) | let self.cursor=len(self.L)-1 | en
+endfun
+fun! LogGomrk() dict
+	let linenr=stridx(self.L[self.cursor][1],' | ')
+	let name=stridx(self.L[self.cursor][1],' ',linenr+3)
+	if linenr!=-1 && name!=-1
+		let name=self.L[self.cursor][1][name+1:]
+		let linenr=self.L[self.cursor][1][linenr+3:name-1]
+		if glob(name)!=#glob('%') | exe 'e '.name | en
+		call cursor(linenr,0) | norm! zz
+	en
+endfun
+fun! IncMin() dict
+	let self.L[self.cursor][0]+=60
+endfun
+fun! DecMin() dict
+	let self.L[self.cursor][0]-=60
+endfun
+fun! IncHour() dict
+	let self.L[self.cursor][0]+=3660
+endfun
+fun! DecHour() dict
+	let self.L[self.cursor][0]-=3660
+endfun
+fun! PrintChart() dict
+	let wd=&columns-15-(&columns-15)%4
+	let offset=(localtime()-eval(strftime("%H*3600+%M*60+%S")))%86400
+	let initm=self.L[0][0]-(self.L[0][0]-offset)%86400
+	let tline=repeat('.',(self.L[0][0]-initm)*wd/86400)
+	let marker='-'
+	let histL=[[initm,0]]
+	for i in range(len(self.L)-1)
+		let endm=self.L[i+1][0]-(self.L[i+1][0]-offset)%86400
+		let tline.=repeat(self.L[i][1][0],(self.L[i+1][0]-initm)*wd/86400-len(tline))
+		if self.L[i][1][0]!=marker | continue | en
+		let startm=self.L[i][0]-(self.L[i][0]-offset)%86400
+		if startm==histL[-1][0]
+			let histL[-1][1]+=min([self.L[i+1][0],startm+86400])-self.L[i][0]
+		el| if startm>histL[-1][0]+86400
+				call extend(histL,map(range(histL[-1][0]+86400,startm-86400,86400),'[v:val,0]')) |en 
+			call add(histL,[startm,min([self.L[i+1][0],startm+86400])-self.L[i][0]]) |en
+		if endm>startm
+			if endm>startm+86400
+				call extend(histL,map(range(startm+86400,endm-86400,86400),'[v:val,86400]'))|en
+			call add(histL,[endm,self.L[i+1][0]-endm]) |en
+	endfor
+	let tline.=repeat(self.L[-1][1][0],(localtime()-initm)*wd/86400-len(tline))
+	let [startm,endm]=self.L[-1][1][0]==marker? 
+	\[self.L[-1][0]-(self.L[-1][0]-offset)%86400,localtime()-(localtime()-offset)%86400]
+	\:[localtime()-(localtime()-offset)%86400,0]
+ 	let extendval=(self.L[-1][1][0]==marker)*86400
+	if startm==histL[-1][0]
+ 		if extendval
+			let histL[-1][1]+=min([localtime(),startm+86400])-self.L[-1][0] |en
+	el| if startm>histL[-1][0]+86400
+			call extend(histL,map(range(histL[-1][0]+86400,startm-86400,86400),'[v:val,extendval]')) |en 
+		call add(histL,[startm,(self.L[-1][1][0]==marker)*(min([localtime(),startm+86400])-self.L[-1][0])]) |en
+	if endm>startm
+		if endm>startm+86400
+			call extend(histL,map(range(startm+86400,endm-86400,86400),'[v:val,extendval]'))|en
+		call add(histL,[endm,(self.L[-1][1][0]==marker)*(localtime()-endm)]) |en
+	echon "\n\n" join(map(histL,'eval(strftime("printf(\"%%d%%s%d%%2d:%%02d \",%m,\"SMTWRFA\"[%w],v:val[1]/3600,v:val[1]/60%%60)",v:val[0])).tline[v:key*wd : v:key*wd+wd/4-1]." ".tline[v:key*wd+wd/4:v:key*wd+wd/2-1]." ".tline[v:key*wd+wd/2: v:key*wd+3*wd/4-1]." ".tline[v:key*wd+3*wd/4:(v:key+1)*wd-1]'),"\n") "\n Press any key to continue"
+	call getchar()
+endfun
+fun! LogClear() dict
+	if input("Type 'clear' to clear log: ")==?'clear'
+		unlet self.L[:]
+		call add(self.L,[localtime(),'-'])
+		call self.cons()
+	en
+endfun
+fun! InitLog(...) dict
+	let self.supercons=function('InitPager')
+	if a:0==0
+		if has_key(self,'L') | call self.supercons(self.L)
+		el| call self.supercons([[localtime(),'-']]) |en
+	el| call self.supercons(a:1) | en
+	let self.columns=&columns
+	let self.print=function('LogPrint')
+	let [self.65,self.helpD.A]=[function('LogAppend'),'Append']
+	let [self.105,self.helpD.i]=[function('LogInsert'),'insert']
+	let [self.115,self.helpD.s]=[function('LogStill'),'still']
+	let [self.103,self.helpD.g]=[function('LogGomrk'),'goto bookmark']
+	let [self.98,self.helpD.b]=[function('LogBkmrk'),'bookmark']
+	let [self.99,self.helpD.c]=[function('LogChange'),'change']
+	let [self.97,self.helpD.a]=[function('LogAppend'),'Append']
+	let [self.111,self.helpD.o]=[function('LogAppend'),'Append']
+	let [self.120,self.helpD.x]=[function('Logx'),'delete']
+	let [self.79,self.helpD.O]=[function('LogInsert'),'insert']
+	let [self.40,self.helpD['{']]=[function('DecMin'),'minute--']
+	let [self.41,self.helpD['}']]=[function('IncMin'),'minute++']
+	let [self.123,self.helpD['(']]=[function('DecHour'),'hour--']
+	let [self.125,self.helpD[')']]=[function('IncHour'),'hour++']
+	let [self.112,self.helpD.p]=[function('PrintChart'),'print chart']
+	let [self.67,self.helpD.C]=[function('LogClear'),'Clear Log']
+	unlet! self.69 self.helpD.E self.80 self.helpD.P
+endfun
+
+fun! Nestedl() dict      "+ + + + Nested + + + +
+	if self.type==3
+		if '111001'[type(self.L[self.cursor])] | retu|en
+		call add(self.cursorpath,self.cursor)
+		call add(self.displaypath,self.cursor)
+		call add(self.lengthpath,len(self.L)-self.offset)
+		call self.reroot(self.L[self.cursor])
+	elseif self.type==4
+		if '111001'[type(self.L[self.Lkeys[self.cursor]])] | retu|en
+		cal add(self.cursorpath,"'".self.Lkeys[self.cursor]."'")
+		call add(self.displaypath,self.cursor)
+		call add(self.lengthpath,len(self.Lkeys)-self.offset)
+		cal self.reroot(self.L[self.Lkeys[self.cursor]])
+	el| retu|en
+	let pfexpr="%-".(self.depth*9).".".(self.depth*9)."s"
+	call add(self.pathec,range(&lines-1))
+	for i in range(len(self.ec))
+		let self.pathec[-1][i]=printf(pfexpr,self.pathec[-2][i]).self.ec[i]
+	endfor
+	for i in range(len(self.ec),&lines-2)
+		let self.pathec[-1][i]=self.pathec[-2][i]
+	endfor
+	cal add(self.offsetpath,self.offset)
+	let [self.cursor,self.offset]=has_key(self.historyD,join(self.cursorpath))? self.historyD[join(self.cursorpath)][0]<len(self.L)?  self.historyD[join(self.cursorpath)] : [0,0] : [0,0]
+	let self.depth+=1
+endfun
+fun! Nestedh() dict
+	if self.depth>0
+		let entryname=join(self.cursorpath)
+		let self.historyD[entryname]=[self.cursor,self.offset]
+		let [self.cursor, self.offset]=[remove(self.cursorpath,-1),remove(self.offsetpath,-1)]
+		call remove(self.displaypath,-1)
+		call remove(self.lengthpath,-1)
+		call remove(self.pathec,-1)
+		let self.depth-=1
+		cal self.reroot(self.depth==0? self.root : eval('self.root['.join(self.cursorpath,'][').']'))
+		if self.type==4 | let self.cursor=match(self.Lkeys,'^'.self.cursor[1:-2].'$') |en
+	en
+endfun
+fun! Nestedc() dict
+	if self.type==3
+		let ix=self.cursor
+		let in=input("Change: ",type(self.L[ix])>1? string(self.L[ix]) : self.L[ix])
+		if !empty(in) | let self.L[ix]=in | en
+	el| let ix=self.Lkeys[self.cursor]
+		let in=input('New name: ',ix)
+		if !empty(in)
+			if in!=#ix
+				let self.L[in]=self.L[ix]
+				unlet self.L[ix]
+				let self.Lkeys=sort(keys(self.L))
+			en
+			let self.L[in]=input('New value: ',type(self.L[in])>1? string(self.L[in]) : self.L[in])
+		en
+	en
+endfun
+fun! NestedPrint() dict
+	let cursorline=self.cursor-(self.offset>0? self.offset : 0)
+	if self.prevdisp!=[self.offset,self.depth] || (self.ent!=106 && self.ent!=107)
+		let self.ec=map(range(self.offset>0? self.offset : 0,min([len(self.L)-1,self.offset+&lines-2])),self.type==3? (self._shownum? 'v:val." ".' : "").'strtrans(string(self.L[v:val]))' : 'self.Lkeys[v:val]." ".strtrans(string(self.L[self.Lkeys[v:val]]))')
+		let trml=max([self.depth*9+9-&columns+2+min([max(map(range(len(self.ec)),'len(self.ec[v:val])')),&columns/2]),0])
+		let self.pathw=self.depth*9-trml
+		let self.disp1=map(range(len(self.ec)),'(printf("%-'.self.pathw.'.'.self.pathw.'s",strpart(self.pathec[-1][v:val],'.trml.','.self.pathw.')).self.ec[v:val])[:'.(&columns-3).']."\n"')
+		if len(self.ec)<&lines-1
+			call extend(self.disp1,map(range(len(self.ec),&lines-2),'strpart(self.pathec[-1][v:val],'.trml.','.(&columns-2).')."\n"'))
+		en
+	en
+	let self.prevdisp=[self.offset,self.depth]
+	if self.pathw<1
+		echon "\n".join(self.disp1[:cursorline-1],"")
+		echohl visual
+		echon self.disp1[cursorline]
+		echohl none
+		echon join(self.disp1[cursorline+1:],"")
+	el
+		let bytecount=range(len(self.disp1)+1)
+		for i in range(1,len(self.disp1))
+			let bytecount[i]=bytecount[i-1]+len(self.disp1[i-1])
+		endfor
+		let pathL=-self.pathw/9-(self.pathw%9!=0)
+		let pos=self.displaypath[pathL]-self.offsetpath[pathL]
+		let [length,broken]=[(self.pathw-1)%9+1,0]
+		for j in range(pathL+1,-1)
+			if pos>self.lengthpath[j]	
+				let length+=9
+			else
+				let broken=1
+				break
+			en
+		endfor
+		let colorsplits=[0,bytecount[pos],!broken && pos>=len(self.L)-self.offset? bytecount[pos+1]-1 : min([bytecount[pos+1]-1,bytecount[pos]+length])]
+		if pathL<-1
+			for i in range(pathL+1,-1)
+				let pos=self.displaypath[pathL-i]-self.offsetpath[pathL-i]
+				let entry=bytecount[pos]+(self.pathw-1)%9-9*i-8
+				let [length,broken]=[9,0]
+				for j in range(i+1,-1)
+					if pos>self.lengthpath[j]	
+						let length+=9
+					else
+						let broken=1
+						break
+					en
+				endfor
+				call extend(colorsplits,[entry,!broken && pos>=len(self.L)-self.offset? bytecount[pos+1]-1 : min([bytecount[pos+1]-1,entry+length])])
+			endfor
+		en
+		call extend(colorsplits,[bytecount[cursorline]+self.pathw,bytecount[cursorline+1],bytecount[-1]])
+		let self.ecstr=join(self.disp1,'')
+		for i in range(1,len(sort(colorsplits,"MyCompare"))-1)
+			exe i%2? 'echohl none' : 'echohl visual'
+			echon self.ecstr[colorsplits[i-1]:colorsplits[i]-1]
+		endfor
+	en
+endfun
+fun! Reroot(list) dict
+	let self.L=a:list
+	let self.type=type(self.L)
+	if self.type==4
+		let self.Lkeys=sort(keys(self.L),"CIcompare")
+	elseif self.type!=3
+		echoerr "Must be list or dictionary!"
+	en
+endfun
+fun! InitNestedList(...) dict
+	let self.supercons=function('InitPager')
+	call self.supercons(a:0>0? (a:1) : exists('self.root')? self.root : [])
+	if a:0>1
+		let self.cursor=a:2
+		let self.offset=max([0,self.cursor-&lines+2])
+	en
+	let self.cursorpath=[]
+	let self.displaypath=[]
+	let self.lengthpath=[]
+	let self.offsetpath=[]
+	let self.pathec=[repeat([''],&lines-1)]
+	let self.prevdisp=[-99,-99]
+	let [self.99,self.helpD.c]=[function('Nestedc'),'change']
+	let [self.108,self.helpD.l]=[function('Nestedl'),'expand']
+	let [self.104,self.helpD.h]=[function('Nestedh'),'collapse']
+	let self.reroot=function('Reroot')
+	let self.print=function('NestedPrint')
+	let self.root=self.L
+	let self.historyD={}
+	let self.depth=0
+endfun
+
+fun! Comp3(i1,i2)   "* * * * Recent Files * * * *
+	return g:thisdict[a:i2][3]-g:thisdict[a:i1][3]
+endfun
+fun! FileListInsert(name,lnum,cnum,w0) dict
+	if !empty(a:name) && a:name!~escape($VIMRUNTIME,'\') && !isdirectory(a:name)
+		if !has_key(self.L,a:name) | call insert(self.Lkeys,a:name) | en
+		let self.L[a:name]=[a:lnum,a:cnum,a:w0,localtime()]
+	en
+endfun
+fun! FileListLoad(file) dict
+	let pos=get(self.L,a:file,[])
+	if !empty(pos)
+		exe "norm! ".pos[2]."z\<cr>".(pos[0]>pos[2]? (pos[0]-pos[2]).'j':'').pos[1].'|'
+	en
+endfun
+fun! FileListPrune(num) dict
+	if len(self.L)<a:num+20
+		return | en
+	let keys=keys(self.L)
+	let cutoff=sort(map(copy(keys),"self.L[v:val][3]"))[a:num]
+	for i in keys
+		if self.L[i][3]>cutoff	
+			unlet self.L[i]
+		en
+		let self.Lkeys=keys(self.L)
+	endfor
+endfun
+fun! FileListEd() dict
+	exe 'e '.escape(self.Lkeys[self.cursor],' ')
+	let self.ent=g:EscAsc
+endfun
+fun! FileListTabe() dict
+	exe 'tabe '.escape(self.Lkeys[self.cursor],' ')
+	let self.ent=g:EscAsc
+endfun
+fun! FileListSortName() dict
+	call sort(self.Lkeys,"CIcompare")	
+endfun
+fun! FileListSortDate() dict
+	let g:thisdict=self.L
+	call sort(self.Lkeys,"Comp3")	
+endfun
+fun! FileListPrint() dict
+	let ec=map(range(self.offset,self.offset+&lines-2),'printf("%-'.(&columns-30).'.'.(&columns-30).'s %s",get(self.Lkeys,v:val,""),strftime("%c",get(get(self.L,get(self.Lkeys,v:val,""),""),3)))')
+	let hlrow=self.cursor-self.offset
+	let str1=join(ec[0:(hlrow)-1],"\n")
+	let str2=ec[hlrow]
+	let str3=join(ec[hlrow+1:],"\n")."\n".(self.cursor).' / '.(len(self.L)-1)
+	redr!
+	if hlrow
+		ec str1
+	en
+	echohl visual
+	   ec str2
+	echohl none
+	ec str3
+endfun
+fun! InitFileList(list) dict
+	let self.supercons=function('InitPager')
+	call self.supercons(a:list)
+	let [self.10,self.helpD['<lf>']]=[function('FileListEd'),'edit file']
+	let [self.13,self.helpD['<cr>']]=[function('FileListEd'),'edit file']
+	let [self.101,self.helpD.e]=[function('FileListEd'),'edit file']
+	let [self.116,self.helpD.t]=[function('FileListTabe'),'tab edit']
+	let [self.110,self.helpD.n]=[function('FileListSortName'),'name sort']
+	let [self.100,self.helpD.d]=[function('FileListSortDate'),'date sort']
+	let self.insert=function("FileListInsert")
+	let self.restorepos=function("FileListLoad")
+	let self.print=function('FileListPrint')
+	let self.prune=function('FileListPrune')
+endfun
+
+
 if !exists('firstrun')
 	let firstrun=0
-	if !exists('Working_Dir') || !isdirectory(glob(Working_Dir))
+	if !exists('Working_Dir')
+		ec 'Warning: g:Working_Dir undefined; using '.$HOME
+		let Working_Dir=$HOME
+	elseif !isdirectory(glob(Working_Dir))
 		ec 'Warning: g:Working_Dir='.Working_Dir.' invalid, using '.$HOME
-		let Working_Dir=$HOME |en
-	for file in ['abbrev','pager','nav.vim']   "+utils
-		if !empty(glob(Working_Dir.'/'.file)) | exe 'so '.Working_Dir.'/'.file
-		el| ec 'Warning:' Working_Dir.'/'.file 'doesn't exist'
+		let Working_Dir=$HOME
+	en
+	for file in ['abbrev','nav.vim']   "+utils
+		if !empty(glob(Working_Dir.'/'.file))
+			exe 'so '.Working_Dir.'/'.file
+		el
+			ec 'Warning:' Working_Dir.'/'.file 'doesn''t exist'
 		en
 	endfor
 	if !argc() | exe 'cd '.Working_Dir | en
@@ -794,7 +1357,7 @@ endfun
 no <expr> G <SID>G(v:count)        "G goes to the next nonblank line followed by 6 blank lines (counts still work normally)
 no <expr> gg <SID>gg(v:count)      "gg goes to the previous nonblank line followed by 6 blank lines (counts still work normally)
 
-for i in filter(keys(txbCmd),"!has_key(Qnrm,v:val)")
+for i in filter(keys(Qnrm),"!has_key(Qnrm,v:val)")
 	let Qnrm[i]=":exe exists('t:txb')? \"call TxbKey('\<c-v>".i."')\" : 'ec \"Plane not loaded!\"'\<cr>"
 endfor
 let Qnrm.o=":exe exists('t:txb')? \"call TxbKey('o')\" : 'ec \"Plane not loaded!\"'\<cr>"
