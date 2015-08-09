@@ -130,12 +130,12 @@ endfun
 no <expr> G NormG(v:count)
 no <expr> gg Normgg(v:count)
 
-let g:db=1
+let g:debug_mode=1
 fun! PRINT(vars)
 	redr!
-	return g:db? "exe eval('\"'.input('\n'.join(map(split('".a:vars."','|'),'v:val.\":\".string(eval(v:val))'),'\n'),'').'\"')" : '""'
+	return g:debug_mode? "exe eval('\"'.input('\n'.join(map(split('".a:vars."','|'),'v:val.\":\".string(eval(v:val))'),'\n'),'').'\"')" : '""'
 endfun
-let [Qnrm["\e[15~"],Qnhelp['<f5>']]=[":let g:db=!g:db|ec g:db? 'DEBUG ON' : 'DEBUG OFF'\<cr>","Toggle PRINT()"]
+let [Qnrm["\e[15~"],Qnhelp['<f5>']]=[":let g:debug_mode=!g:debug_mode|ec g:debug_mode? 'DEBUG ON' : 'DEBUG OFF'\<cr>","Toggle PRINT()"]
 
 let [pvft,pvftc]=[1,32]
 fun! Multift(x,c,i)
