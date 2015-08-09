@@ -69,6 +69,16 @@ se fcs=vert:\  showbreak=.\
 se ttymouse=sgr
 se stl=%t\ %{getwinvar(0,'txbi','-').'\ '.line('w0')}-%l/%L\ %c%V
 
+nno <space> <c-e>
+nno <bs> <c-y>
+nno <c-i> <c-y>
+vn j gj
+vn k gk
+nn j gj
+nn k gk
+nn gp :exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'<cr>
+nn gA :let @_=!search('\S\s*\n\s*\n','W') && !search('\%$','W') \|startinsert!<cr>
+
 if !exists('firstrun')
 	au BufReadPost * if &key != "" | set noswapfile nowritebackup viminfo= nobackup noshelltemp secure | endif
 en
@@ -313,16 +323,6 @@ if g:EscChar!="\e"
    	exe 'cno' g:EscChar '<C-C>'
 en
 
-nno <space> <c-e>
-nno <bs> <c-y>
-nno <c-i> <c-y>
-vn j gj
-vn k gk
-nn j gj
-nn k gk
-nn gp :exe 'norm! `['.strpart(getregtype(), 0, 1).'`]'<cr>
-nn gA :let @_=!search('\S\s*\n\s*\n','W') && !search('\%$','W') \|startinsert!<cr>
-
 let s:sur_pairs={'(':')','{':'}','<':'>','[':']'}
 fun! VisTrimWhitespace()
 	norm! `<
@@ -364,6 +364,7 @@ let [Qnrm["\<c-m>"],Qnhelp['<enter>']]=[":call SoftCap()\<cr>","Caps lock"]
 ino <c-h> <esc>:call SoftCap()<cr>
 
 com! -nargs=+ -complete=var Editlist call New('NestedList',<args>).show()
+
 com! DiffOrig belowright vert new|se bt=nofile|r #|0d_|diffthis|winc p|diffthis
 
 hi CS_LightOnDark ctermfg=15 ctermbg=0 cterm=NONE
@@ -468,10 +469,8 @@ let colorD.74="if hl[0] isnot 'LINK-->' | let hl[field]='NONE' | en"
 let colorD.75="if hl[0] isnot 'LINK-->' | let hl[field]=field==2? 'NONE' : 100 | en"
 let colorD.104='let field=(field+2)%3'
 let colorD.108='let field=(field+1)%3'
-
 let colorD.106='if hl[0] isnot "LINK-->" | let [hl[field],g:CS_histi]=field<2? [hl[field] is "NONE"? 255 : hl[field] == 0? "NONE" : hl[field]-1,g:CS_histi+1] : [g:CS_attr[(get(g:CS_attrIx,hl[2], 1)-1)%len(g:CS_attr)],g:CS_histi+1] | el | let hl=[synIDattr(synIDtrans(hlID(g:CS_grp)),"fg"),synIDattr(synIDtrans(hlID(g:CS_grp)),"bg"),"NONE"] | en'
 let colorD.107='if hl[0] isnot "LINK-->" | let [hl[field],g:CS_histi]=field<2? [hl[field] is "NONE"? 0 : hl[field] == 255? "NONE" : hl[field]==0? 1 : hl[field]+1,g:CS_histi+1] : [g:CS_attr[(get(g:CS_attrIx,hl[2],-1)+1)%len(g:CS_attr)],g:CS_histi+1] | el | let hl=[synIDattr(synIDtrans(hlID(g:CS_grp)),"fg"),synIDattr(synIDtrans(hlID(g:CS_grp)),"bg"),"NONE"] | en'
-
 let colorD.98='if g:CS_histi > 0 | let g:CS_histi-=1 | let hl=copy(g:CS_histL[g:CS_histi]) | en'
 let colorD.102='if g:CS_histi<len(g:CS_histL)-1|let g:CS_histi+=1|let hl=copy(g:CS_histL[g:CS_histi]) |en'
 let colorD.114='let [hl[field],g:CS_histi]=[field==2? hl[field] : reltime()[1]%256,g:CS_histi+1]'
@@ -524,6 +523,10 @@ let [Qnrm["\<c-g>"],Qnhelp['^G']]=[":ec 'hi<' . synIDattr(synID(line('.'),col('.
 \ . synIDattr(synID(line('.'),col('.'),0),'name') . '> lo<'
 \ . synIDattr(synIDtrans(synID(line('.'),col('.'),1)),'name') . '>'\<cr>","Get highlight"]
 
+if !exists('firstrun')
+	au VimEnter * call CSLoad("default")
+en
+
 fun! GetCompletion()
 	let c=col('.')
 	if c>1 && getline(".")[c-2]=~'\S' | return "\<C-X>\<C-P>"
@@ -572,6 +575,7 @@ fun! CapHere()
 	let trunc = getline(".")[:col(".")-2]
 	return col(".")==1 ? (b:CapSeparators!=' '? CapWait("\r") : "\<del>") : (trunc=~'[?!.]\s*$\|^\s*$' && trunc!~'\.\.\s*$') ? (CapWait(trunc[-1:-1])) : "\<del>"
 endfun
+
 fun! LoadFormatting()
 	if !filereadable(expand('%'))
 		echom 'New file '.expand('%')
@@ -650,6 +654,15 @@ if !exists('firstrun')
 		so .lastsession
 	en
 en
+
+
+
+
+
+
+
+
+" *** pager ***
 
 fun! CIcompare(a,b)
 	return toupper(a:a)<toupper(a:b)? -1:1
@@ -2959,7 +2972,5 @@ let txbCmd={'S':"let mes=''\ncall call('s:settingsPager',exists('w:txbi')? [t:tx
 		\cd -",
 	\'r':"call s:redraw(1)|redr|let mes='Redraw complete'"}
 call extend(txbCmd,{"\<right>":txbCmd.l,"\<left>":txbCmd.h,"\<down>":txbCmd.j,"\<up>":txbCmd.k,"\e":txbCmd.q})
-
-
 
 let firstrun=0
