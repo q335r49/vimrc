@@ -113,9 +113,6 @@ endfun
 let Qnrm.c=":call Paint()\<cr>"
 let Qnhelp.c="canvas"
 
-
-nno U gUww
-
 let seed=reltime()[1]
 fun! RAND()
 	let g:seed=g:seed*1664525+1013904223
