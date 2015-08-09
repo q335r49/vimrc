@@ -647,76 +647,6 @@ fun! LoadFormatting()
 	en
 endfun
 
-com! -nargs=? -complete=file RestoreSettings call LoadViminfoData(<f-args>)
-fun! LoadViminfoData(...)
-	if a:0
-		if a:1 isnot 0
-			if filereadable(a:1)
-				exe 'rv!' a:1
-			else
-				echohl ErrorMsg
-					echo 'File unreadable: ' a:1
-				echohl None
-				return
-			en
-		en
-	else
-		if filereadable('viminfo.bak')
-			rv! viminfo.bak
-		else
-			echohl ErrorMsg
-				echo 'viminfo.bak unreadable'
-			echohl None
-			return
-		en
-	en
-	silent exe "norm! :let v=g:SAVED_\<c-a>'\<c-b>\<right>\<right>\<right>\<right>\<right>\<right>'\<cr>"
-	if exists('v') && len(v)>8
-		for var in split(v)
-			unlet! {'g:'.var[8:]}
-			let {'g:'.var[8:]}=eval({var})
-		endfor
-	en
-	let g:logdic=exists('g:LOGDIC')? New('Log',g:LOGDIC) : New('Log')
-	let g:LOGDIC=g:logdic.L
-	cal g:logdic.setcursor(len(g:LOGDIC)-1)
-	let g:SCHEMES=exists('g:SCHEMES')? g:SCHEMES : {'swatches':{},'default':{}}
-	let g:SCHEMES.swatches=has_key(g:SCHEMES,'swatches')? g:SCHEMES.swatches : {}
-	let g:CS_NAME=exists('g:CS_NAME')? g:CS_NAME : 'default'
-	cal CSLoad(g:CS_NAME)
-	echom "Something wrong? Use :RestoreSettings viminfo.bak to load previous states."
-endfun
-fun! WriteViminfo(file,...)
-	if v:version<703 || v:version==703 && !has("patch30") || a:0>=1 && !empty(a:1)
-		sil exe "norm! :unlet! g:SAVED_\<c-a>\<cr>"
-		sil exe "norm! :let g:\<c-a>'\<c-b>\<right>\<right>\<right>\<right>v='\<cr>"
-		for name in split(v)
-			if name[2:]==#toupper(name[2:])
-				if "000110"[type({name})]
-					let {"g:SAVED_".name[2:]}=substitute(string({name}),"\n",'''."\\n".''',"g")
-					if a:file==#'exit'
-						exe "unlet!" name
-					en
-			en | en
-		endfor
-	en
-	if a:file==#'exit'  "curdir is necessary to retain relative path
-		se sessionoptions=winpos,resize,winsize,tabpages,folds,curdir
-		if argc()
-			argd *
-		else
-			if !has('gui_running')
-				mksession! .lastsession
-			else
-				mksession! .lastsession-gvim
-			en
-		en
-		sil exe '!mv '.g:Viminfo_File.' '.g:Viminfo_File.'.bak'
-		exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".g:Viminfo_File
-	el| exe "se viminfo=!,'120,<100,s10,/50,:500,h,n".a:file
-		wv! |en
-endfun
-
 fun! CIcompare(a,b)
 	return toupper(a:a)<toupper(a:b)? -1:1
 endfun
@@ -1290,7 +1220,6 @@ if !exists('firstrun')
 			exe setViExpr.g:Viminfo_File
 "		en
 	en
-	au VimEnter * call LoadViminfoData(0)
 	se linebreak sidescroll=1 ignorecase smartcase incsearch wiw=72
 	se ai tabstop=4 history=1000 mouse=a hidden backspace=2 stal=0 ls=0
 	se wildmode=list:longest,full display=lastline modeline t_Co=256
@@ -1311,7 +1240,6 @@ if !exists('firstrun')
 	au BufRead * call LoadFormatting()
 	au BufReadPost * if &key != "" | set noswapfile nowritebackup viminfo= nobackup noshelltemp secure | endif
 	au BufNewFile plane* exe "norm! iProse hardwrap60\<esc>500o\<esc>gg" | call LoadFormatting()
-	au VimLeavePre * call WriteViminfo('exit')
 	if !argc() && filereadable('.lastsession')
 		if !has('gui_running')
 	 		so .lastsession
